@@ -1,3 +1,5 @@
+#![allow(clippy::disallowed_methods)] // denied inside `orderflow` only (float order)
+
 //! The TradeX hub server as a library. There is one entry point, [`app`]; every host (the
 //! `hub-server` binary, the contract suite, later the hosted site) serves this router.
 //!
@@ -17,12 +19,13 @@ pub mod feeds;
 pub mod logbus;
 pub mod market;
 pub mod net;
+pub mod orderflow;
 pub mod routes;
 pub mod sources;
 pub mod static_files;
 
 use axum::body::Body;
-use axum::extract::State;
+use axum::extract::{Query, State};
 use axum::http::{Request, StatusCode};
 use axum::response::Response;
 use axum::routing::get;
@@ -34,6 +37,7 @@ use config::{Config, ConfigError};
 use feeds::{FeedHub, Limits};
 use logbus::{Line, LogBus};
 use sources::{Endpoints, Sources};
+use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::TcpListener;
@@ -49,6 +53,7 @@ pub struct AppState {
     pub clock: Clock,
     pub feeds: FeedHub,
     pub logs: LogBus,
+    pub orderflow: orderflow::OrderFlow,
     limiter: net::RateLimiter,
     sources: Arc<Sources>,
 }
@@ -87,6 +92,13 @@ impl AppState {
             .map(|d| d.as_secs() as i64)
             .unwrap_or(0);
         let logs = LogBus::new(log_dir, boot, clock.clone());
+        // The trade cache only in the production build (`build`), so tests write no files (L-008).
+        let orderflow = orderflow::OrderFlow::new(
+            bars.clone(),
+            sources.endpoints(),
+            clock::WallClock::System,
+            log_dir.map(|_| cfg.cache_dir.clone()),
+        );
         logs.push(Line::new(
             "server",
             "info",
@@ -99,6 +111,7 @@ impl AppState {
             clock,
             feeds,
             logs,
+            orderflow,
             limiter: net::RateLimiter::new(20.0, 40.0),
             sources,
         }
@@ -147,6 +160,30 @@ pub fn app(state: AppState) -> Router {
         .route("/api/health", get(routes::health::health))
         .route("/ws", get(routes::ws::upgrade))
         .route("/api/logs", get(routes::logs::logs))
+        .route(
+            "/api/orderflow/delta",
+            get(
+                |State(s): State<AppState>, Query(q): Query<HashMap<String, String>>| {
+                    routes::orderflow::serve(orderflow::Kind::Delta, s, q)
+                },
+            ),
+        )
+        .route(
+            "/api/orderflow/profile",
+            get(
+                |State(s): State<AppState>, Query(q): Query<HashMap<String, String>>| {
+                    routes::orderflow::serve(orderflow::Kind::Profile, s, q)
+                },
+            ),
+        )
+        .route(
+            "/api/orderflow/footprint",
+            get(
+                |State(s): State<AppState>, Query(q): Query<HashMap<String, String>>| {
+                    routes::orderflow::serve(orderflow::Kind::Footprint, s, q)
+                },
+            ),
+        )
         .route(
             "/api/logs/journal",
             axum::routing::post(routes::logs::journal),

@@ -159,3 +159,97 @@ body_bytes = 300001
 content_type = "application/json"
 status = 413
 error = "too large"
+
+# ---- 02-03: /api/orderflow/* (AC-2). Closed windows are on 2026-11-17 (more than 2 days back, so
+# neither server's trade store is involved): values compared. Live windows: shape and status.
+
+[[case]]
+name = "orderflow delta BTCUSD binance M5 closed"
+path = "/api/orderflow/delta?symbol=BTCUSD&feed=binance&tf=M5&from=1794902400&to=1794924000"
+status = 200
+values = true
+
+[[case]]
+name = "orderflow delta frxXAUUSD deriv M5 closed"
+path = "/api/orderflow/delta?symbol=frxXAUUSD&feed=deriv&tf=M5&from=1794902400&to=1794924000"
+status = 200
+values = true
+
+[[case]]
+name = "orderflow delta estimate-only bybit H1 closed"
+path = "/api/orderflow/delta?symbol=BYBIT_MNTUSDT&feed=bybit&tf=H1&from=1794441600&to=1794873600"
+status = 200
+values = true
+
+[[case]]
+name = "orderflow delta feed=mt5 on a real symbol (D-009)"
+path = "/api/orderflow/delta?symbol=BTCUSD&feed=mt5&tf=M5&from=1794902400&to=1794924000"
+status = 200
+values = true
+
+[[case]]
+name = "orderflow profile frxXAUUSD deriv M5 sessions closed"
+path = "/api/orderflow/profile?symbol=frxXAUUSD&feed=deriv&tf=M5&from=1794898800&to=1794924000"
+status = 200
+values = true
+
+[[case]]
+name = "orderflow profile BTCUSD binance H4 day closed"
+path = "/api/orderflow/profile?symbol=BTCUSD&feed=binance&tf=H4&from=1794355200&to=1794873600&developing=0"
+status = 200
+values = true
+
+[[case]]
+name = "orderflow footprint BTCUSD binance M5 closed fill"
+path = "/api/orderflow/footprint?symbol=BTCUSD&feed=binance&tf=M5&from=1794909600&to=1794911400"
+status = 200
+values = true
+
+[[case]]
+name = "orderflow footprint frxXAUUSD deriv M5 closed no fill"
+path = "/api/orderflow/footprint?symbol=frxXAUUSD&feed=deriv&tf=M5&from=1794909600&to=1794911400&fill=0"
+status = 200
+values = true
+
+[[case]]
+name = "orderflow delta BTCUSD binance M1 live"
+path = "/api/orderflow/delta?symbol=BTCUSD&feed=binance&tf=M1"
+status = 200
+
+[[case]]
+name = "orderflow profile frxXAUUSD deriv M5 live"
+path = "/api/orderflow/profile?symbol=frxXAUUSD&feed=deriv&tf=M5"
+status = 200
+
+[[case]]
+name = "orderflow footprint BTCUSD binance M5 live"
+path = "/api/orderflow/footprint?symbol=BTCUSD&feed=binance&tf=M5"
+status = 200
+
+[[case]]
+name = "orderflow bad tf"
+path = "/api/orderflow/delta?symbol=frxXAUUSD&tf=M2"
+status = 502
+error = "KeyError: 'M2'"
+
+[[case]]
+name = "orderflow bad int"
+path = "/api/orderflow/delta?symbol=frxXAUUSD&from=abc"
+status = 502
+error = "ValueError: invalid literal for int() with base 10: 'abc'"
+
+[[case]]
+name = "orderflow no real data"
+path = "/api/orderflow/delta?symbol=BYBIT_MNTUSDT&feed=bybit&source=real"
+status = 502
+error = "ValueError: no real buyer/seller data for BYBIT_MNTUSDT"
+
+[[case]]
+name = "orderflow profile rows=0"
+path = "/api/orderflow/profile?symbol=frxXAUUSD&feed=deriv&tf=M5&from=1794898800&to=1794906000&rows=0"
+status = 502
+error = "ZeroDivisionError: float division by zero"
+
+# feed=mt5 on a route that needs chart history is not a parity case: Python answers from the local
+# MetaTrader 5 terminal when one is logged in (machine-dependent), while the Rust server has no MT5
+# by decision (D-001) and answers 502 (D-009). That Rust answer is tested in tests/orderflow_routes.rs.

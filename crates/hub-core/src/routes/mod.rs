@@ -6,6 +6,7 @@
 pub mod health;
 pub mod logs;
 pub mod market;
+pub mod orderflow;
 pub mod ws;
 
 use axum::http::{header, HeaderValue, StatusCode};

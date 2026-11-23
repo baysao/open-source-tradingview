@@ -15,8 +15,8 @@ Rust (Axum) server, Google accounts that sync each user's work, and a Tauri 2 de
 ## Current Milestone
 
 **v0.1 Hosted launch** (v0.1.0)
-Status: Not started
-Phases: 0 of 4 complete
+Status: In progress
+Phases: 1 of 4 complete
 
 ## Milestones
 
@@ -29,8 +29,8 @@ Phases: 0 of 4 complete
 
 | Phase | Name | Milestone | Plans | Status | Completed |
 |-------|------|-----------|-------|--------|-----------|
-| 01 | Rust workspace and hub-server parity | v0.1 | 3 (01-01, 01-02, 01-03) | 3/3 unified; reflect pending | - |
-| 02 | Order flow in Rust | v0.1 | TBD | Not started | - |
+| 01 | Rust workspace and hub-server parity | v0.1 | 3 (01-01, 01-02, 01-03) | Complete | 2026-11-23 |
+| 02 | Order flow in Rust | v0.1 | 3 (02-01, 02-02, 02-03) | 3/3 unified; reflect pending | - |
 | 03 | Database and Google sign-in | v0.1 | TBD | Not started | - |
 | 04 | Public deploy | v0.1 | TBD | Not started | - |
 | 05 | Synced state | v0.2 | TBD | Not started | - |
@@ -63,9 +63,10 @@ the right thing, not when the code does.
   REST trades, the candle-estimate fallback, golden fixtures.
 - **Accept:** every fixture matches within the stated relative tolerance; numpy, pandas and pyarrow are no
   longer needed by the hub.
-- **Gate:** cache is parquet under `hub/.cache/binance/` and `hub/.cache/rest_trades/` (R5): new format and
-  path or real parquet; `tpo.rs` removed or specified, TPO is browser-side (R6); weight budget and
-  constants (R10); deterministic fixture capture, `XAUUSDT` mapping (R32).
+- **Gate: cleared 2026-11-23** (spec Phase 2 facts and items 16 to 18 rewritten against the code). Was: cache
+  is parquet under `hub/.cache/binance/` and `hub/.cache/rest_trades/` (R5): new format and path or real
+  parquet; `tpo.rs` removed or specified, TPO is browser-side (R6); weight budget and constants (R10);
+  deterministic fixture capture, `XAUUSDT` mapping (R32).
 
 ### Phase 03: Database and Google sign-in
 - **Build:** migrations (users, identities, sessions, desktop codes), pgsqlite `db` line, One Tap and

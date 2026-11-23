@@ -17,25 +17,28 @@ layouts and scripts kept in their Google account.
 ## Current Position
 
 Milestone: v0.1 Hosted launch
-Phase: 01 of 07 (Rust workspace and hub-server parity), not started
-Plan: 01-01, 01-02 and 01-03 UNIFIED
-Status: Phase 01 plans closed and reflected; waits for the owner's commit (DEBT-001) before the phase transition
+Phase: 02 of 07 (Order flow in Rust), applying
+Plan: 02-01, 02-02 and 02-03 UNIFIED
+Status: Phase 02 plans closed; phase close waits for /reflect (owner) and the commit
 Last activity: 2026-11-23, project initialized from SEED launch
 
 Progress:
-- Phase 01: [██████████] 3 of 3 plans closed (milestone v0.1: phase 1 of 4 in progress)
+- Phase 01: complete 2026-11-23 (milestone v0.1: 1 of 4 phases)
+- Phase 02: [██████████] 3 of 3 plans closed
 
 ## Loop Position
 
 Current loop state:
 ```
 PLAN ──▶ APPLY ──▶ UNIFY
-  ●        ●        ●     [Phase 01 closed; commit, then Phase 02]
+  ●        ●        ●     [02-03 closed; phase reflect next]
 ```
 
 ## Accumulated Context
 
 ### Decisions
+| D-009 | `feed=mt5|arm` -> Feed::Off (502 only where history is called); Python quirks ported before the parity gate | Phase 02 | real delta still 200 |
+| D-008 | Order-flow cache: Rust-only column format under `hub/.cache/orderflow/`, not parquet | Phase 02 | adds `zip` crate; no arrow/parquet |
 | D-007 | Rate limit: in-crate per-IP token bucket (20/s, burst 40), not tower_governor | Phase 01 | `/api/*` 429 + Retry-After |
 | D-006 | Tracing target `server`/`feed`, provider in field `src`; RingLayer builds `feed.<src>` | Phase 01 | 01-03 RingLayer mapping |
 | D-005 | Pin axum-0.8-compatible crate versions; Cargo.lock is the pin | Phase 01 | newer majors only in a plan that passes the gates |
@@ -48,7 +51,8 @@ PLAN ──▶ APPLY ──▶ UNIFY
   ROADMAP.md, not applied to the spec.
 
 ### Deferred
-- DEBT-001 (waiting, artifact): commit the Phase 01 work; checked against HEAD by `debt.py`.
+- DEBT-001 done 2026-11-23 (commit 7f0b46f).
+- DEBT-007 (open, artifact): commit the Phase 02 work; checked against HEAD by `debt.py`.
 
 ### Blockers/Concerns
 - Design doc Blockers still in the spec: C1, C2, R1 to R7 (see ROADMAP.md gates and
@@ -58,11 +62,12 @@ PLAN ──▶ APPLY ──▶ UNIFY
 ## Session Continuity
 
 Last session: 2026-11-23
-Stopped at: 01-03 UNIFIED (uncommitted: DEBT-001)
+Stopped at: 02-03 UNIFIED (uncommitted: DEBT-007)
+DUE NOW (2026-11-23): owner types /reflect for the Phase 02 close (reflect: pstack)
 ~~DUE NOW (2026-11-23): 01-03 checkpoint:human-verify, owner checks the hub on hub-server (DEBT-002)~~ closed 2026-11-23: verified by agent with Playwright at the owner's request
 ~~DUE NOW (2026-11-23): owner types /reflect for the Phase 01 close (reflect: pstack)~~ done 2026-11-23 (6 accepted edits applied, R-6, L-010..L-012)
-Next action: owner commits Phase 01 (DEBT-001), then /paul:plan 02-01
-Resume file: .paul/ROADMAP.md
+Next action: /reflect (owner, Phase 02 scope), then commit Phase 02 when the owner asks (DEBT-007)
+Resume file: .paul/phases/02-orderflow/02-01-PLAN.md
 
 ---
 *STATE.md: updated after every significant action*

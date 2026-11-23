@@ -1,0 +1,1 @@
+{"name":"delta_bad_int","now":1795003200.0,"calls":[{"kind":"delta","query":{"symbol":"frxXAUUSD","feed":"deriv","tf":"M5","from":"abc","to":"1794877200"},"route_history":null,"rows_calls":[],"trades":null,"expected":{"status":502,"body":{"error":"ValueError: invalid literal for int() with base 10: 'abc'"}}}]}

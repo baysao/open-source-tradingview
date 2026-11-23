@@ -28,3 +28,38 @@ phase = 1
 action = "reflect"
 date = "2026-11-23"
 result = "pstack reflect panel (3 reviewers + synthesizer): 15 findings, 6 accepted and approved (paul-apply checkpoints A1/A2, plan-phase.md, paul-plan denied-guide A3, L-010..L-012), R-6 standing browser-first human-verify, DEBT-006 residual owner row; DEBT-003 kept at phase 04"
+
+[[entry]]
+plan = "02-01"
+phase = 2
+action = "plan"
+date = "2026-11-23"
+result = "Phase 02 gate cleared (R5 D-008, R6, R10, R32); /architect arena 3 runners + judge, base candidate 1 with grafts; 02-01, 02-02, 02-03 created; D-009"
+
+[[entry]]
+plan = "02-01"
+phase = 2
+action = "apply"
+date = "2026-11-23"
+result = "APPLIED: 3/3 tasks; golden 25 calls 0 failed 0 tolerance; numeric and unit tables equal Python; mutations fail (sum and order via unit tables, gap via golden); check identical, 7.37 MB; deviations: cache rules in calc, REST from daily archive, two cases added, stale-build trap"
+
+[[entry]]
+plan = "02-01"
+phase = 2
+action = "unify"
+date = "2026-11-23"
+result = "UNIFIED: AC-1..AC-5 pass; L-013..L-015 added, L-003 validated (3 hits), L-009 bumped; DEBT-007 commit row; reflect deferred to phase close"
+
+[[entry]]
+plan = "02-02"
+phase = 2
+action = "unify"
+date = "2026-11-23"
+result = "UNIFIED: 3/3 tasks; AC-1..AC-4 pass; replay 25/0/0; 7/7 Python store scenarios; lifecycle under paused clock; freshness and feed-key mutations fail; Phase 01 contract 25/0/0; L-016 added, L-015 and L-001 bumped; DEBT-007 tightened"
+
+[[entry]]
+plan = "02-03"
+phase = 2
+action = "unify"
+date = "2026-11-23"
+result = "UNIFIED: routes + AppState; in-process route tests; contract 40/0/0 with order-flow values equal on closed windows; agent-run browser check (R-6) footprint, SVP, delta on BTCUSD and Deriv gold all 200; key-order comparator fixed (preserve_order) with errata in 02-01/02-02; guards (D-009); L-017, L-018; DEBT-008 owner look; reflect pending (owner)"

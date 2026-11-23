@@ -41,6 +41,11 @@ struct Case {
     bars_len: Option<usize>,
     #[serde(default)]
     error: Option<String>,
+    /// Compare values too, not only shapes (order flow on closed windows): integers and strings
+    /// exactly, floats within 1e-4 absolute (the two servers' caches can hold different histories,
+    /// which may move a rounded value by its last digit). Every float difference is printed.
+    #[serde(default)]
+    values: bool,
     /// `POST` sends `body` (or `body_bytes` filler bytes) with `content_type` and `origin`.
     #[serde(default)]
     method: Option<String>,
@@ -73,6 +78,40 @@ enum Outcome {
 
 /// The JSON shape of a value at `path`: objects keep their keys, arrays the set of their
 /// element shapes, scalars their JSON type. Paths in `allowed` collapse to `*`.
+/// Value comparison for `values = true` cases: exact except floats within 1e-4 absolute.
+fn same_values(a: &Value, b: &Value, path: &str, diffs: &mut Vec<String>, near: &mut usize) {
+    match (a, b) {
+        (Value::Object(x), Value::Object(y)) => {
+            for (k, v) in x {
+                match y.get(k) {
+                    Some(w) => same_values(v, w, &format!("{path}.{k}"), diffs, near),
+                    None => diffs.push(format!("{path}.{k}: missing in Rust")),
+                }
+            }
+        }
+        (Value::Array(x), Value::Array(y)) if x.len() == y.len() => {
+            for (i, (v, w)) in x.iter().zip(y).enumerate() {
+                same_values(v, w, &format!("{path}[{i}]"), diffs, near);
+            }
+        }
+        (Value::Array(x), Value::Array(y)) => {
+            diffs.push(format!("{path}: length {} vs {}", x.len(), y.len()))
+        }
+        (Value::Number(x), Value::Number(y)) if x.is_f64() && y.is_f64() => {
+            let (u, v) = (x.as_f64().unwrap_or(0.0), y.as_f64().unwrap_or(0.0));
+            if u.to_bits() != v.to_bits() {
+                if (u - v).abs() <= 1e-4 {
+                    *near += 1;
+                } else {
+                    diffs.push(format!("{path}: {u:?} vs {v:?}"));
+                }
+            }
+        }
+        (x, y) if x == y => {}
+        (x, y) => diffs.push(format!("{path}: {x} vs {y}")),
+    }
+}
+
 fn shape(v: &Value, path: &str, allowed: &BTreeSet<String>) -> String {
     if allowed.contains(path) {
         return "*".into();
@@ -266,6 +305,21 @@ async fn run_case(
             if v.get(key).is_some() {
                 return Outcome::Failed(format!("{who} returned key {key:?}, expected none"));
             }
+        }
+    }
+    if case.values {
+        let mut diffs = Vec::new();
+        let mut near = 0usize;
+        same_values(&p.1, &r.1, "", &mut diffs, &mut near);
+        if near > 0 {
+            println!("  note  {}: {near} floats differ within 1e-4", case.name);
+        }
+        if !diffs.is_empty() {
+            return Outcome::Failed(format!(
+                "{} value differences, first: {:?}",
+                diffs.len(),
+                &diffs[..diffs.len().min(3)]
+            ));
         }
     }
     if let Some(want) = &case.error {

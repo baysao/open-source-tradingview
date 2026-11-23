@@ -118,6 +118,7 @@ async fn start_hub(fake: &str) -> String {
         deriv_ws: "ws://127.0.0.1:9".into(),
         binance_ws: "ws://127.0.0.1:9".into(),
         bybit_ws: format!("ws://{fake}/ws/"),
+        ..Endpoints::default()
     };
     let state = AppState::build_with(cfg, ep);
     tokio::spawn(async move { hub_core::serve(listener, state).await.unwrap() });

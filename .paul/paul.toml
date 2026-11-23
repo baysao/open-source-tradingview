@@ -15,13 +15,15 @@ status = "in_progress"
 phases = 4
 
 [phase]
-number = 1
-name = "Rust workspace and hub-server parity"
+number = 2
+name = "Order flow in Rust"
 status = "in_progress"
 plans_completed = 3
 
 [loop]
 position = "IDLE"
+plan = "02-03"
+plan_path = "phases/02-orderflow/02-03-PLAN.md"
 
 [satellite]
 groom = true

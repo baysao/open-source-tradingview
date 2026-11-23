@@ -17,6 +17,8 @@ pub struct Config {
     pub http_port: u16,
     pub static_dir: PathBuf,
     pub log_dir: PathBuf,
+    /// Order-flow trade cache (D-008): daily files and complete REST hours. `HUB_CACHE_DIR`.
+    pub cache_dir: PathBuf,
     pub public_origin: String,
     pub auth: AuthMode,
     /// Most distinct `(source, symbol)` upstreams open at once (D-002).
@@ -95,6 +97,9 @@ impl Config {
             log_dir: get("HUB_LOG_DIR")
                 .map(PathBuf::from)
                 .unwrap_or_else(|| PathBuf::from("hub/logs")),
+            cache_dir: get("HUB_CACHE_DIR")
+                .map(PathBuf::from)
+                .unwrap_or_else(|| PathBuf::from("hub/.cache/orderflow")),
             public_origin: get("PUBLIC_ORIGIN")
                 .map(|v| v.trim_end_matches('/').to_string())
                 .unwrap_or_else(|| format!("http://127.0.0.1:{http_port}")),

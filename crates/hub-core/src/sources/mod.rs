@@ -23,6 +23,10 @@ pub struct Endpoints {
     pub binance_ws: String,
     /// Live trades; the category (linear, spot, inverse) is appended.
     pub bybit_ws: String,
+    /// Binance USD-M futures REST (order flow: klines, aggTrades, exchangeInfo).
+    pub binance_fapi: String,
+    /// Binance public data archive (order flow: daily aggTrades files).
+    pub binance_vision: String,
 }
 
 impl Default for Endpoints {
@@ -33,6 +37,8 @@ impl Default for Endpoints {
             deriv_ws: deriv::DERIV_URL.into(),
             binance_ws: "wss://data-stream.binance.vision".into(),
             bybit_ws: "wss://stream.bybit.com/v5/public/".into(),
+            binance_fapi: "https://fapi.binance.com".into(),
+            binance_vision: "https://data.binance.vision".into(),
         }
     }
 }

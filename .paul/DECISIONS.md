@@ -43,3 +43,15 @@ with a new entry that names the old id. -->
 - **Decision:** `net::RateLimiter` is a per-client-IP token bucket (20/s, burst 40, map pruned past 10,000 keys) applied to `/api/*` by `net::rate_limit`, keyed by `client_ip()` (CF-Connecting-IP only from a loopback peer), answering 429 `{"error":"too many requests"}` with `Retry-After`.
 - **Why:** about 40 lines with a pure, unit-tested `take(ip, now)`, keyed by our own `ClientIp` rule instead of a governor key extractor, and one dependency fewer. Rejected: `tower_governor` (extra crate and a second IP-extraction rule to keep in sync).
 - **Evidence:** `crates/hub-core/src/net.rs` `token_bucket` test; burst of 45 gave 40 x 200, 5 x 429, `Retry-After: 1` (01-03-SUMMARY AC-4).
+
+## D-008: Order-flow cache is a new Rust-only column format, not parquet
+- **Date:** 2026-11-23  **Plan:** 02 gate (R5)  **Status:** decided (written default at plan time; owner may override)
+- **Decision:** Rust caches Binance daily trade files and complete REST hours under `HUB_CACHE_DIR` (default `hub/.cache/orderflow/`) as a fixed header plus little-endian columns (`t_ms`, `price`, `qty`, `side`, and `id` for hours), written to `.part` then renamed. The daily zip is read with the `zip` crate and parsed as CSV. Python and Rust caches are not shared.
+- **Why:** both caches are disposable and re-downloadable, none exists on the dev machine, and real parquet means the `parquet`/`arrow` dependency tree for no user-visible gain. Rejected: (a) real parquet shared with Python, (b) keeping Python's paths with a different format (two writers, one path).
+- **Evidence:** `.paul/design/specs/vtradingview.md` Phase 2 facts and item 16; `hub/orderflow.py:18-48`, `hub/orderflow_trades.py:22,113-151`.
+
+## D-009: Order flow with `feed=mt5|arm`, and Python quirks ported verbatim
+- **Date:** 2026-11-23  **Plan:** 02 architecture  **Status:** decided (written default at plan time; owner may override)
+- **Decision:** `feed=mt5|arm` parses to `Feed::Off`; a request that never calls the chart history (a real-source delta) answers 200 as in Python; anything that calls history answers 502 `RuntimeError: <feed> history is not available in this server (D-001)`. Python quirks are ported as they are before the parity gate (a hole inside the cached lower-bar span is never refetched; the footprint key `bt*1e8 + row`). Two deliberate differences that cannot change a 200 body: the rows cache key includes the feed and is LRU-bounded, and `va=nan` answers 502 `ValueError` (Python writes invalid JSON `NaN`).
+- **Why:** MT5 and arm do not exist in the Rust server (D-001); Python's own text for them depends on the machine. Bit-exact parity is only provable if the quirks are kept until the golden suite is green.
+- **Evidence:** `.paul/phases/02-orderflow/02-ARCHITECTURE.md` decisions 6 and 7; `hub/server.py:925-926`, `hub/orderflow_api.py:120-140`.

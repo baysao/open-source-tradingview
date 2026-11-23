@@ -16,7 +16,7 @@ kind = "artifact"
 origin = "01-01 unify"
 owner = "owner"
 trigger = "event:first-commit"
-status = "open"
+status = "done"
 check = { type = "command", run = "git cat-file -e HEAD:crates/hub-core/src/lib.rs && git cat-file -e HEAD:Cargo.lock && git cat-file -e HEAD:.paul/phases/01-rust-parity/01-01-SUMMARY.md && git cat-file -e HEAD:.paul/DECISIONS.md && git cat-file -e HEAD:.paul/phases/01-rust-parity/01-02-SUMMARY.md && git cat-file -e HEAD:crates/hub-core/src/feeds/state.rs && git cat-file -e HEAD:crates/hub-server/src/main.rs && git cat-file -e HEAD:.paul/phases/01-rust-parity/01-03-SUMMARY.md && git cat-file -e HEAD:.github/workflows/ci.yml && echo phase01-landed", expect = "phase01-landed" }
 
 [[debt]]
@@ -69,3 +69,23 @@ owner = "owner"
 trigger = "event:owner-ui-look"
 status = "open"
 check = { type = "text_present", path = ".paul/phases/01-rust-parity/01-03-SUMMARY.md", pattern = "Owner look: done" }
+
+[[debt]]
+id = "DEBT-007"
+title = "Commit the Phase 02 work (orderflow module, hub-types replies, fixtures, capture script, 02 plans and summaries) on arch/axum-tauri"
+kind = "artifact"
+origin = "02-01 unify"
+owner = "owner"
+trigger = "event:phase02-commit"
+status = "open"
+check = { type = "command", run = "git cat-file -e HEAD:crates/hub-core/src/orderflow/calc.rs && git cat-file -e HEAD:crates/hub-core/tests/orderflow_golden.rs && git cat-file -e HEAD:crates/hub-core/tests/fixtures/orderflow/py_numeric.json && git cat-file -e HEAD:.paul/phases/02-orderflow/02-01-SUMMARY.md && git cat-file -e HEAD:crates/hub-core/src/orderflow/trades.rs && git cat-file -e HEAD:crates/hub-core/tests/orderflow_replay.rs && git cat-file -e HEAD:.paul/phases/02-orderflow/02-02-SUMMARY.md && git cat-file -e HEAD:crates/hub-core/src/routes/orderflow.rs && git cat-file -e HEAD:.paul/phases/02-orderflow/02-03-SUMMARY.md && echo phase02-landed", expect = "phase02-landed" }
+
+[[debt]]
+id = "DEBT-008"
+title = "Owner look at the order-flow chart types on hub-server against the Python hub (look and feel; the agent-run check covered requests, statuses, errors and drawing)"
+kind = "uat"
+origin = "02-03 checkpoint agent-run under R-6"
+owner = "owner"
+trigger = "event:owner-ui-look"
+status = "open"
+check = { type = "text_present", path = ".paul/phases/02-orderflow/02-03-SUMMARY.md", pattern = "Owner look: done" }

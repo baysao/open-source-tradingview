@@ -1,0 +1,1 @@
+{"name":"warm_cache_sequence","now":1795003200.0,"sym":"BTCUSDT","scenario":{"sym":"BTCUSDT","day":"busy","segments":[]},"inputs":{},"calls":[{"sym":"BTCUSDT","t0":1794909600000,"t1":1794911699999,"window":"blobs/9b49752acd3de126.zip","covered":[],"pending":true,"after":{"floor_ms":1794909600000,"day_busy":["2026-11-17"],"days_ready":[]}}]}

@@ -27,3 +27,4 @@ percent-encoding = "2"
 toml = "0.8"
 regex = "1"
 dotenvy = "0.15"
+zip = { version = "2", default-features = false, features = ["deflate"] }

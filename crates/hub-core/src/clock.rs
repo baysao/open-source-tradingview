@@ -19,6 +19,40 @@ pub fn local_now_ms_f64() -> f64 {
         .unwrap_or(0.0)
 }
 
+/// The wall clock order flow reads: Python's `time.time()` (local, not offset-corrected).
+/// `Frozen` starts at a fixed instant and moves with tokio's clock, so tests under
+/// `start_paused` see time pass exactly as they advance it.
+#[derive(Clone, Copy, Debug)]
+pub enum WallClock {
+    System,
+    Frozen {
+        at_ms: f64,
+        since: tokio::time::Instant,
+    },
+}
+
+impl WallClock {
+    pub fn frozen(at_ms: f64) -> WallClock {
+        WallClock::Frozen {
+            at_ms,
+            since: tokio::time::Instant::now(),
+        }
+    }
+
+    /// Milliseconds since the epoch, as a float (`time.time() * 1000`).
+    pub fn now_ms(&self) -> f64 {
+        match *self {
+            WallClock::System => local_now_ms_f64(),
+            WallClock::Frozen { at_ms, since } => at_ms + since.elapsed().as_secs_f64() * 1000.0,
+        }
+    }
+
+    /// `time.time()`.
+    pub fn now_s(&self) -> f64 {
+        self.now_ms() / 1000.0
+    }
+}
+
 impl Clock {
     pub fn offset_ms(&self) -> i64 {
         self.offset_ms.load(Ordering::Relaxed)

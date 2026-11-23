@@ -1,0 +1,1 @@
+{"name":"footprint_xau_m5_day_busy","now":1795003200.0,"sym":"XAUUSDT","scenario":{"sym":"XAUUSDT","day":"busy","segments":[]},"inputs":{},"calls":[{"sym":"XAUUSDT","t0":1794909600000,"t1":1794912299999,"window":"blobs/9b49752acd3de126.zip","covered":[],"pending":true,"after":{"floor_ms":1794909600000,"day_busy":["2026-11-17"],"days_ready":[]}}]}

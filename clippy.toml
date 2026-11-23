@@ -1,0 +1,8 @@
+# Float order decides the last bit against the Python oracle (order flow, Phase 02). These methods
+# are denied inside `crates/hub-core/src/orderflow/` (`#![deny(clippy::disallowed_methods)]` there)
+# and allowed elsewhere (`#![allow]` in hub-core's lib.rs).
+disallowed-methods = [
+    { path = "f64::max", reason = "use orderflow::calc::py_max (Python max keeps the first on ties)" },
+    { path = "f64::min", reason = "use orderflow::calc::py_min (Python min keeps the first on ties)" },
+    { path = "core::iter::Iterator::sum", reason = "use orderflow::calc::py_sum (Python 3.12 sum is compensated)" },
+]

@@ -611,7 +611,7 @@ Decisions applied: D-001 (local mode, no MT5 ports) and D-002 (protocol kept, up
     (`crates/desktop` is added by Phase 6, item 44). `[workspace.dependencies]` declares one version of
     each crate used by more than one member: axum 0.8 (feature `ws`), tokio 1 (`full`), tower-http 0.6
     (`fs`, `trace`, `set-header`), tokio-tungstenite (rustls), reqwest (rustls, json), serde and
-    serde_json, tracing and tracing-subscriber, dotenvy, lru, tower_governor, at versions compatible with
+    serde_json, tracing and tracing-subscriber, dotenvy, lru, regex, and `zip` (Phase 2, deflate only), at versions compatible with
     axum 0.8 (D-005: tower-http 0.6, reqwest 0.12, tokio-tungstenite 0.26, lru 0.12); `Cargo.lock` is
     committed and is the pin.
 
@@ -749,22 +749,65 @@ Decisions applied: D-001 (local mode, no MT5 ports) and D-002 (protocol kept, up
 
 ### Phase 2: Order flow in Rust
 
-#### 16. `crates/hub-core/src/orderflow/mod.rs`, `trades.rs`, `archive.rs`, `delta.rs`, `footprint.rs`, `profile.rs`, `tpo.rs`, `estimate.rs` (C)
-*   **Type / Scope**: computation.
-*   **Proposed Changes**: ports of `hub/orderflow.py`, `orderflow_api.py` and `orderflow_trades.py`.
-    `archive.rs` downloads and caches Binance trade archives under `DATA_DIR/orderflow/` in the Python
-    layout. Routes `/api/orderflow/delta`, `/footprint`, `/profile` keep their query parameters.
+**Phase 2 facts (measured in `hub/orderflow*.py` and `hub/server.py:921-968`, 2026-11-23).** Gate cleared 2026-11-23 (R5, R6, R10, R32).
+*   Routes, all GET, all answering 502 `{"error": "<Class>: <msg>"}` on any failure and logging a warn
+    line with `every=30`: `/api/orderflow/delta` (`symbol` default `frxXAUUSD`, `tf` default `M5`, `from`
+    default now minus 1 day, `to` default now, `source` auto|real|estimated, `feed` picks the history
+    function, default binance) returns `{"rows": [...], source, real_symbol, intrabar, unit, method}`;
+    `/api/orderflow/footprint` (`from` default now minus 3 h, plus `row_size`, `fill`) returns
+    `{"candles": [...], source, real_symbol, row_size, unit, covered_from, pending, est_candles, method}`;
+    `/api/orderflow/profile` (plus `mode` sessions|day|week, `rows` 24, `row_size`, `va` 70, `developing`)
+    returns `{"sessions": [...], source, real_symbol, intrabar, unit, mode, va_pct, method, shift}`.
+    Callers: `hub/orderflow_delta.js`, `orderflow_profile.js`, `orderflow_svp_type.js`,
+    `orderflow_charttypes.js`.
+*   TPO is computed in the browser (`hub/orderflow_tpo_type.js`, from `/api/bars`); there is no TPO route
+    and no TPO port (R6).
+*   Source "real" is Binance USD-M futures (`fapi.binance.com/fapi/v1`): `real_symbol()` strips `RMT_`,
+    `BYBIT_S_`, `BYBIT_I_`, `BYBIT_`, `FRX`, `CRY`, refuses `.MARK`/`.INDEX`, maps `USD247`, renames
+    `XCU`->`COPPER`, `XNG`->`NATGAS`, and keeps `<BASE>USDT` only if `exchangeInfo` lists it as TRADING
+    (refreshed every 6 h, retry after 5 min on failure). Gold maps to `XAUUSDT`, not `PAXGUSDT` (R32).
+*   Constants (R10): `INTRABAR` M1/M5/M15->M1, M30/H1->M5, H4->M15, D1->H1; `MAX_ROWS = 20000` lower bars
+    per request; klines pages of 1500 (weight 10); aggTrades pages of 1000 (weight 20); one weight budget
+    for every Binance call: 1900 per minute of the 2400 allowed, background loading leaves a 400 reserve,
+    a reply's `X-MBX-USED-WEIGHT-1M` caps at 1800 (background) or 2200 (chart), and HTTP 429 or 418 stops
+    every call for `Retry-After` seconds (60 when absent); `MAX_PAST_DAYS = 2` daily files;
+    `MAX_REST_HOURS = 30`; head poll every `POLL_S = 4.0` s; a symbol unused for `IDLE_STOP_S = 600` s
+    stops loading; hour files saved every 60 s; a failed daily file is retried after 30 min.
+*   Python caches daily files as parquet under `hub/.cache/binance/aggTrades/` and complete REST hours as
+    `.npz` under `hub/.cache/rest_trades/<SYM>/<YYYYMMDDHH>.npz`. No cache exists on the dev machine.
 
-#### 17. `crates/hub-core/tests/orderflow_golden.rs`, `crates/hub-core/tests/fixtures/orderflow/*.json` (C)
-*   **Type / Scope**: parity tests.
-*   **Proposed Changes**: fixtures captured from the Python code on fixed trade files (BTCUSDT and
-    PAXGUSDT, one day each, plus one estimate-only symbol). Rust output must match within 1e-9 relative
-    error per value.
+#### 16. `crates/hub-core/src/orderflow/mod.rs`, `calc.rs`, `binance.rs`, `trades.rs`, `crates/hub-core/src/routes/orderflow.rs`, `crates/hub-types/src/orderflow.rs` (C)
+*   **Type / Scope**: computation and data loading.
+*   **Proposed Changes**: ports of `hub/orderflow_api.py`, `orderflow_trades.py` and `orderflow.py` with
+    the facts above. The three routes keep their parameters, defaults, response keys and 502 shape; the
+    history function is the hub's `BarsCache` for the `feed` given. No `tpo.rs` (R6). Files are
+    grouped by knowledge (architecture, `.paul/phases/02-orderflow/02-ARCHITECTURE.md`): `calc.rs` holds
+    every Python number rule and computation, `binance.rs` the futures REST, weight budget and futures
+    list, `trades.rs` the trade store, hour cache and daily archive. `feed=mt5|arm`: D-009.
+*   **Cache (R5, written default):** a new Rust-only format under `HUB_CACHE_DIR` (default
+    `hub/.cache/orderflow/`): `daily/<SYM>-aggTrades-<YYYY-MM-DD>.bin` and `hours/<SYM>/<YYYYMMDDHH>.bin`,
+    each a fixed header (magic, version, row count) then little-endian columns (`t_ms` i64, `price` f64,
+    `qty` f64, `side` i8, plus `id` i64 in hour files), written to a `.part` file and renamed. The Python
+    and Rust caches are not shared; both are re-downloadable. Rejected: real parquet (the `parquet`/`arrow`
+    crates add a large dependency tree for a disposable cache). The daily zip is read with the `zip`
+    crate (deflate) and parsed as CSV (`transact_time`, `price`, `quantity`, `is_buyer_maker`).
+
+#### 17. `crates/hub-core/tests/orderflow_golden.rs`, `crates/hub-core/tests/fixtures/orderflow/` (C)
+*   **Type / Scope**: parity tests, no network.
+*   **Proposed Changes**: each fixture holds the captured inputs (futures symbol list, klines pages,
+    trades, chart history bars, the frozen clock) and the Python outputs for delta, profile and
+    footprint. Symbols: `XAUUSDT` and `BTCUSDT` (real, through a Deriv or Bybit chart ticker each) and one
+    estimate-only Bybit symbol whose base is absent from the captured futures list (named in the fixture).
+    Values Python rounds (`round(x, 6)` or `round(x, 4)`) must match exactly after the same rounding;
+    unrounded floats (`lo`, `step`, `poc`, `vah`, `val`, `row_size`) within 1e-9 relative error.
 
 #### 18. `scripts/capture_orderflow_fixtures.py` (C)
 *   **Type / Scope**: one-off tool.
-*   **Proposed Changes**: runs the Python order-flow functions on the fixture inputs and writes the JSON
-    fixtures. Deleted in Phase 4 with the Python server.
+*   **Proposed Changes (R32):** pass 1 downloads the inputs once for fixed past UTC dates (named in the
+    fixture) and saves them; pass 2 runs the Python functions with the network replaced by the saved
+    inputs (`futures_symbols`, `WEIGHT.get`, the daily-file loader, the history function) and `time.time`
+    frozen, then writes the outputs. Re-running pass 2 gives byte-identical fixtures. Deleted in Phase 4
+    with the Python server.
 
 ### Phase 3: Database and auth
 
