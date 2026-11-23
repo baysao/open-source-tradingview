@@ -1,104 +1,159 @@
-# TradeX (The Open Source TradingView)
+# vtradingview: hosted TradeX on Rust
 
-TradeX is a free, self-hosted, TradingView-style charting app that runs on your own computer.
-It puts one interface over several free market-data feeds and three chart engines. It runs Pine Script
-indicators and can also show candles from your own MetaTrader 5 terminal, on this PC or on a VPS.
+A hosted, multi-user TradeX at `https://vtradingview.com/hub.html`: an Axum server replaces the Python
+hub, Google sign-in saves each user's work, and a Tauri 2 app shows the same site on the desktop.
 
 > Not affiliated with, endorsed by, or connected to TradingView, Inc. "TradingView" is their trademark.
 > This project is an independent open-source tool. It is not financial advice.
 
-![TradeX: gold on the free Deriv feed, Vela engine](docs/screenshots/01_hub_vela_gold.png)
+> **Status: planning, branch `arch/axum-tauri`.** The running product is still the self-hosted Python
+> version described in the `main` branch README. The design doc has open review findings, including
+> Blockers (see [Review status](#review-status)).
 
-| Four synced charts + favourite drawing tools | Indicators dialog |
+*   **Type:** Application
+*   **Stack:** Rust (Axum 0.8, tokio, sqlx with the Postgres driver) + the existing vanilla JS frontend
+    (Vela, Lightweight Charts, KLineChart) + pgsqlite over a SQLite file by default, real Postgres by
+    `DATABASE_URL` + Tauri 2 desktop shell + gaffa process supervisor + Cloudflare Tunnel
+*   **Skill Loadout:** PAUL (required), AEGIS (post-build audit), `/seed design` (new screens),
+    security-review (auth, SSRF), postgres-pro (pgsqlite parity)
+*   **Quality Gates:** contract tests against the Python reference, order-flow golden parity, CI on
+    pgsqlite and Postgres 17, cross-user authz tests, SSRF suite, design gates on new screens, p75 time
+    to first live candle under 2 s
+*   **Design doc (single source):** [.paul/design/specs/vtradingview.md](.paul/design/specs/vtradingview.md)
+*   **Full plan:** [.paul/PLANNING.md](.paul/PLANNING.md)
+
+## Overview
+
+TradeX today needs Python 3, a virtual environment, numpy, pandas and pyarrow, and a terminal; whatever a
+user builds lives in one browser's `localStorage`. This project makes it a public website, with charts
+open to anyone and saved state (layouts, drawings, Pine scripts, favourites, indicators, theme) synced to
+a Google account, plus a desktop app that shows the same site.
+
+The existing chart UI stays. Seven new screens are added in the hub's own theme: the sign-in control and
+avatar menu, sync notices, MT5 bridges settings, delete account, the admin log panel, the desktop
+sign-in waiting state, and a privacy page. Mockups: `.paul/design/opendesign/vtradingview/`.
+
+## Architecture
+
+```text
+ browser / Tauri window                    vtradingview host (Linux, gaffa)
+ hub.html + sync.js + auth.js   HTTPS/WSS  cloudflared  ->  127.0.0.1:8770
+ iframe: Vela / lw / kline   <-Cloudflare-> hub-server (Axum, one port)
+                                            static allow-list | /api/* | /ws | /auth/* | /api/me/* | /admin/*
+                                            FeedHub (shared upstreams) | order flow | MT5 bridge client
+                                            sqlx -> pgsqlite :55432 (SQLite file) or managed Postgres
+```
+
+| Crate | Role |
 |---|---|
-| ![4 chart layout](docs/screenshots/02_four_chart_layout.png) | ![Indicators](docs/screenshots/03_indicators_dialog.png) |
-| **KLineChart engine** | **Themes, fonts and candle colours** |
-| ![KLineChart](docs/screenshots/04_klinechart_engine.png) | ![Settings](docs/screenshots/06_settings_themes.png) |
-| **Order flow: session volume profile (real Binance trades)** | **Floating favourite-tools bar** |
-| ![Order flow](docs/screenshots/07_order_flow_profile.png) | ![Favourites bar](docs/screenshots/08_favourites_bar.png) |
+| `crates/hub-types` | API and websocket message types (the contract) |
+| `crates/hub-core` | the single router and all logic (`hub_core::app`) |
+| `crates/hub-server` | binary: config, migrations, binds `127.0.0.1:8770` |
+| `crates/desktop` | Tauri 2 shell loading the hosted page |
 
-## What it does
+## Data Model
 
-- **Free feeds, no account needed:** Deriv (forex, gold, indices, crypto), Bybit (about 3,300 crypto
-  and metal markets) and Binance (crypto). They work out of the box.
-- **Your own MetaTrader 5 (optional):**
-  - **Local MT5:** a terminal on this Windows PC (any broker).
-  - **Remote MT5:** a terminal on a VPS or cloud server, reached through an SSH tunnel and a small bridge
-    (`bridge/mt5_bridge.py`). The bridge only reads candles. It never places orders.
-- **The broker switch keeps the instrument.** Gold stays gold when you move from Deriv to Bybit to MT5.
-  Only exact matches are joined, so gold tokens such as PAXG are kept separate from gold spot.
-- **Three chart engines, one switch:** Vela (main engine, with Pine Script, 79 native indicators, 79 drawing
-  tools and layouts of up to 8 synced charts), Lightweight Charts with 86 drawing tools, and KLineChart Pro.
-- **Deep history:** Vela loads 10,000 candles per chart (more in chart settings > Advanced), and fills any gap
-  left by sleep or a reconnect before the next live candle.
-- **Favourite drawing tools:** star a tool in the drawing toolbar and it appears on a small floating bar over the
-  chart, like TradingView. Drag the bar by its grip, double-click the grip to turn it vertical. Stars and position
-  are remembered.
-- **Order flow (Vela chart types):** volume footprint, session volume profile and TPO, plus a delta indicator.
-  Crypto and gold use real Binance futures trades with the buyer/seller side; other symbols get a labelled
-  estimate from the chart's own candles. Deriv candles have no volume, so use Bybit, Binance or MT5 for order flow.
-- **Pine Script:** write or import your own scripts in the Pine Editor. Scripts written for v1 to v4 are
-  converted to v5 automatically and the original is kept. Converted values are not verified
-  against any reference yet, so check them before you rely on them.
-- **Backend log panel:** one live, redacted view of every feed: reconnects, lag, silent streams.
-- **Safe by default:** binds to `127.0.0.1` only and serves only a whitelist of static files. With nothing
-  configured, it never opens an SSH link.
+| Table | Key fields |
+|---|---|
+| `users` | id (uuid), email, email_verified, name, avatar_url, created_at, last_login_at |
+| `identities` | user_id, provider `google`, subject (Google `sub`); unique (provider, subject) |
+| `sessions` | hashed id, user_id, expires_at (30-day sliding), revoked_at |
+| `user_state` | user_id, key, value (JSON as text), version; primary key (user_id, key) |
+| `mt5_bridges` | user_id, label, https url, encrypted token, last_ok_at, last_error |
+| `desktop_auth_codes` | hashed one-time code, 60 s expiry, used_at |
 
-## Quick start
+## API Surface
 
-Requirements: Python 3 (tested on 3.14). Node.js is not needed to run it; the built bundle is included.
+| Group | Auth | Purpose |
+|---|---|---|
+| `/hub.html` and static allow-list | public | frontend; everything else 404 |
+| `/api/status`, `/api/health`, `/api/symbols`, `/api/instruments`, `/api/bars`, `/api/orderflow/*` | public, rate-limited | existing contract |
+| `/ws` | public, session attached when signed in | live data, replaces port 8765 |
+| `/auth/google/*`, `/auth/desktop/*`, `/auth/me`, `/auth/logout` | public or session | Google sign-in, desktop handoff |
+| `/api/me/state/:key`, `/api/me`, `/api/me/mt5*` | session | synced state, account deletion, MT5 bridges |
+| `/admin/logs`, `/admin/restart`, `/admin/metrics` | admin (`ADMIN_EMAILS`) | log panel, feed restart, metrics; 404 for others |
 
-```bash
-git clone https://github.com/saifullahshafin/open-source-tradingview.git
-cd open-source-tradingview
-python -m venv .venv
-# Windows: .venv\Scripts\activate      macOS/Linux: source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env        # optional: only needed for MT5
-python hub/server.py
-```
+## Deploy
 
-Then open <http://localhost:8770/hub.html>. On Windows you can double-click `start.bat` instead.
+`Procfile` run by gaffa: `db` (pgsqlite, dropped once on managed Postgres), `hub` (`hub-server`),
+`tunnel` (`cloudflared tunnel run vtradingview`). The host opens no inbound ports. Nightly backups,
+14 days, off-host. CI: fmt, clippy, tests, audit, contract job, both database engines; desktop installers
+on tags.
 
-## Connect MetaTrader 5 (optional)
+## UI/UX
 
-**MT5 on this Windows PC:** install MetaTrader 5, log in to your account, then run `pip install MetaTrader5`
-and set `LOCAL_MT5=1` in `.env`. A "Local MT5" feed appears.
+New screens use only the hub theme variables from `hub/theme.js` (graphite, black, light presets), 3 to
+6 px radii, 12 px labels and 14 px text, one accent element per view. Contrast fixes measured from the
+presets: a derived `--onAccent`, error text in `--text` with a `--bad` icon, `--dim` input borders and
+hints. Design record: `.paul/design/taste/hub-theme.md`, `.paul/design/polish-log.md`.
 
-**MT5 on a VPS or server:** step-by-step instructions are in [AGENTS.md](AGENTS.md#remote-mt5-on-a-vps). In short:
-1. On the server: run MT5, enable its MCP server (Tools > Options), then start
-   `MT5_MCP_TOKEN=... python3 bridge/mt5_bridge.py`. It listens on `127.0.0.1:8797` only.
-2. On your PC: add the server to `~/.ssh/config` (key login) and set `REMOTE_MT5_SSH_HOST=<alias>` in `.env`.
-3. Restart the hub. It opens the SSH tunnel itself and reconnects if the link drops. A "Remote MT5" feed appears.
+## Design Decisions
 
-## Let your AI agent set it up
+1.  One router, two hosts: the desktop app is a thin shell over the hosted site.
+2.  Hosted at vtradingview.com for public users; charts public, saved state behind Google sign-in.
+3.  Frontend kept; existing response shapes are the contract.
+4.  One port: HTTP and websocket on 8770.
+5.  Google only, auto login for returning users, account created on first sign-in; desktop signs in
+    through the system browser and a `vtradingview://` deep link.
+6.  Server-side sessions, not JWT.
+7.  Sign-in merge: the server value wins, the local value is kept as a 30-day backup the user can restore.
+8.  sqlx Postgres driver over pgsqlite by default; both engines tested in CI.
+9.  Key-value `user_state` with versions; a stale save returns 409.
+10. MT5 through per-user HTTPS bridge URLs behind an SSRF guard; the bridge stays Python.
+11. Logs and restart are admin-only.
+12. gaffa plus a new Cloudflare Tunnel.
+13. Public deploy (Phase 4) before sync, desktop and MT5.
+14. Primary metric: p75 time to first live candle under 2 s; guardrail: zero cross-user data exposure.
+15. New screens in the existing hub theme (`hub-native`), text one step above the chart chrome.
 
-[AGENTS.md](AGENTS.md) is written for coding agents (Claude Code, Codex, Cursor and similar). It gives the exact
-install, run and check steps for every setup (free feeds, local MT5, VPS MT5), the expected outputs, and the
-security rules. Point your agent at it: *"Read AGENTS.md and set this up for me."*
+## Implementation Phases
 
-## Project layout
+| # | Phase | Done when |
+|---|---|---|
+| 1 | Rust workspace, `hub-server` parity | contract suite passes against Python and Rust |
+| 2 | Order flow in Rust | golden fixtures match within tolerance |
+| 3 | Database and Google sign-in | sign-in creates one user; CI green on pgsqlite and Postgres 17 |
+| 4 | Public deploy | live through the tunnel, no inbound ports, backup restore drill done |
+| 5 | Synced state | a layout drawn signed-out appears after sign-in in a second browser |
+| 6 | Tauri desktop | installed app signs in via the system browser, same layout |
+| 7 | Per-user MT5 bridges | a bridge streams for its owner; every SSRF case refused |
 
-```
-hub/        the app: server.py (data + web server), hub.html (the shell), engine pages, Pine tools
-bridge/     mt5_bridge.py: read-only candle bridge for a remote MT5 terminal
-build/      source and build script for hub/vela.bundle.js and hub/vendor (npm)
-docs/       screenshots
-licenses/   third-party licence and notice files
-```
+## Review Status
 
-## Roadmap
+The design doc went through the full EGM review (Stages 5 to 9). The owner concluded each stage with
+findings open; none were applied. Reports: `.paul/design/reviews/vtradingview/`.
 
-- Price and Pine alerts (built privately, not yet ported to run without a server)
-- Accuracy tests: candles against the broker, Pine values against reference values
-- Pine Script on the Lightweight and KLineChart engines (today an indicator stays on and draws when you switch
-  back to Vela; adding one while on another engine switches to Vela)
-- Drawings that carry across engines
+*   **Blockers open:** CSRF token lost on reload (C1); no Risks section (C2); websocket protocol
+    contradicts today's one-socket-per-chart protocol (R1) and its per-IP limit breaks the 8-chart layout
+    (R2); tables without columns (R3); new routes without shapes (R4); order-flow cache is parquet under
+    `hub/.cache/`, not `DATA_DIR/orderflow/` (R5); `tpo.rs` ports code that does not exist (R6); log ring
+    is 12,000 lines, not 2,000 (R7).
+*   **Proposed but unapplied fixes:** `.paul/design/reviews/vtradingview/goldfish_review_report.md`.
+
+## Open Questions
+
+1.  **Self-hosting (E1):** is the local, account-free mode dropped on this branch, or kept?
+2.  Hosting region and provider (must reach Binance and Bybit).
+3.  Deriv, Bybit and Binance data redistribution terms. Blocks the public launch.
+4.  The name "vtradingview" and the TradingView trademark. Blocks the public launch.
+5.  Windows and macOS code-signing certificates.
+6.  Vela's run-time storage key names (inventory, first task of Phase 5).
+7.  Global upstream symbol cap value.
+8.  Privacy page contact address and final text. Blocks the public launch.
+
+## References
+
+*   Design doc: `.paul/design/specs/vtradingview.md`; plan: `.paul/PLANNING.md`
+*   Current server: `hub/server.py`, `hub/orderflow*.py`, `hub/logbus.py`, `bridge/mt5_bridge.py`
+*   Reference template: `rust-full-stack-with-auth-template` (owner's machine)
+*   gaffa: https://github.com/oryon-dominik/interstellar-gaffa; pgsqlite: baysao fork, branch
+    `fix/insert-select-returning-timestamptz`
 
 ## Licence
 
 **AGPL-3.0-only** (see [LICENSE](LICENSE)), because the bundled Pine Script engine
-([PineTS](https://github.com/LuxAlgo/PineTS) and [Vela-pinets](https://github.com/LuxAlgo/Vela-pinets)) is AGPL-3.0. If you run a
-modified version for other people over a network, you must offer them its source.
-Third-party parts keep their own licences. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
-Market data belongs to its providers. Check each feed's terms before any public or commercial use.
+([PineTS](https://github.com/LuxAlgo/PineTS) and [Vela-pinets](https://github.com/LuxAlgo/Vela-pinets)) is
+AGPL-3.0. Running a modified version for other people over a network, as vtradingview.com will, requires
+offering them its source. Third-party parts keep their own licences: see
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Market data belongs to its providers; check each feed's
+terms before any public or commercial use.
