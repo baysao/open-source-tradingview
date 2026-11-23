@@ -1,0 +1,575 @@
+{
+  "$schema": "https://design-tokens.github.io/community-group/format/",
+  "$description": "TradeX product tokens, converted once from .paul/design/opendesign/vtradingview/tokens.json (itself generated from hub/theme.js). Light preset = semantic tier, graphite = dark tier; the black preset lives in primitive.black for Settings. hub/theme.js is the runtime source.",
+  "primitive": {
+    "graphite": {
+      "bg": {
+        "$type": "color",
+        "$value": "#151412"
+      },
+      "panel": {
+        "$type": "color",
+        "$value": "#1b1a17"
+      },
+      "raised": {
+        "$type": "color",
+        "$value": "#24221e"
+      },
+      "line": {
+        "$type": "color",
+        "$value": "#2f2c27"
+      },
+      "grid": {
+        "$type": "color",
+        "$value": "#1f1d1a"
+      },
+      "text": {
+        "$type": "color",
+        "$value": "#e6dfd2"
+      },
+      "dim": {
+        "$type": "color",
+        "$value": "#958c7e"
+      },
+      "faint": {
+        "$type": "color",
+        "$value": "#5e584f"
+      },
+      "accent": {
+        "$type": "color",
+        "$value": "#e3a33a"
+      },
+      "accentInk": {
+        "$type": "color",
+        "$value": "#1a1407"
+      },
+      "up": {
+        "$type": "color",
+        "$value": "#e3a33a"
+      },
+      "down": {
+        "$type": "color",
+        "$value": "#b4472f"
+      },
+      "ok": {
+        "$type": "color",
+        "$value": "#8fb36a"
+      },
+      "bad": {
+        "$type": "color",
+        "$value": "#c9553c"
+      }
+    },
+    "black": {
+      "bg": {
+        "$type": "color",
+        "$value": "#000000"
+      },
+      "panel": {
+        "$type": "color",
+        "$value": "#0b0b0b"
+      },
+      "raised": {
+        "$type": "color",
+        "$value": "#181818"
+      },
+      "line": {
+        "$type": "color",
+        "$value": "#262626"
+      },
+      "grid": {
+        "$type": "color",
+        "$value": "#121212"
+      },
+      "text": {
+        "$type": "color",
+        "$value": "#ececec"
+      },
+      "dim": {
+        "$type": "color",
+        "$value": "#8a8a8a"
+      },
+      "faint": {
+        "$type": "color",
+        "$value": "#4a4a4a"
+      },
+      "accent": {
+        "$type": "color",
+        "$value": "#e3a33a"
+      },
+      "accentInk": {
+        "$type": "color",
+        "$value": "#141005"
+      },
+      "up": {
+        "$type": "color",
+        "$value": "#e3a33a"
+      },
+      "down": {
+        "$type": "color",
+        "$value": "#b4472f"
+      },
+      "ok": {
+        "$type": "color",
+        "$value": "#8fb36a"
+      },
+      "bad": {
+        "$type": "color",
+        "$value": "#c9553c"
+      }
+    },
+    "light": {
+      "bg": {
+        "$type": "color",
+        "$value": "#ffffff"
+      },
+      "panel": {
+        "$type": "color",
+        "$value": "#f6f4f0"
+      },
+      "raised": {
+        "$type": "color",
+        "$value": "#ebe7e0"
+      },
+      "line": {
+        "$type": "color",
+        "$value": "#dcd6cc"
+      },
+      "grid": {
+        "$type": "color",
+        "$value": "#f0ede8"
+      },
+      "text": {
+        "$type": "color",
+        "$value": "#1d1b18"
+      },
+      "dim": {
+        "$type": "color",
+        "$value": "#6f685e"
+      },
+      "faint": {
+        "$type": "color",
+        "$value": "#b3ab9f"
+      },
+      "accent": {
+        "$type": "color",
+        "$value": "#b8761a"
+      },
+      "accentInk": {
+        "$type": "color",
+        "$value": "#ffffff"
+      },
+      "up": {
+        "$type": "color",
+        "$value": "#1d1b18"
+      },
+      "down": {
+        "$type": "color",
+        "$value": "#c0442b"
+      },
+      "ok": {
+        "$type": "color",
+        "$value": "#4e7d2c"
+      },
+      "bad": {
+        "$type": "color",
+        "$value": "#c0442b"
+      }
+    }
+  },
+  "semantic": {
+    "surface": {
+      "page": {
+        "$type": "color",
+        "$value": "{primitive.light.bg}"
+      },
+      "card": {
+        "$type": "color",
+        "$value": "{primitive.light.panel}"
+      },
+      "raised": {
+        "$type": "color",
+        "$value": "{primitive.light.raised}"
+      },
+      "sunken": {
+        "$type": "color",
+        "$value": "{primitive.light.bg}"
+      }
+    },
+    "text": {
+      "primary": {
+        "$type": "color",
+        "$value": "{primitive.light.text}"
+      },
+      "secondary": {
+        "$type": "color",
+        "$value": "{primitive.light.dim}",
+        "$description": "Secondary text, hints, placeholders. Not on raised in light."
+      },
+      "tertiary": {
+        "$type": "color",
+        "$value": "{primitive.light.dim}",
+        "$description": "faint is decoration only, never text."
+      },
+      "on-action": {
+        "$type": "color",
+        "$value": "{primitive.light.text}"
+      }
+    },
+    "border": {
+      "default": {
+        "$type": "color",
+        "$value": "{primitive.light.line}",
+        "$description": "Hairline separators only."
+      },
+      "strong": {
+        "$type": "color",
+        "$value": "{primitive.light.dim}",
+        "$description": "Input and meaningful borders."
+      }
+    },
+    "action": {
+      "primary": {
+        "$type": "color",
+        "$value": "{primitive.light.accent}"
+      },
+      "danger": {
+        "$type": "color",
+        "$value": "{primitive.light.bad}",
+        "$description": "Destructive: border, icon and tinted fill; label stays semantic.text.primary."
+      }
+    },
+    "feedback": {
+      "success": {
+        "$type": "color",
+        "$value": "{primitive.light.ok}"
+      },
+      "error": {
+        "$type": "color",
+        "$value": "{primitive.light.bad}",
+        "$description": "Icons and borders. Error text uses semantic.text.primary with the word Error:."
+      },
+      "warning": {
+        "$type": "color",
+        "$value": "{primitive.light.accent}"
+      }
+    },
+    "market": {
+      "up": {
+        "$type": "color",
+        "$value": "{primitive.light.up}"
+      },
+      "down": {
+        "$type": "color",
+        "$value": "{primitive.light.down}"
+      }
+    }
+  },
+  "component": {
+    "button": {
+      "primary-bg": {
+        "$type": "color",
+        "$value": "{semantic.action.primary}"
+      },
+      "primary-text": {
+        "$type": "color",
+        "$value": "{semantic.text.on-action}"
+      },
+      "destructive-bg": {
+        "$type": "color",
+        "$value": "{semantic.action.danger}",
+        "$description": "Used as a 16 percent tint over surface.card plus a full border."
+      },
+      "destructive-text": {
+        "$type": "color",
+        "$value": "{semantic.text.primary}"
+      },
+      "secondary-bg": {
+        "$type": "color",
+        "$value": "{semantic.surface.raised}"
+      },
+      "secondary-text": {
+        "$type": "color",
+        "$value": "{semantic.text.primary}"
+      },
+      "secondary-border": {
+        "$type": "color",
+        "$value": "{semantic.border.default}"
+      }
+    },
+    "input": {
+      "bg": {
+        "$type": "color",
+        "$value": "{semantic.surface.page}"
+      },
+      "border": {
+        "$type": "color",
+        "$value": "{semantic.border.strong}"
+      },
+      "border-error": {
+        "$type": "color",
+        "$value": "{semantic.feedback.error}"
+      },
+      "text": {
+        "$type": "color",
+        "$value": "{semantic.text.primary}"
+      },
+      "placeholder": {
+        "$type": "color",
+        "$value": "{semantic.text.secondary}"
+      }
+    }
+  },
+  "dark": {
+    "$description": "graphite preset (the default). Swaps at the semantic tier only.",
+    "surface": {
+      "page": {
+        "$type": "color",
+        "$value": "{primitive.graphite.bg}"
+      },
+      "card": {
+        "$type": "color",
+        "$value": "{primitive.graphite.panel}"
+      },
+      "raised": {
+        "$type": "color",
+        "$value": "{primitive.graphite.raised}"
+      },
+      "sunken": {
+        "$type": "color",
+        "$value": "{primitive.graphite.bg}"
+      }
+    },
+    "text": {
+      "primary": {
+        "$type": "color",
+        "$value": "{primitive.graphite.text}"
+      },
+      "secondary": {
+        "$type": "color",
+        "$value": "{primitive.graphite.dim}",
+        "$description": "Secondary text, hints, placeholders. Not on raised in light."
+      },
+      "tertiary": {
+        "$type": "color",
+        "$value": "{primitive.graphite.dim}",
+        "$description": "faint is decoration only, never text."
+      },
+      "on-action": {
+        "$type": "color",
+        "$value": "{primitive.graphite.accentInk}"
+      }
+    },
+    "border": {
+      "default": {
+        "$type": "color",
+        "$value": "{primitive.graphite.line}",
+        "$description": "Hairline separators only."
+      },
+      "strong": {
+        "$type": "color",
+        "$value": "{primitive.graphite.dim}",
+        "$description": "Input and meaningful borders."
+      }
+    },
+    "action": {
+      "primary": {
+        "$type": "color",
+        "$value": "{primitive.graphite.accent}"
+      },
+      "danger": {
+        "$type": "color",
+        "$value": "{primitive.graphite.bad}",
+        "$description": "Destructive: border, icon and tinted fill; label stays semantic.text.primary."
+      }
+    },
+    "feedback": {
+      "success": {
+        "$type": "color",
+        "$value": "{primitive.graphite.ok}"
+      },
+      "error": {
+        "$type": "color",
+        "$value": "{primitive.graphite.bad}",
+        "$description": "Icons and borders. Error text uses semantic.text.primary with the word Error:."
+      },
+      "warning": {
+        "$type": "color",
+        "$value": "{primitive.graphite.accent}"
+      }
+    },
+    "market": {
+      "up": {
+        "$type": "color",
+        "$value": "{primitive.graphite.up}"
+      },
+      "down": {
+        "$type": "color",
+        "$value": "{primitive.graphite.down}"
+      }
+    }
+  },
+  "font": {
+    "family": {
+      "sans": {
+        "$type": "fontFamily",
+        "$value": "\"Segoe UI Variable Text\", \"Segoe UI\", system-ui, sans-serif"
+      },
+      "mono": {
+        "$type": "fontFamily",
+        "$value": "\"Cascadia Mono\", Consolas, \"SFMono-Regular\", monospace"
+      }
+    },
+    "size": {
+      "xs": {
+        "$type": "dimension",
+        "$value": "11px"
+      },
+      "sm": {
+        "$type": "dimension",
+        "$value": "12px"
+      },
+      "md": {
+        "$type": "dimension",
+        "$value": "13px"
+      },
+      "lg": {
+        "$type": "dimension",
+        "$value": "14px"
+      },
+      "xl": {
+        "$type": "dimension",
+        "$value": "18px"
+      },
+      "2xl": {
+        "$type": "dimension",
+        "$value": "24px"
+      },
+      "3xl": {
+        "$type": "dimension",
+        "$value": "32px"
+      }
+    }
+  },
+  "space": {
+    "1": {
+      "$type": "dimension",
+      "$value": "4px"
+    },
+    "2": {
+      "$type": "dimension",
+      "$value": "8px"
+    },
+    "3": {
+      "$type": "dimension",
+      "$value": "12px"
+    },
+    "4": {
+      "$type": "dimension",
+      "$value": "16px"
+    },
+    "5": {
+      "$type": "dimension",
+      "$value": "20px"
+    },
+    "6": {
+      "$type": "dimension",
+      "$value": "24px"
+    },
+    "8": {
+      "$type": "dimension",
+      "$value": "32px"
+    },
+    "10": {
+      "$type": "dimension",
+      "$value": "40px"
+    }
+  },
+  "radius": {
+    "sm": {
+      "$type": "dimension",
+      "$value": "3px"
+    },
+    "md": {
+      "$type": "dimension",
+      "$value": "4px"
+    },
+    "lg": {
+      "$type": "dimension",
+      "$value": "6px"
+    },
+    "round": {
+      "$type": "dimension",
+      "$value": "50%"
+    }
+  },
+  "motion": {
+    "duration": {
+      "fast": {
+        "$type": "duration",
+        "$value": "120ms"
+      }
+    },
+    "easing": {
+      "standard": {
+        "$type": "cubicBezier",
+        "$value": [
+          0.2,
+          0,
+          0,
+          1
+        ]
+      }
+    }
+  },
+  "size": {
+    "bar": {
+      "$type": "dimension",
+      "$value": "38px"
+    },
+    "control": {
+      "$type": "dimension",
+      "$value": "28px"
+    },
+    "control-touch": {
+      "$type": "dimension",
+      "$value": "32px"
+    },
+    "icon": {
+      "$type": "dimension",
+      "$value": "14px"
+    },
+    "icon-lg": {
+      "$type": "dimension",
+      "$value": "20px"
+    },
+    "avatar": {
+      "$type": "dimension",
+      "$value": "26px"
+    },
+    "menu": {
+      "$type": "dimension",
+      "$value": "272px"
+    },
+    "dock": {
+      "$type": "dimension",
+      "$value": "300px"
+    },
+    "dock-wide": {
+      "$type": "dimension",
+      "$value": "560px"
+    },
+    "dialog": {
+      "$type": "dimension",
+      "$value": "440px"
+    },
+    "ring": {
+      "$type": "dimension",
+      "$value": "2px"
+    },
+    "hair": {
+      "$type": "dimension",
+      "$value": "1px"
+    }
+  }
+}

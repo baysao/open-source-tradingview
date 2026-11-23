@@ -1,0 +1,14 @@
+[package]
+name = "hub-types"
+version = "0.1.0"
+description = "Rust model of the TradeX browser contract (HTTP and websocket shapes)"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde.workspace = true
+indexmap.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

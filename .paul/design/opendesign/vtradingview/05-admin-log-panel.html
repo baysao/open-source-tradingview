@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin log panel</title>
+<script src="../../../../hub/theme.js"></script>
+<link rel="stylesheet" href="shared.css">
+<style>
+  .lay { display: grid; gap: var(--sp-6) }
+  @media (min-width: 960px) { .lay { grid-template-columns: auto 1fr; align-items: start } }
+  .ttfc { display: flex; align-items: baseline; gap: var(--sp-2); flex-wrap: wrap }
+  .ttfc strong { font: 600 var(--fs-3xl)/1 var(--mono); letter-spacing: -.02em }
+  .ttfc span { color: var(--dim); font-size: var(--fs-sm) }
+  .ttfc .ok { display: inline-flex; align-items: center; gap: var(--sp-1); color: var(--text) }
+  .feeds { display: grid }
+  .feed { display: grid; grid-template-columns: 1fr auto; gap: 2px var(--sp-2); padding: var(--sp-2) 0; border-top: var(--hair) solid var(--grid) }
+  .feed:first-child { border-top: 0 }
+  .feed b { font-weight: 600 }
+  .feed .st { display: flex; gap: var(--sp-1); align-items: center; font-size: var(--fs-sm) }
+  .feed .meta { grid-column: 1 / -1; font: var(--fs-sm) var(--mono); color: var(--dim) }
+  .feed .btn { grid-column: 2; grid-row: 1 / span 2; align-self: center }
+  .feed .confirm { grid-column: 1 / -1; margin-top: var(--sp-2); padding: var(--sp-2) var(--sp-3); border: var(--hair) solid var(--line); border-radius: var(--r-sm); background: var(--bg) }
+  .feed .confirm[hidden] { display: none }
+  .feed .confirm p { font-size: var(--fs-sm); margin-bottom: var(--sp-2); color: var(--text) }
+  .log { height: var(--log-h); overflow: auto; padding: var(--sp-2) var(--sp-3); font: var(--fs-sm)/1.6 var(--mono); color: var(--text); background: var(--bg); border-top: var(--hair) solid var(--line) }
+  .log div { white-space: pre-wrap; overflow-wrap: anywhere }
+  .log time, .log .src { color: var(--dim) }
+  .log .lv { display: inline-block; min-width: 5ch }
+  .log .warn .lv { color: var(--accent) }
+  .log .err .lv { color: var(--text); font-weight: 600 }
+  .log .err .lv::before { content: ""; display: inline-block; width: var(--dot); height: var(--dot); border-radius: var(--r-round); background: var(--bad); margin-right: var(--sp-1); vertical-align: 1px }
+  .logbar { display: flex; gap: var(--sp-2); align-items: center; padding: var(--sp-2) var(--sp-3); flex-wrap: wrap }
+  .logbar .dim { font-size: var(--fs-xs); margin-left: auto }
+  .sample { font-size: var(--fs-xs); color: var(--dim); font-weight: 400; text-transform: none; letter-spacing: 0; margin-left: auto }
+</style></head>
+<body>
+<main class="mock">
+  <header class="mock-top">
+    <div><h1>Admin log panel</h1>
+      <p>The existing log dock, shown only to accounts in ADMIN_EMAILS. Figures on this page are sample values, not measurements.</p></div>
+    <div class="presets"></div>
+  </header>
+
+  <div class="lay">
+    <section class="frame" aria-labelledby="f1"><h2 id="f1"><b>Health and restart</b></h2>
+      <div class="dock">
+        <h3><svg class="i" aria-hidden="true"><use href="#i-activity"/></svg>Feed health <span class="badge">Admin</span><span class="sample">sample data</span></h3>
+        <div class="set"><h4>Time to first chart, p75</h4>
+          <div class="ttfc"><strong>1.42 s</strong><span class="ok"><svg class="i ok-i" aria-hidden="true"><use href="#i-circle-check"/></svg>under the 2 s goal</span></div>
+          <span class="dim">Last 24 h, 3,180 page loads</span>
+        </div>
+        <div class="set"><h4>Feeds</h4>
+          <div class="feeds">
+            <div class="feed"><b>Deriv</b><span class="st"><svg class="i ok-i" aria-hidden="true"><use href="#i-circle-check"/></svg>Connected</span>
+              <span class="meta">lag 180 ms, reconnect 09:12</span>
+              <button type="button" class="btn" aria-expanded="false" aria-controls="c-deriv"><svg class="i" aria-hidden="true"><use href="#i-rotate"/></svg>Restart</button>
+              <div class="confirm" id="c-deriv" hidden><p>Restart the Deriv feed? Deriv charts pause until it reconnects.</p>
+                <div class="row-acts"><button type="button" class="btn" data-collapse="c-deriv">Cancel</button><button type="button" class="btn primary" data-collapse="c-deriv">Restart Deriv</button></div></div></div>
+            <div class="feed"><b>Bybit</b><span class="st"><span class="spin" aria-hidden="true"></span>Restarting, back in a few seconds</span>
+              <span class="meta">lag 95 ms, reconnect 06:40</span>
+              <button type="button" class="btn" aria-busy="true" aria-disabled="true"><span class="spin" aria-hidden="true"></span>Restarting</button></div>
+            <div class="feed"><b>Binance</b><span class="st"><svg class="i bad-i" aria-hidden="true"><use href="#i-alert"/></svg>Error: reconnecting, attempt 3</span>
+              <span class="meta">no data for 42 s, reconnect 12:06</span>
+              <button type="button" class="btn" aria-expanded="true" aria-controls="c-bin"><svg class="i" aria-hidden="true"><use href="#i-rotate"/></svg>Restart</button>
+              <div class="confirm" id="c-bin"><p>Restart the Binance feed? Binance charts pause until it reconnects. Other feeds keep running.</p>
+                <div class="row-acts"><button type="button" class="btn" data-collapse="c-bin">Cancel</button><button type="button" class="btn primary" data-collapse="c-bin">Restart Binance</button></div></div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="frame" aria-labelledby="f2"><h2 id="f2">Live log, redacted, last 2,000 lines</h2>
+      <div class="dock wide">
+        <h3><svg class="i" aria-hidden="true"><use href="#i-terminal"/></svg>Log</h3>
+        <div class="logbar">
+          <button type="button" class="tog" aria-pressed="true" data-on="Following" data-off="Paused"><svg class="i" aria-hidden="true"><use href="#i-pause"/></svg><b>Following</b></button>
+          <button type="button" class="ghost">Clear view</button>
+          <span class="dim">tokens and emails redacted</span>
+        </div>
+        <div class="log" role="log" aria-live="polite" aria-label="Feed log">
+          <div><time>12:06:41</time> <span class="lv">INFO</span> <span class="src">deriv</span> tick frxXAUUSD 2641.20</div>
+          <div><time>12:06:41</time> <span class="lv">INFO</span> <span class="src">bybit</span> ws ping 95 ms</div>
+          <div class="warn"><time>12:06:43</time> <span class="lv">WARN</span> <span class="src">binance</span> stream idle 30 s, closing</div>
+          <div class="err"><time>12:06:44</time> <span class="lv">ERROR</span> <span class="src">binance</span> connect failed: timed out</div>
+          <div><time>12:06:44</time> <span class="lv">INFO</span> <span class="src">auth</span> session created user=[redacted] token=[redacted]</div>
+          <div><time>12:06:46</time> <span class="lv">INFO</span> <span class="src">mt5</span> /health ok symbols=412 bridge=[redacted]</div>
+          <div class="warn"><time>12:06:49</time> <span class="lv">WARN</span> <span class="src">binance</span> reconnect attempt 3 in 4 s</div>
+          <div><time>12:06:50</time> <span class="lv">INFO</span> <span class="src">ttfc</span> sample 1310 ms engine=vela</div>
+          <div><time>12:06:51</time> <span class="lv">INFO</span> <span class="src">deriv</span> tick frxXAUUSD 2641.35</div>
+          <div class="err"><time>12:06:53</time> <span class="lv">ERROR</span> <span class="src">mt5</span> bridge refused: private address 10.0.0.5</div>
+          <div><time>12:06:55</time> <span class="lv">INFO</span> <span class="src">bybit</span> kline BTCUSDT 1m closed</div>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+<script src="shared.js"></script>
+</body></html>

@@ -1,0 +1,71 @@
+# .paul/DEBT.toml: the debt store for this project.
+#
+# A SET with state, not a log: a row is edited in place, so every discharge is a
+# diff. Contrast `.paul/ledger.toml`, which is append-only.
+#
+# Written by: apply-phase deviations, unify-phase reconciliation, verify-work UAT.
+# Read by:    ~/.agents/paul-framework/scripts/debt.py at the gates PAUL passes.
+#
+# status: open | done | dropped     (overdue/scheduled/waiting are COMPUTED)
+# Schema: ~/.agents/paul-framework/templates/DEBT.toml.md
+
+[[debt]]
+id = "DEBT-001"
+title = "Commit the Phase 01 work (crates/ incl. hub-server, Cargo files, Procfile, scripts/, ci.yml, hub/ edits, .paul/ planning and the 01-01..01-03 SUMMARYs) on arch/axum-tauri"
+kind = "artifact"
+origin = "01-01 unify"
+owner = "owner"
+trigger = "event:first-commit"
+status = "open"
+check = { type = "command", run = "git cat-file -e HEAD:crates/hub-core/src/lib.rs && git cat-file -e HEAD:Cargo.lock && git cat-file -e HEAD:.paul/phases/01-rust-parity/01-01-SUMMARY.md && git cat-file -e HEAD:.paul/DECISIONS.md && git cat-file -e HEAD:.paul/phases/01-rust-parity/01-02-SUMMARY.md && git cat-file -e HEAD:crates/hub-core/src/feeds/state.rs && git cat-file -e HEAD:crates/hub-server/src/main.rs && git cat-file -e HEAD:.paul/phases/01-rust-parity/01-03-SUMMARY.md && git cat-file -e HEAD:.github/workflows/ci.yml && echo phase01-landed", expect = "phase01-landed" }
+
+[[debt]]
+id = "DEBT-002"
+title = "Owner runs the 01-03 human-verify checkpoint (hub on hub-server: 3 engines, 8-chart layout, Restart, log panel summary, one /ws socket per chart, cold-load request count)"
+kind = "decision"
+origin = "01-03 task 4 (checkpoint:human-verify)"
+owner = "owner"
+trigger = "event:01-03-checkpoint"
+status = "done"
+check = { type = "text_present", path = ".paul/phases/01-rust-parity/01-03-SUMMARY.md", pattern = "Checkpoint: verified by agent with Playwright, delegated by the owner" }
+note = "Owner delegated the check to the agent (\"use playwright self check/verify\"); recorded as agent-verified, not owner sign-off."
+
+[[debt]]
+id = "DEBT-003"
+title = "hub/lab.js reopens a closed /ws socket with backoff (the hosted site restarts the server on every deploy)"
+kind = "tech"
+origin = "01-03 browser verification"
+owner = "phase-04"
+trigger = "phase:04"
+status = "open"
+check = { type = "text_present", path = "hub/lab.js", pattern = "onclose" }
+
+[[debt]]
+id = "DEBT-004"
+title = "Retrieve the modern-web-guidance guide validate-origins and cross-check hub/lab.js wsUrl() (npx was denied in the 01-03 session)"
+kind = "tech"
+origin = "01-03 task 3 skill gap"
+owner = "owner"
+trigger = "event:npx-allowed"
+status = "open"
+check = { type = "text_present", path = ".paul/phases/01-rust-parity/01-03-SUMMARY.md", pattern = "validate-origins: retrieved" }
+
+[[debt]]
+id = "DEBT-005"
+title = "First green GitHub run of .github/workflows/ci.yml on arch/axum-tauri (fmt, clippy, test, cargo audit, contract)"
+kind = "uat"
+origin = "01-03 AC-6"
+owner = "owner"
+trigger = "event:first-push"
+status = "open"
+check = { type = "command", run = "gh run list --branch arch/axum-tauri --workflow ci.yml --limit 1 --json conclusion -q .[0].conclusion", expect = "success" }
+
+[[debt]]
+id = "DEBT-006"
+title = "Owner look at the hub on hub-server for what the 01-03 Playwright pass could not judge: chart look and feel, and accepting that the Python UI on this branch has no live bars (lab.js /ws)"
+kind = "uat"
+origin = "01-03 checkpoint delegated to the agent (R-6 residual row)"
+owner = "owner"
+trigger = "event:owner-ui-look"
+status = "open"
+check = { type = "text_present", path = ".paul/phases/01-rust-parity/01-03-SUMMARY.md", pattern = "Owner look: done" }

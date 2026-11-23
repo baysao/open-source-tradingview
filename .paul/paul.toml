@@ -1,0 +1,32 @@
+name = "vtradingview"
+version = "0.0.0"
+status = "active"
+path = "."
+tags = ["rust", "axum", "tauri", "charting"]
+
+[paul]
+version = "1.4"
+source = "https://chrisai.cv/skool"
+
+[milestone]
+name = "v0.1 Hosted launch"
+version = "0.1.0"
+status = "in_progress"
+phases = 4
+
+[phase]
+number = 1
+name = "Rust workspace and hub-server parity"
+status = "in_progress"
+plans_completed = 3
+
+[loop]
+position = "IDLE"
+
+[satellite]
+groom = true
+
+[stats]
+total_plans = 3
+total_phases = 7
+last_activity = "2026-11-23T20:00:00Z"

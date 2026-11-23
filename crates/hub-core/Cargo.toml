@@ -1,0 +1,29 @@
+[package]
+name = "hub-core"
+version = "0.1.0"
+description = "TradeX hub server as a library: one router (hub_core::app) for every host"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+hub-types.workspace = true
+axum.workspace = true
+tokio.workspace = true
+tower.workspace = true
+tower-http.workspace = true
+reqwest.workspace = true
+tokio-tungstenite.workspace = true
+futures-util.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+indexmap.workspace = true
+tracing.workspace = true
+lru.workspace = true
+percent-encoding.workspace = true
+regex.workspace = true
+tracing-subscriber.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }
+toml.workspace = true

@@ -1,0 +1,161 @@
+# G1 contract cases: each request is sent to the Python server (CONTRACT_PY_URL) and the Rust
+# server (CONTRACT_RS_URL, or an in-process router when unset). Both must answer with the same
+# HTTP status and the same JSON shape: identical key sets at every object level and the same JSON
+# type per key. Values are ignored unless a case names a check.
+#
+# Plans append their cases: 01-01 market routes and static probes, 01-02 /ws and /api/health,
+# 01-03 /api/logs.
+
+[allowed]
+# JSON paths (dot separated, [] for array elements) whose shape may differ, with the decision
+# that allows it. Values are never compared, so a value-only difference needs no entry.
+# ws_port: 8765 (Python) against the HTTP port (Rust), D-002 / D-003: a value difference only.
+# /api/logs (01-03): `sources` and `problems` are maps keyed by runtime log sources, and
+# `latest_error` is null or a row depending on what each process logged; their contents are
+# per-process state, not protocol. The row shape itself is compared through `lines`.
+paths = ["sources", "problems", "latest_error"]
+
+[[case]]
+name = "status"
+path = "/api/status"
+status = 200
+
+[[case]]
+name = "symbols"
+path = "/api/symbols"
+status = 200
+
+[[case]]
+name = "instruments"
+path = "/api/instruments"
+status = 200
+
+[[case]]
+name = "bars deriv gold M1 x3 (AGENTS.md check)"
+path = "/api/bars?source=deriv&symbol=frxXAUUSD&tf=M1&limit=3"
+status = 200
+bars_len = 3
+
+[[case]]
+name = "bars binance BTCUSD M5 x5"
+path = "/api/bars?source=binance&symbol=BTCUSD&tf=M5&limit=5"
+status = 200
+bars_len = 5
+
+[[case]]
+name = "bars bybit BTCUSDT perp H1 x5"
+path = "/api/bars?source=bybit&symbol=BYBIT_BTCUSDT&tf=H1&limit=5"
+status = 200
+bars_len = 5
+
+[[case]]
+name = "bars binance scroll-back page"
+path = "/api/bars?source=binance&symbol=ETHUSD&tf=H1&limit=4&to=1700000000000"
+status = 200
+bars_len = 4
+
+[[case]]
+name = "bars unknown timeframe"
+path = "/api/bars?symbol=BTCUSD&tf=M2"
+status = 502
+error = "'M2'"
+
+[[case]]
+name = "bars unknown source answers like binance"
+path = "/api/bars?source=nope&symbol=BTCUSD&tf=M1&limit=2"
+status = 200
+bars_len = 2
+
+[[case]]
+name = "secret file is not served (AGENTS.md check)"
+path = "/.env"
+status = 404
+
+[[case]]
+name = "unknown api path"
+path = "/api/nothing"
+status = 404
+
+# Probes run against the Rust server only: Python's stdlib serves HEAD without the static rule.
+[[probe]]
+path = "/%2e%2e/LICENSE"
+status = 404
+
+[[probe]]
+path = "/a%5cb.js"
+status = 404
+
+[[probe]]
+path = "/vendor/a/b.js"
+status = 404
+
+[[probe]]
+path = "/server.py"
+status = 404
+
+[[probe]]
+path = "/.env"
+method = "HEAD"
+status = 404
+
+[[probe]]
+path = "/hub.html"
+status = 200
+
+[[probe]]
+path = "/"
+status = 200
+
+# ---- 01-03: /api/logs and the POST guard (AC-1)
+
+[[case]]
+name = "logs"
+path = "/api/logs"
+status = 200
+
+[[case]]
+name = "logs brief (no lines)"
+path = "/api/logs?brief=1"
+status = 200
+absent = ["lines"]
+
+[[case]]
+name = "logs since=0"
+path = "/api/logs?since=0"
+status = 200
+
+[[case]]
+name = "journal JSON"
+path = "/api/logs/journal"
+method = "POST"
+body = '{"raw":true}'
+content_type = "application/json"
+status = 200
+
+[[case]]
+name = "journal foreign origin"
+path = "/api/logs/journal"
+method = "POST"
+body = '{"raw":true}'
+content_type = "application/json"
+origin = "http://evil.example"
+status = 403
+error = "forbidden origin"
+
+[[case]]
+name = "journal not JSON"
+path = "/api/logs/journal"
+method = "POST"
+body = "raw"
+content_type = "text/plain"
+status = 415
+error = "JSON only"
+
+[[case]]
+name = "journal too large"
+path = "/api/logs/journal"
+method = "POST"
+body_bytes = 300001
+content_type = "application/json"
+status = 413
+error = "too large"

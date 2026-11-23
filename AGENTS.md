@@ -13,6 +13,29 @@ Follow the steps in order, run each check, and report what passed and what did n
 - Ask the user before installing MetaTrader 5, changing their SSH config, or doing anything on their server.
 
 ## 1. Free feeds (always do this first)
+Two servers serve the same hub. The Rust server (branch `arch/axum-tauri`) is the new one; the Python server
+stays until the Rust one has replaced it, and is the only one with MT5 until Phase 07 (see sections 2 and 3).
+
+### 1a. Rust server
+Needs Rust (the repo pins the toolchain in `rust-toolchain.toml`; `rustup` installs it on first build).
+
+```bash
+cargo run -p hub-server
+# or, under the gaffa Procfile supervisor: bash scripts/dev.sh dev
+```
+
+Expected output, within about 15 s (one port: pages, API and the live feed at `/ws`):
+```
+TradeX: open http://localhost:8770/hub.html  (data on ws://localhost:8770/ws)
+Clock offset vs time.windows.com: <+N> ms (corrected in lag numbers)
+Deriv: <about 40> symbols loaded
+Bybit: <about 3300> charts loaded
+```
+Run the same three checks as below against port 8770. Only one server can hold 8770: stop the Python hub first,
+or run the Rust one beside it with `HUB_HTTP_PORT=8771` and `HUB_LOG_DIR` set to another folder (both default to
+`hub/logs/hub.log`, and two writers would rotate the same file).
+
+### 1b. Python server
 Needs Python 3 (tested on 3.14).
 
 ```bash
@@ -44,6 +67,8 @@ Known limits: Bybit blocks some countries and many cloud or US data-centre IPs, 
 Deriv and Binance still work. Ports can be changed with `HUB_HTTP_PORT` and `HUB_WS_PORT` in `.env`.
 
 ## 2. Local MT5 (MetaTrader 5 on the same Windows PC)
+Python server only. The Rust server does not read MT5: MT5 returns in Phase 07 through per-user HTTPS bridges,
+and the last Python release that has it will be tagged `python-final`.
 Windows only, because the `MetaTrader5` Python package is Windows only.
 1. The user installs MetaTrader 5 from their broker and logs in. A demo account is fine.
 2. `pip install MetaTrader5`
@@ -53,6 +78,7 @@ Windows only, because the `MetaTrader5` Python package is Windows only.
    that a "Local MT5" button appears in the hub.
 
 ## Remote MT5 on a VPS
+Python server only, like section 2 (Phase 07 bridges replace this path in the Rust server).
 Use this when MT5 runs on another machine (a Windows VPS, or Linux with MT5 under Wine).
 
 **On the server (the machine running MT5):**

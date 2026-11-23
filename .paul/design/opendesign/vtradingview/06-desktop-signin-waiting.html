@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Desktop sign-in</title>
+<script src="../../../../hub/theme.js"></script>
+<link rel="stylesheet" href="shared.css">
+<style>
+  .win { border: var(--hair) solid var(--line); border-radius: var(--r-lg); overflow: hidden; background: var(--bg) }
+  .titlebar { display: flex; align-items: center; gap: var(--sp-2); height: var(--ctl-h); padding: 0 var(--sp-3); background: var(--panel); border-bottom: var(--hair) solid var(--line); color: var(--dim); font-size: var(--fs-xs) }
+  .body { position: relative }
+  .body .chart { display: none; height: var(--stage-min) }
+  .over { position: relative; display: grid; place-items: center; padding: var(--sp-4); background: color-mix(in srgb, var(--bg) 86%, transparent) }
+  .card { width: 100%; max-width: var(--dialog-w); background: var(--panel); border: var(--hair) solid var(--line); border-radius: var(--r-lg); padding: var(--sp-5) }
+  .card .head { display: flex; gap: var(--sp-3); align-items: flex-start }
+  .card .head > .spin, .card .head > svg { width: var(--icon-lg); height: var(--icon-lg); margin-top: 2px }
+  .card h3 { font-size: var(--fs-xl); font-weight: 600; line-height: 1.25 }
+  .card p { color: var(--dim); margin-top: var(--sp-1) }
+  .card .steps { margin: var(--sp-3) 0 0; padding-left: var(--sp-5); color: var(--text); display: grid; gap: var(--sp-1); font-size: var(--fs-md) }
+  .card .acts { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-4) }
+  .card .host { font-family: var(--mono); font-size: var(--fs-sm); color: var(--text) }
+  @media (min-width: 600px) { .body .chart { display: block } .over { position: absolute; inset: 0 } }
+  .card p { font-size: var(--fs-md) }
+</style></head>
+<body>
+<main class="mock">
+  <header class="mock-top">
+    <div><h1>Desktop sign-in waiting</h1>
+      <p>CUJ 6. Google's page opens in the system browser, never inside the app window. The app waits for the vtradingview://auth hand-back.</p></div>
+    <div class="presets"></div>
+  </header>
+
+  <div class="frames two">
+    <section class="frame" aria-labelledby="f1"><h2 id="f1"><b>Waiting</b></h2>
+      <div class="win"><div class="titlebar"><svg class="i" aria-hidden="true"><use href="#i-monitor"/></svg>TradeX</div>
+        <div class="body"><div class="bar"><span class="brand">TradeX</span><span class="sep"></span><span class="grow"></span><button type="button" class="btn" aria-busy="true" aria-disabled="true"><span class="spin" aria-hidden="true"></span>Signing in</button></div>
+          <div class="chart" aria-hidden="true"><svg viewBox="0 0 400 120" preserveAspectRatio="none"><polyline points="0,90 40,80 80,84 120,60 160,66 200,40 240,52 280,34 320,44 360,22 400,30" fill="none" stroke="currentColor" stroke-width="2"/></svg></div>
+          <div class="over"><div class="card" role="dialog" aria-labelledby="w1" aria-describedby="w1d">
+            <div class="head"><span class="spin dim-i" aria-hidden="true"></span><div><h3 id="w1">Finish signing in in your browser</h3>
+              <p id="w1d">We opened <span class="host">accounts.google.com</span> in your default browser. When Google is done, the browser asks to open TradeX: choose Open.</p></div></div>
+            <div class="acts"><button type="button" class="btn"><svg class="i" aria-hidden="true"><use href="#i-external"/></svg>Try again</button><button type="button" class="ghost">Cancel</button></div>
+          </div></div>
+        </div></div>
+      <p class="note">Try again opens a fresh sign-in in the browser. Cancel returns the app to signed out.</p>
+    </section>
+
+    <section class="frame" aria-labelledby="f2"><h2 id="f2">Failed: says what to do</h2>
+      <div class="win"><div class="titlebar"><svg class="i" aria-hidden="true"><use href="#i-monitor"/></svg>TradeX</div>
+        <div class="body"><div class="bar"><span class="brand">TradeX</span><span class="sep"></span><span class="grow"></span><button type="button" class="btn"><svg class="i" aria-hidden="true"><use href="#i-log-in"/></svg>Sign in with Google</button></div>
+          <div class="chart" aria-hidden="true"><svg viewBox="0 0 400 120" preserveAspectRatio="none"><polyline points="0,90 40,80 80,84 120,60 160,66 200,40 240,52 280,34 320,44 360,22 400,30" fill="none" stroke="currentColor" stroke-width="2"/></svg></div>
+          <div class="over"><div class="card" role="alertdialog" aria-labelledby="w2" aria-describedby="w2d">
+            <div class="head"><svg class="i bad-i" aria-hidden="true"><use href="#i-alert"/></svg><div><h3 id="w2">Error: sign-in did not finish</h3>
+              <p id="w2d">The link from the browser was expired or already used, so the app refused it.</p></div></div>
+            <ol class="steps"><li>Click Try again to start a new sign-in.</li><li>Complete it in the browser that opens.</li><li>When the browser asks to open TradeX, choose Open.</li></ol>
+            <div class="acts"><button type="button" class="btn primary"><svg class="i" aria-hidden="true"><use href="#i-external"/></svg>Try again</button><button type="button" class="ghost">Cancel</button></div>
+          </div></div>
+        </div></div>
+    </section>
+
+    <section class="frame wide" aria-labelledby="f3"><h2 id="f3">After Cancel: back to signed out, nothing lost</h2>
+      <div class="win"><div class="titlebar"><svg class="i" aria-hidden="true"><use href="#i-monitor"/></svg>TradeX</div>
+        <div class="bar"><span class="brand">TradeX</span><span class="sep"></span>
+          <span class="q"><svg class="i" aria-hidden="true"><use href="#i-search"/></svg>XAUUSD</span><span class="ticker">2,641.20</span><span class="grow"></span>
+          <button type="button" class="btn"><svg class="i" aria-hidden="true"><use href="#i-log-in"/></svg>Sign in with Google</button></div>
+        <div class="chart" aria-hidden="true"><svg viewBox="0 0 400 120" preserveAspectRatio="none"><polyline points="0,90 40,80 80,84 120,60 160,66 200,40 240,52 280,34 320,44 360,22 400,30" fill="none" stroke="currentColor" stroke-width="2"/></svg></div>
+      </div>
+    </section>
+  </div>
+</main>
+<script src="shared.js"></script>
+</body></html>

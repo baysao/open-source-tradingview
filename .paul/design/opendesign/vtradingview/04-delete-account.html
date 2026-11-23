@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Delete account</title>
+<script src="../../../../hub/theme.js"></script>
+<link rel="stylesheet" href="shared.css">
+<style>
+  .pop { padding: var(--sp-2); display: flex; justify-content: flex-end }
+  .dialog .warn { color: var(--text) }
+  .dialog p, .dialog li { line-height: 1.5 }
+  .dialog .small { color: var(--text) }
+  .dialog .small b { display: block; margin-bottom: var(--sp-1) }
+  /* busy: Cancel stays legible, state is carried by the spinner, not by fading */
+  .btn:disabled, .btn[aria-busy="true"] { opacity: 1; color: var(--text) }
+  .btn:disabled { color: var(--dim) }
+  .err-box { margin-top: var(--sp-3); padding: var(--sp-2) var(--sp-3); border: var(--hair) solid var(--bad); border-radius: var(--r-sm); background: var(--bg) }
+</style></head>
+<body>
+<main class="mock">
+  <header class="mock-top">
+    <div><h1>Delete account</h1>
+      <p>From the avatar menu. The dialog names everything that is deleted and says it cannot be undone. Work stored in this browser stays.</p></div>
+    <div class="presets"></div>
+  </header>
+
+  <div class="frames two">
+    <section class="frame" aria-labelledby="f1"><h2 id="f1">Trigger: avatar menu</h2>
+      <div class="stage">
+        <div class="bar"><span class="brand">TradeX</span><span class="sep"></span><span class="grow"></span>
+          <button type="button" class="avatar" aria-haspopup="menu" aria-expanded="true" aria-controls="m1" aria-label="Account menu for Sam Ortega">SO</button></div>
+        <div class="pop">
+          <div class="menu" role="menu" id="m1" aria-label="Account">
+            <div class="who" role="presentation"><span class="avatar" aria-hidden="true">SO</span><div><b>Sam Ortega</b><span>sam.ortega@example.com</span></div></div>
+            <hr>
+            <button type="button" class="item" role="menuitem"><svg class="i" aria-hidden="true"><use href="#i-plug"/></svg>MT5 bridges<span class="sub">2</span></button>
+            <button type="button" class="item bad" role="menuitem" data-open-dialog="live"><svg class="i" aria-hidden="true"><use href="#i-trash"/></svg>Delete account</button>
+            <hr>
+            <button type="button" class="item" role="menuitem"><svg class="i" aria-hidden="true"><use href="#i-log-out"/></svg>Sign out</button>
+          </div>
+        </div>
+      </div>
+      <p class="note">Delete account opens the live dialog: focus moves to Cancel, Tab stays inside, Escape closes and returns focus here.</p>
+      <p class="note"><button type="button" class="btn danger" data-open-dialog="live"><svg class="i" aria-hidden="true"><use href="#i-trash"/></svg>Delete account</button></p>
+    </section>
+
+    <section class="frame" aria-labelledby="f2"><h2 id="f2"><b>Confirm</b></h2>
+      <div class="stage scrim">
+        <div class="dialog" role="group" aria-labelledby="d2">
+          <h3 id="d2">Delete your TradeX account?</h3>
+          <p class="lead">This deletes, from the server:</p>
+          <ul>
+            <li>your account: name, email, avatar and the Google sign-in link</li>
+            <li>every signed-in session, on all devices</li>
+            <li>saved layouts, drawings, Pine scripts, favourites, theme and their backups</li>
+            <li>your MT5 bridges and their tokens</li>
+          </ul>
+          <p class="small"><b class="warn">This cannot be undone.</b> What is stored in this browser stays here, and you can keep using TradeX signed out.</p>
+          <div class="acts"><button type="button" class="btn">Cancel</button><button type="button" class="btn danger"><svg class="i" aria-hidden="true"><use href="#i-trash"/></svg>Delete account</button></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="frame" aria-labelledby="f3"><h2 id="f3"><b>Busy</b></h2>
+      <div class="stage scrim">
+        <div class="dialog" role="group" aria-labelledby="d3" aria-busy="true">
+          <h3 id="d3">Delete your TradeX account?</h3>
+          <p class="lead" role="status">Deleting your account and signing you out on every device.</p>
+          <div class="acts"><button type="button" class="btn" disabled>Cancel</button><button type="button" class="btn danger" aria-busy="true" aria-disabled="true"><span class="spin" aria-hidden="true"></span>Deleting</button></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="frame" aria-labelledby="f4"><h2 id="f4"><b>Error</b></h2>
+      <div class="stage scrim">
+        <div class="dialog" role="group" aria-labelledby="d4">
+          <h3 id="d4">Delete your TradeX account?</h3>
+          <div class="err-box msg" role="alert"><svg class="i bad-i" aria-hidden="true"><use href="#i-alert"/></svg><span>Error: the server did not answer. Your account is not deleted and you are still signed in. Check your connection, then try again.</span></div>
+          <div class="acts"><button type="button" class="btn">Cancel</button><button type="button" class="btn danger"><svg class="i" aria-hidden="true"><use href="#i-refresh"/></svg>Try again</button></div>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<div class="scrim live" id="live" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dl" aria-describedby="dl-d">
+    <h3 id="dl">Delete your TradeX account?</h3>
+    <p class="lead" id="dl-d">This deletes your account, every session, your saved layouts, drawings, scripts, favourites, theme and backups, and your MT5 bridges. It cannot be undone.</p>
+    <p class="small">What is stored in this browser stays here.</p>
+    <div class="acts"><button type="button" class="btn" data-close-dialog data-autofocus>Cancel</button><button type="button" class="btn danger" data-close-dialog><svg class="i" aria-hidden="true"><use href="#i-trash"/></svg>Delete account</button></div>
+  </div>
+</div>
+<script src="shared.js"></script>
+</body></html>

@@ -187,15 +187,11 @@ function cover(ticker) {
   $("coverText").textContent = `Loading ${ticker} ...`; $("cover").hidden = false;
   coverTimer = setTimeout(() => { if (pending) { $("coverText").textContent = `${ticker}: no candles after 20 s. Trying again by itself; or press Restart chart below.`; retryLoad(); } }, 20000);
 }
-// Restart button. Remote MT5 has a server side to restart (the chart server runs the steps); any other feed reconnects when the chart reloads.
+// Restart button: every feed reconnects when the chart reloads.
 async function restartChart() {
   const b = $("restart"), msg = $("restartMsg"); b.disabled = true;
   try {
-    if (st.broker === "arm") {
-      let r = await (await fetch("/api/restart", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })).json();
-      while (r.running) { msg.textContent = r.step || "Restarting remote MT5 ..."; await new Promise((d) => setTimeout(d, 1000)); r = await (await fetch("/api/restart")).json(); }
-      msg.textContent = r.step;
-    } else msg.textContent = "Reconnecting ...";
+    msg.textContent = "Reconnecting ...";
     loadEngine(); pollStatus();
   } catch (e) { msg.textContent = "Chart server not answering: run start.bat (Windows) or start.sh"; }
   b.disabled = false; setTimeout(() => { msg.textContent = ""; }, 15000);

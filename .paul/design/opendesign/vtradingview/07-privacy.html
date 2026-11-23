@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TradeX privacy</title>
+<script src="../../../../hub/theme.js"></script>
+<link rel="stylesheet" href="shared.css">
+<style>
+  .top { display: flex; align-items: center; gap: var(--sp-2); height: var(--bar-h); padding: 0 var(--sp-4); background: var(--panel); border-bottom: var(--hair) solid var(--line) }
+  .top .presets { margin-left: auto }
+  .top .plain { text-decoration: none }
+  .top .presets span { display: none }
+  @media (min-width: 600px) { .top .presets span { display: inline } }
+  article { max-width: var(--measure); margin: 0 auto; padding: var(--sp-8) var(--sp-4) var(--sp-10); font-size: var(--fs-lg); line-height: 1.6 }
+  article h1 { font-size: var(--fs-3xl); line-height: 1.15; letter-spacing: -.015em; font-weight: 700 }
+  article .meta { color: var(--dim); font-size: var(--fs-md); margin-top: var(--sp-2) }
+  article .draft { display: flex; gap: var(--sp-2); align-items: flex-start; margin-top: var(--sp-5); padding: var(--sp-3); border: var(--hair) solid var(--line); border-radius: var(--r-md); background: var(--panel); font-size: var(--fs-lg) }
+  article .draft svg { margin-top: 3px; color: var(--accent) }
+  article h2 { font-size: var(--fs-xl); font-weight: 600; margin-top: var(--sp-8); padding-top: var(--sp-4); border-top: var(--hair) solid var(--line) }
+  article p, article ul { margin-top: var(--sp-3) }
+  article ul { padding-left: var(--sp-5); display: grid; gap: var(--sp-1) }
+  article code { font: var(--fs-md) var(--mono) }
+  article dl { margin-top: var(--sp-3); display: grid; gap: var(--sp-1) }
+  article dd + dt { margin-top: var(--sp-3) }
+  article dt { font-weight: 600 }
+  article dd { margin: 0 }
+  footer { border-top: var(--hair) solid var(--line); padding: var(--sp-4); color: var(--dim); font-size: var(--fs-sm); text-align: center }
+  @media (min-width: 600px) { article dl { grid-template-columns: 14ch 1fr; gap: var(--sp-3) var(--sp-5) } article dd + dt { margin-top: 0 } }
+</style></head>
+<body>
+<header class="top"><a class="brand link plain" href="#">TradeX</a><div class="presets"></div></header>
+<main>
+<article>
+  <h1>Privacy</h1>
+  <p class="meta">How TradeX on vtradingview.com handles your data.</p>
+  <div class="draft" role="note"><svg class="i" aria-hidden="true"><use href="#i-shield"/></svg><span>Draft for the site owner: confirm each statement against the deployed server before the public launch, and add the contact address.</span></div>
+
+  <h2>Without an account</h2>
+  <p>You can use every chart without signing in. Your drawings, scripts, favourites and theme stay in your browser's local storage. They are not sent to the server.</p>
+
+  <h2>With a Google account</h2>
+  <p>When you sign in with Google, we store:</p>
+  <dl>
+    <dt>Account</dt><dd>Your email, name, avatar URL and Google account id (<code>sub</code>). Nothing else from Google.</dd>
+    <dt>Sessions</dt><dd>A session record per signed-in device, so you stay signed in. Signing out ends it.</dd>
+    <dt>Saved state</dt><dd>Layouts, drawings, Pine scripts, favourites and theme, so they follow you to other devices. Backups made at sign-in are deleted after 30 days. Nightly server backups are kept for 14 days.</dd>
+    <dt>MT5 bridges</dt><dd>The bridge URL and label you enter, and its token encrypted on the server.</dd>
+  </dl>
+
+  <h2>Logs and measurements</h2>
+  <ul>
+    <li>Server logs keep recent lines in memory with tokens and emails redacted.</li>
+    <li>Chart load time is measured in milliseconds with the chart engine name, and no user id.</li>
+  </ul>
+
+  <h2>Deleting your data</h2>
+  <p>Choose Delete account in the avatar menu. The server deletes your account, every session, your saved state and backups, and your MT5 bridges at once. It cannot be undone. Data in your browser stays until you clear it.</p>
+
+  <h2>Contact</h2>
+  <p>Questions about your data: contact address to be added by the site owner.</p>
+</article>
+</main>
+<footer><a class="link" href="#">Back to the charts</a></footer>
+<script src="shared.js"></script>
+</body></html>

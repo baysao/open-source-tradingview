@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MT5 bridges</title>
+<script src="../../../../hub/theme.js"></script>
+<link rel="stylesheet" href="shared.css">
+<style>
+  .btn[aria-busy="true"][aria-disabled="true"] { opacity: 1; background: var(--raised); color: var(--text); border: var(--hair) solid var(--line) }
+  .frames.three { display: grid; gap: var(--sp-6) }
+  @media (min-width: 960px) { .frames.three { grid-template-columns: repeat(3, var(--dock-w)); justify-content: space-between } }
+  .br { display: grid; grid-template-columns: 1fr auto; gap: 2px var(--sp-2); padding: var(--sp-2) 0; border-top: var(--hair) solid var(--grid) }
+  .br:first-of-type { border-top: 0 }
+  .br b { font-weight: 600; font-size: var(--fs-md) }
+  .br .u { grid-column: 1; font: var(--fs-xs) var(--mono); color: var(--dim); overflow-wrap: anywhere }
+  .br .st { grid-column: 1 / -1; display: flex; gap: var(--sp-1); align-items: center; font-size: var(--fs-sm) }
+  .br .ops { grid-column: 2; grid-row: 1 / span 2; display: flex; gap: var(--sp-1); align-items: start }
+  .result { padding: var(--sp-2) var(--sp-3); border: var(--hair) solid var(--line); border-radius: var(--r-sm); background: var(--bg); margin-bottom: var(--sp-3) }
+  .causes { display: grid; gap: var(--sp-2); margin-top: var(--sp-2) }
+  .causes .msg { padding: var(--sp-2); border: var(--hair) solid var(--line); border-radius: var(--r-sm); background: var(--bg) }
+  .confirm { margin-top: var(--sp-2); padding: var(--sp-3); border: var(--hair) solid var(--bad); border-radius: var(--r-sm); background: var(--bg) }
+  .confirm p { color: var(--text); margin-bottom: var(--sp-2) }
+  .empty { text-align: left }
+  .empty svg.i { width: var(--icon-lg); height: var(--icon-lg); color: var(--dim); margin-bottom: var(--sp-2) }
+  .empty h5 { font-size: var(--fs-md); margin: 0 0 var(--sp-1); font-weight: 600 }
+  .empty p { margin-bottom: var(--sp-3) }
+  .busy-note { margin-top: var(--sp-2) }
+  code { font: var(--fs-xs) var(--mono); color: var(--text) }
+  .br .u, code { font-size: var(--fs-md) }
+</style></head>
+<body>
+<main class="mock">
+  <header class="mock-top">
+    <div><h1>MT5 bridges</h1>
+      <p>A new section in the existing Settings dock. Each user connects their own bridge; nobody else can see or use it.</p></div>
+    <div class="presets"></div>
+  </header>
+
+  <div class="frames three">
+    <section class="frame" aria-labelledby="f1"><h2 id="f1"><b>Empty</b></h2>
+      <div class="dock"><h3><svg class="i" aria-hidden="true"><use href="#i-settings"/></svg>Settings</h3>
+        <div class="set"><h4>MT5 bridges</h4>
+          <div class="empty"><svg class="i" aria-hidden="true"><use href="#i-plug"/></svg>
+            <h5>No bridge connected</h5>
+            <p>Run <code>bridge/mt5_bridge.py</code> on your VPS, publish it over HTTPS with a <code>BRIDGE_TOKEN</code>, then add it here. Your MT5 symbols then appear in the symbol picker.</p>
+            <button type="button" class="btn primary"><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg>Add a bridge</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="frame" aria-labelledby="f2"><h2 id="f2"><b>List and delete confirm</b></h2>
+      <div class="dock"><h3><svg class="i" aria-hidden="true"><use href="#i-settings"/></svg>Settings</h3>
+        <div class="set"><h4>MT5 bridges <button type="button" class="ghost"><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg>Add</button></h4>
+          <div class="br"><b>VPS Frankfurt</b><span class="u">https://mt5.example.net</span>
+            <span class="ops"><button type="button" class="ghost">Test</button><button type="button" class="ghost" aria-label="Delete VPS Frankfurt" aria-expanded="true" aria-controls="del1"><svg class="i" aria-hidden="true"><use href="#i-trash"/></svg></button></span>
+            <span class="st"><svg class="i ok-i" aria-hidden="true"><use href="#i-circle-check"/></svg>Connected, 412 symbols</span></div>
+          <div class="confirm" id="del1">
+            <p>Delete the bridge "VPS Frankfurt"? Its symbols leave your symbol picker. The bridge on your VPS keeps running.</p>
+            <div class="row-acts"><button type="button" class="btn" data-collapse="del1">Cancel</button><button type="button" class="btn danger"><svg class="i" aria-hidden="true"><use href="#i-trash"/></svg>Delete bridge</button></div>
+          </div>
+          <div class="br"><b>Home PC</b><span class="u">https://bridge.example.org:8443</span>
+            <span class="ops"><button type="button" class="ghost">Test</button><button type="button" class="ghost" aria-label="Delete Home PC"><svg class="i" aria-hidden="true"><use href="#i-trash"/></svg></button></span>
+            <span class="st"><svg class="i bad-i" aria-hidden="true"><use href="#i-alert"/></svg>Error: timed out after 10 s</span></div>
+        </div>
+      </div>
+      <p class="note">The trash icon opens the inline confirm; Cancel closes it. The confirm button uses the destructive style, as the trigger does.</p>
+    </section>
+
+    <section class="frame" aria-labelledby="f3"><h2 id="f3"><b>Add form</b></h2>
+      <div class="dock"><h3><svg class="i" aria-hidden="true"><use href="#i-settings"/></svg>Settings</h3>
+        <form class="set" onsubmit="return false"><h4>Add an MT5 bridge</h4>
+          <div class="field"><label for="a-label">Label</label><div class="wrap"><input id="a-label" placeholder="VPS Frankfurt" autocomplete="off"></div></div>
+          <div class="field"><label for="a-url">Bridge URL</label><div class="wrap"><input id="a-url" class="mono" placeholder="https://mt5.example.net" inputmode="url" autocomplete="off" aria-describedby="a-url-h"></div>
+            <span class="hint" id="a-url-h">HTTPS only, on port 443 or 1024 to 65535. Private and local addresses are refused.</span></div>
+          <div class="field"><label for="a-tok">Token</label><div class="wrap"><input id="a-tok" class="mono" type="password" placeholder="BRIDGE_TOKEN value" autocomplete="off" aria-describedby="a-tok-h">
+            <button type="button" class="ghost" data-showpw="a-tok" aria-pressed="false" aria-label="Show token"><svg class="i" aria-hidden="true"><use href="#i-eye"/></svg></button></div>
+            <span class="hint" id="a-tok-h">Stored encrypted on the server. It is never shown again after you save.</span></div>
+          <div class="row-acts"><button type="button" class="btn primary">Test connection</button><button type="button" class="btn">Cancel</button></div>
+        </form>
+      </div>
+    </section>
+
+    <section class="frame" aria-labelledby="f4"><h2 id="f4"><b>Testing</b></h2>
+      <div class="dock"><h3><svg class="i" aria-hidden="true"><use href="#i-settings"/></svg>Settings</h3>
+        <div class="set" aria-busy="true"><h4>Add an MT5 bridge</h4>
+          <div class="field dis"><label for="b-label">Label</label><div class="wrap"><input id="b-label" value="VPS Frankfurt" disabled></div></div>
+          <div class="field dis"><label for="b-url">Bridge URL</label><div class="wrap"><input id="b-url" class="mono" value="https://mt5.example.net" disabled></div></div>
+          <div class="field dis"><label for="b-tok">Token</label><div class="wrap"><input id="b-tok" class="mono" type="password" value="sample-token-value" disabled></div></div>
+          <div class="row-acts"><button type="button" class="btn primary" aria-busy="true" aria-disabled="true"><span class="spin" aria-hidden="true"></span>Testing</button><button type="button" class="btn">Cancel</button></div>
+          <p role="status" class="busy-note">Checking the address, then calling /health on your bridge.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="frame" aria-labelledby="f5"><h2 id="f5"><b>Connected</b></h2>
+      <div class="dock"><h3><svg class="i" aria-hidden="true"><use href="#i-settings"/></svg>Settings</h3>
+        <div class="set"><h4>Add an MT5 bridge</h4>
+          <div class="field"><label for="c-label">Label</label><div class="wrap"><input id="c-label" value="VPS Frankfurt"></div></div>
+          <div class="field"><label for="c-url">Bridge URL</label><div class="wrap"><input id="c-url" class="mono" value="https://mt5.example.net"></div></div>
+          <div class="result" role="status"><div class="msg"><svg class="i ok-i" aria-hidden="true"><use href="#i-circle-check"/></svg><span>Connected. The MT5 terminal reports 412 symbols.</span></div></div>
+          <div class="row-acts"><button type="button" class="btn primary"><svg class="i" aria-hidden="true"><use href="#i-check"/></svg>Save bridge</button><button type="button" class="btn">Test again</button></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="frame" aria-labelledby="f6"><h2 id="f6"><b>Error, with the exact cause</b></h2>
+      <div class="dock"><h3><svg class="i" aria-hidden="true"><use href="#i-settings"/></svg>Settings</h3>
+        <div class="set"><h4>Add an MT5 bridge</h4>
+          <div class="field err"><label for="d-url">Bridge URL</label><div class="wrap"><input id="d-url" class="mono" value="https://10.0.0.5" aria-invalid="true" aria-describedby="d-url-e"></div>
+            <div class="msg" id="d-url-e" role="alert"><svg class="i bad-i" aria-hidden="true"><use href="#i-alert"/></svg><span>Error: address refused. 10.0.0.5 is a private address. Publish the bridge on a public HTTPS name, for example through a Cloudflare Tunnel.</span></div></div>
+          <div class="row-acts"><button type="button" class="btn primary">Test connection</button><button type="button" class="btn">Cancel</button></div>
+          <div class="causes" aria-label="Other failure messages">
+            <div class="msg"><svg class="i bad-i" aria-hidden="true"><use href="#i-alert"/></svg><span>Error: certificate not valid for mt5.example.net. Renew it or fix the name, then test again.</span></div>
+            <div class="msg"><svg class="i bad-i" aria-hidden="true"><use href="#i-alert"/></svg><span>Error: wrong token. The bridge answered 401. Copy BRIDGE_TOKEN from the bridge's .env again.</span></div>
+            <div class="msg"><svg class="i bad-i" aria-hidden="true"><use href="#i-alert"/></svg><span>Error: timed out after 10 s. Check that the bridge and its tunnel are running.</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+<script src="shared.js"></script>
+</body></html>

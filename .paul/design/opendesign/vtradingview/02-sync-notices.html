@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sync status</title>
+<script src="../../../../hub/theme.js"></script>
+<link rel="stylesheet" href="shared.css">
+<style>
+  .frame > h2 b { color: inherit; font-style: normal }
+  .lines { background: var(--panel); border: var(--hair) solid var(--line); border-radius: var(--r-md); padding: var(--sp-1) 0 }
+  .lines .sync + .sync { border-top: var(--hair) solid var(--grid) }
+  .lines .ghost { margin-left: var(--sp-2) }
+  .keys { grid-column: 1 / -1; display: grid; border: var(--hair) solid var(--line); border-radius: var(--r-sm); background: var(--bg) }
+  .key { display: grid; grid-template-columns: 1fr auto; gap: var(--sp-1) var(--sp-3); align-items: center; padding: var(--sp-2) var(--sp-3) }
+  .key + .key { border-top: var(--hair) solid var(--line) }
+  .key b { font: 600 var(--fs-sm) var(--mono); overflow-wrap: anywhere }
+  .key span { grid-column: 1; color: var(--dim); font-size: var(--fs-sm) }
+  .key .btn { grid-row: 1 / span 2; grid-column: 2 }
+  .key.done span { color: var(--text) }
+  @media (min-width: 600px) { .keys { grid-column: 2 } }
+</style></head>
+<body>
+<main class="mock">
+  <header class="mock-top">
+    <div><h1>Sync status and notices</h1>
+      <p>A status line in the avatar menu, and a notice under the header only when the user has to decide something. Nothing is overwritten silently.</p></div>
+    <div class="presets"></div>
+  </header>
+
+  <div class="frames two">
+    <section class="frame" aria-labelledby="f1"><h2 id="f1"><b>Menu status line</b>: saved, saving, offline, conflict</h2>
+      <div class="lines">
+        <div class="sync" role="status"><svg class="i ok-i" aria-hidden="true"><use href="#i-cloud-check"/></svg>Saved to your account<span class="when">12:04</span></div>
+        <div class="sync" role="status"><span class="spin dim-i" aria-hidden="true"></span>Saving changes<span class="when">now</span></div>
+        <div class="sync" role="status"><svg class="i bad-i" aria-hidden="true"><use href="#i-cloud-off"/></svg>Offline: kept in this browser<button type="button" class="ghost" aria-label="Retry sync now"><svg class="i" aria-hidden="true"><use href="#i-refresh"/></svg>Retry</button></div>
+        <div class="sync" role="status"><svg class="i acc-i" aria-hidden="true"><use href="#i-triangle"/></svg>Layout changed on another device<span class="when">12:07</span></div>
+      </div>
+      <p class="note">Status is icon plus words; colour is never the only signal. The amber triangle marks the one line that needs a choice.</p>
+    </section>
+
+    <section class="frame" aria-labelledby="f2"><h2 id="f2"><b>Offline</b>: notice with retry</h2>
+      <div class="stage">
+        <div class="bar"><span class="brand">TradeX</span><span class="sep"></span><span class="grow"></span><button type="button" class="avatar" aria-label="Account menu for Sam Ortega">SO</button></div>
+        <div class="notice" role="status">
+          <svg class="i bad-i" aria-hidden="true"><use href="#i-cloud-off"/></svg>
+          <div><h3>Offline: changes are kept in this browser</h3><p>They upload when the connection returns. Last saved to your account at 12:04.</p></div>
+          <div class="acts"><button type="button" class="btn" data-reveal="retrying"><svg class="i" aria-hidden="true"><use href="#i-refresh"/></svg>Retry now</button>
+            <span id="retrying" class="msg" hidden><span class="spin dim-i" aria-hidden="true"></span>Trying again</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="frame wide" aria-labelledby="f3"><h2 id="f3"><b>Conflict</b>: CUJ 5, the server refused this save (409)</h2>
+      <div class="stage">
+        <div class="bar"><span class="brand">TradeX</span><span class="sep"></span>
+          <span class="q"><svg class="i" aria-hidden="true"><use href="#i-search"/></svg>XAUUSD</span><span class="grow"></span>
+          <button type="button" class="avatar" aria-label="Account menu for Sam Ortega">SO</button></div>
+        <div class="notice" role="alert">
+          <svg class="i acc-i" aria-hidden="true"><use href="#i-triangle"/></svg>
+          <div><h3>Another device saved this layout at 12:07</h3><p>Your change on this browser was not saved. Choose which version to keep: the other one is not lost until you choose.</p></div>
+          <div class="acts">
+            <button type="button" class="btn primary"><svg class="i" aria-hidden="true"><use href="#i-refresh"/></svg>Load the other device's version</button>
+            <button type="button" class="btn">Keep this one and overwrite</button>
+          </div>
+        </div>
+      </div>
+      <p class="note">The safe choice is the primary one: loading changes only this screen. Overwriting replaces what the other device saved, so it is never the default.</p>
+    </section>
+
+    <section class="frame wide" aria-labelledby="f4"><h2 id="f4"><b>Backups created</b>: first sign-in on a browser that held local work, CUJ 3</h2>
+      <div class="stage">
+        <div class="bar"><span class="brand">TradeX</span><span class="sep"></span><span class="grow"></span><button type="button" class="avatar" aria-label="Account menu for Sam Ortega">SO</button></div>
+        <div class="notice" role="status">
+          <svg class="i ok-i" aria-hidden="true"><use href="#i-circle-check"/></svg>
+          <div><h3>Signed in: your account's settings are loaded</h3><p>3 settings in this browser differed from your account. This browser's copies are saved as backups for 30 days.</p></div>
+          <div class="keys" role="list" aria-label="Backups">
+            <div class="key" role="listitem"><b>chartHubTheme</b><span>Theme and colours, backup of 2026-11-23</span><button type="button" class="btn" aria-label="Restore chartHubTheme"><svg class="i" aria-hidden="true"><use href="#i-undo"/></svg>Restore</button></div>
+            <div class="key" role="listitem"><b>chartHubScripts</b><span>Pine scripts, backup of 2026-11-23</span><button type="button" class="btn" aria-label="Restore chartHubScripts"><svg class="i" aria-hidden="true"><use href="#i-undo"/></svg>Restore</button></div>
+            <div class="key done" role="listitem"><b>chartHubFavs</b><span><svg class="i ok-i" aria-hidden="true"><use href="#i-check"/></svg> Restored: this browser's favourites are current again</span></div>
+          </div>
+          <div class="acts"><button type="button" class="ghost">Dismiss</button></div>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+<script src="shared.js"></script>
+</body></html>

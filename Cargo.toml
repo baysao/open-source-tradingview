@@ -1,0 +1,29 @@
+[workspace]
+resolver = "2"
+members = ["crates/hub-types", "crates/hub-core", "crates/hub-server"]
+
+[workspace.package]
+edition = "2021"
+license = "AGPL-3.0-only"
+publish = false
+
+[workspace.dependencies]
+hub-types = { path = "crates/hub-types" }
+hub-core = { path = "crates/hub-core" }
+axum = { version = "0.8", features = ["ws"] }
+tokio = { version = "1", features = ["full"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["fs", "set-header", "trace"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+tokio-tungstenite = { version = "0.26", features = ["rustls-tls-webpki-roots"] }
+futures-util = "0.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["float_roundtrip"] }
+indexmap = { version = "2", features = ["serde"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
+lru = "0.12"
+percent-encoding = "2"
+toml = "0.8"
+regex = "1"
+dotenvy = "0.15"

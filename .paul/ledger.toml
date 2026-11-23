@@ -1,0 +1,30 @@
+# .paul/ledger.toml: session history for cost/time attribution
+# Append-only. One row per session, for cost/time attribution.
+
+[[entry]]
+plan = "01-01"
+phase = 1
+action = "unify"
+date = "2026-11-23"
+result = "UNIFIED: 3/3 tasks, AC-1..AC-5 pass; contract 18/18 vs Python, instruments exact (979); fmt/clippy/test exit 0; D-005; L-001..L-003; DEBT-001 open (uncommitted)"
+
+[[entry]]
+plan = "01-02"
+phase = 1
+action = "unify"
+date = "2026-11-23"
+result = "UNIFIED: 3/3 tasks, AC-1..AC-6 pass; fixture replays exact vs Python; ws_e2e pass; ws+health contract match; replay_load processing p99 49.7us; D-006; L-004..L-006; DEBT-001 tightened"
+
+[[entry]]
+plan = "01-03"
+phase = 1
+action = "unify"
+date = "2026-11-23"
+result = "UNIFIED: 3/3 auto tasks; checkpoint verified by agent with Playwright (owner-delegated); AC-1..AC-5 pass, AC-6 partial until first CI run; contract 25/0/0 vs built hub-server; fixes: false silence on new upstream, boot DOWN lines, test log side effect; D-007; L-007..L-009, L-003 bumped; DEBT-002 discharged, DEBT-003..005 added; modern-web-guidance gap (npx denied)"
+
+[[entry]]
+plan = "01-03"
+phase = 1
+action = "reflect"
+date = "2026-11-23"
+result = "pstack reflect panel (3 reviewers + synthesizer): 15 findings, 6 accepted and approved (paul-apply checkpoints A1/A2, plan-phase.md, paul-plan denied-guide A3, L-010..L-012), R-6 standing browser-first human-verify, DEBT-006 residual owner row; DEBT-003 kept at phase 04"

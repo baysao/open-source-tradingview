@@ -22,7 +22,8 @@ window.LabFeed = (() => {
   // Leave a 20 px bar at the bottom for the status strip, so it never covers the chart (standalone pages only).
   const chartBox = document.getElementById("chart");
   if (chartBox && !LabEmbedded) chartBox.style.bottom = "20px";
-  const wsUrl = () => `ws://${location.hostname || "localhost"}:${window.LabWsPort || 8765}`;
+  // The live feed is /ws on the page's own origin (one port; wss: when the page is https:).
+  const wsUrl = () => { const u = new URL("/ws", location.href); u.protocol = u.protocol === "https:" ? "wss:" : "ws:"; return u.href; };
   const stats = { updates: 0, delays: [], exch: [], srcLag: [], lastAt: 0, firstBarAt: 0, errors: [], status: "" };
   window.labStats = stats;
 
