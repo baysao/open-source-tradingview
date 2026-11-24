@@ -18,21 +18,21 @@ layouts and scripts kept in their Google account.
 
 Milestone: v0.1 Hosted launch
 Phase: 03 of 07 (Database and Google sign-in), in progress
-Plan: 03-02 APPLIED (3 of 3 tasks; commit 3cf8721); ready for UNIFY
-Status: APPLY complete - suites green on pgsqlite, 22/22 mutations fail, gates exit 0
-Last activity: 2026-11-24 14:44 (+07) - 03-02 APPLY complete (SUMMARY written)
+Plan: 03-02 UNIFIED (3 of 3 tasks; commits 21c9a8f, 903e1b5, afc575e, 3cf8721, 16787d5, 597e8c2)
+Status: Loop closed - ready for PLAN 03-03 (last plan of Phase 03)
+Last activity: 2026-11-24 15:05 (+07) - 03-02 UNIFY complete
 
 Progress:
 - Phase 01: complete 2026-11-23 (milestone v0.1: 1 of 4 phases)
 - Phase 02: complete 2026-11-23 (reflect deferred: owner has not run /reflect)
-- Phase 03: [████░░░░░░] 1 of 3 plans unified (03-01), 03-02 applied (awaiting UNIFY)
+- Phase 03: [███████░░░] 2 of 3 plans unified (03-01, 03-02); 03-03 next
 
 ## Loop Position
 
 Current loop state:
 ```
 PLAN ──▶ APPLY ──▶ UNIFY
- done     done     ○     [03-02 APPLIED - next is UNIFY 03-02]
+ done     done     done  [03-02 loop closed - next is PLAN 03-03]
 ```
 
 ## Accumulated Context
@@ -66,6 +66,15 @@ PLAN ──▶ APPLY ──▶ UNIFY
 - DEBT-011 open (blocking phase-03-exit): dev db binds 0.0.0.0; needs pgsqlite with --host (see .paul/DEBT.toml).
 - DEBT-012 open: pgsqlite 0.0.22 mis-maps UPDATE parameters out of text order; S4/S8 work around it.
 
+### Skill Audit (Phase 03, plan 02)
+| Expected | Invoked | Notes |
+|----------|---------|-------|
+| /architect | yes | plan stage: 03-ARCHITECTURE.md |
+| /security-review (Phase 03 override) | yes | whole plan diff reviewed; dispositions in the SUMMARY |
+| /paul-security | n/a | optional; a report at phase exit, not per plan |
+| /reflect (pstack) | deferred | runs at the UNIFY of 03-03 (phase's last plan), not here |
+| context-budget, caveman, ponytail | yes | loaded and applied this session (AGENTS.md rule) |
+
 ### Blockers/Concerns
 - Design doc Blockers still in the spec: C1, C2, R1 to R7 (see ROADMAP.md gates and
   `.paul/design/reviews/vtradingview/implementation_readiness_report.md`).
@@ -73,12 +82,12 @@ PLAN ──▶ APPLY ──▶ UNIFY
 
 ## Session Continuity
 
-Last session: 2026-11-24 14:44 (+07) (03-02 APPLY complete)
-Stopped at: 03-02 APPLIED - auth 14, admin 1, gate 4 green on pgsqlite; 22/22 mutations fail; fmt and clippy exit 0; SUMMARY at .paul/phases/03-auth/03-02-SUMMARY.md
+Last session: 2026-11-24 15:05 (+07) (03-02 UNIFY complete)
+Stopped at: 03-02 UNIFIED - 8/8 AC pass on pgsqlite (Postgres in CI), 22/22 mutations fail, gates exit 0; SUMMARY .paul/phases/03-auth/03-02-SUMMARY.md
 DUE (2026-11-23, deferred by owner): /reflect for Phase 02 (reflect: pstack)
 ~~DUE NOW (2026-11-23): 01-03 checkpoint:human-verify, owner checks the hub on hub-server (DEBT-002)~~ closed 2026-11-23: verified by agent with Playwright at the owner's request
 ~~DUE NOW (2026-11-23): owner types /reflect for the Phase 01 close (reflect: pstack)~~ done 2026-11-23 (6 accepted edits applied, R-6, L-010..L-012)
-Next action: /paul:unify .paul/phases/03-auth/03-02-PLAN.md; before 03-03 APPLY, allowlist `npx -y modern-web-guidance@latest *` (DEBT-009); DEBT-011 (pgsqlite --host) blocks the Phase 03 exit; DEBT-010 is the owner's real-Google look
+Next action: /paul:apply .paul/phases/03-auth/03-03-PLAN.md (its PLAN already exists); before that APPLY, allowlist `npx -y modern-web-guidance@latest *` (DEBT-009); DEBT-011 (pgsqlite --host) blocks the Phase 03 exit; DEBT-010 is the owner's real-Google look. /reflect (pstack) runs at the UNIFY of 03-03, the phase's last plan
 Resume file: .paul/phases/03-auth/03-02-SUMMARY.md
 
 ---
