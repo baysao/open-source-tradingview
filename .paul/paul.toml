@@ -15,20 +15,20 @@ status = "in_progress"
 phases = 4
 
 [phase]
-number = 2
-name = "Order flow in Rust"
+number = 3
+name = "Database and Google sign-in"
 status = "in_progress"
-plans_completed = 3
+plans_completed = 1
 
 [loop]
-position = "IDLE"
-plan = "02-03"
-plan_path = "phases/02-orderflow/02-03-PLAN.md"
+position = "UNIFY"
+plan = "03-02"
+plan_path = "phases/03-auth/03-02-PLAN.md"
 
 [satellite]
 groom = true
 
 [stats]
-total_plans = 3
+total_plans = 4
 total_phases = 7
-last_activity = "2026-11-23T20:00:00Z"
+last_activity = "2026-11-24T14:44:10+07:00"

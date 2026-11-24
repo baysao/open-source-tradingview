@@ -395,10 +395,11 @@ impl Auth {
         format!("{OAUTH_COOKIE}=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0")
     }
 
-    /// The sign-in effect (S1, S4-or-S2+S3, S5), at most two attempts, one transaction per
+    /// The sign-in effect (S1, S4-or-S2+S3, S5), up to three attempts, one transaction per
     /// attempt (architecture "Sequences"): a lost race rolls its user row back, and a busy
     /// error (D-018: pgsqlite `database is locked`, 03-01 measured it for a second
-    /// concurrent writer) is retried like S3/S4's `rows_affected == 0`.
+    /// concurrent writer) is retried after a short pause. Three attempts, not two: a racer
+    /// can lose once on the write lock and once on S3 before its re-read of S1 hits.
     async fn sign_in_effect(
         &self,
         identity: &VerifiedIdentity,
@@ -406,17 +407,23 @@ impl Auth {
     ) -> Result<(Member, SetCookie), AuthError> {
         let now = self.now();
         let mut busy: Option<String> = None;
-        for _attempt in 0..2 {
+        for attempt in 0..3 {
             match self.sign_in_attempt(identity, user_agent, now).await {
                 Attempt::Done(result) => return result,
                 Attempt::Raced => continue, // re-read S1: a racer won, so it now hits
-                Attempt::Busy(m) => busy = Some(m), // the attempt did not run: retry
+                Attempt::Busy(m) => {
+                    busy = Some(m);
+                    // pgsqlite holds one write lock; give the other writer a moment to
+                    // commit rather than burning every attempt inside its window.
+                    let pause = std::time::Duration::from_millis(50 * (attempt + 1) as u64);
+                    tokio::time::sleep(pause).await;
+                }
             }
         }
         match busy {
             // A busy database is not a refusal: the client retries (503, never signed-out).
             Some(m) => Err(AuthError::Unavailable(m)),
-            // Both attempts lost the race; the caller maps this to 401.
+            // Every attempt lost the race; the caller maps this to 401.
             None => Err(AuthError::SignInFailed(Refusal::IdpRefusedCode)),
         }
     }
@@ -588,7 +595,7 @@ impl Auth {
         // leave the same audit trail the callback flow does.
         match self.verified_identity_inner(token, nonce).await {
             Err(AuthError::SignInFailed(r)) => {
-                tracing::warn!(target: "auth", "refusal: {r:?} token={token}");
+                tracing::warn!(target: "auth", "refusal: {r:?}");
                 Err(AuthError::SignInFailed(r))
             }
             other => other,

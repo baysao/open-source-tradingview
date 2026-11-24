@@ -55,3 +55,57 @@ with a new entry that names the old id. -->
 - **Decision:** `feed=mt5|arm` parses to `Feed::Off`; a request that never calls the chart history (a real-source delta) answers 200 as in Python; anything that calls history answers 502 `RuntimeError: <feed> history is not available in this server (D-001)`. Python quirks are ported as they are before the parity gate (a hole inside the cached lower-bar span is never refetched; the footprint key `bt*1e8 + row`). Two deliberate differences that cannot change a 200 body: the rows cache key includes the feed and is LRU-bounded, and `va=nan` answers 502 `ValueError` (Python writes invalid JSON `NaN`).
 - **Why:** MT5 and arm do not exist in the Rust server (D-001); Python's own text for them depends on the machine. Bit-exact parity is only provable if the quirks are kept until the golden suite is green.
 - **Evidence:** `.paul/phases/02-orderflow/02-ARCHITECTURE.md` decisions 6 and 7; `hub/server.py:925-926`, `hub/orderflow_api.py:120-140`.
+
+## D-010: CSRF by Origin and SameSite, no synchronizer token (C1 resolved by N5)
+- **Date:** 2026-11-23  **Plan:** 03 gate  **Status:** decided (written default at plan time; owner may override)
+- **Decision:** every non-GET to `/api/me*`, `/auth/*` and `/admin/*` requires `Origin` equal to `PUBLIC_ORIGIN` (a missing `Origin` is refused) and JSON where there is a body; the session cookie is `__Host-vtv_session`, `SameSite=Lax`; One Tap uses the JavaScript callback (JSON POST), not Google's form post. No CSRF token is issued, stored or sent.
+- **Why:** the token returned only at sign-in broke every write after a reload or in a second tab (C1); N5 showed `Origin` plus `SameSite=Lax` on `__Host-` cookies already defends modern browsers, and removes the token's state. Rejected: a token re-issued by `/auth/me` (more state, same protection), a double-submit cookie (needs JS-readable cookie).
+- **Evidence:** `.paul/design/reviews/vtradingview/intermediate_zoom_out_report.md` N5; `critic_report.md` C1; spec "Phase 3 facts and decisions".
+
+## D-011: Migrations run on our own runner with plain DDL (pgsqlite limits)
+- **Date:** 2026-11-23  **Plan:** 03 gate (R3)  **Status:** decided (measured)
+- **Decision:** `db.rs` applies embedded `migrations/*.up.sql` in name order, one transaction each, recorded in `schema_migrations` (plain DDL, no function default); migrations use no database functions or defaults; ids (UUID v7) and timestamps are written by Rust. The pgsqlite binary is `PGSQLITE_BIN`, default `~/.local/bin/pgsqlite` (the owner's install); gaffa is `~/.local/bin/gaffa`.
+- **Why:** measured on pgsqlite 0.0.22: no `pg_advisory_lock` (needed by sqlx's migrator), no `decode()`, and on the owner's binary `DEFAULT now()` becomes invalid SQLite, which sqlx's `_sqlx_migrations` table uses. Constraints, cascades, upsert with RETURNING and transactional DDL all work. Rejected: `sqlx::migrate!` with `set_locking(false)` (still the `DEFAULT now()` table), requiring the fork build (owner pointed at the installed binary).
+- **Evidence:** probe scripts in the session scratchpad; spec "Phase 3 facts and decisions".
+
+## D-012: Logs stay public in local mode and move behind admin with auth on
+- **Date:** 2026-11-23  **Plan:** 03 gate (R13, R18)  **Status:** decided (written default)
+- **Decision:** with `AUTH_ENABLED=false` (local, `127.0.0.1`), `/api/logs` and `/api/logs/journal` stay as in Phase 1; with auth on they answer 404 and `/admin/logs`, `/admin/logs/journal` serve admins only (404 to everyone else). The log panel asks `/auth/me` once and polls only the route it may use. `/admin/restart` and `/admin/metrics` are not built in Phase 3.
+- **Why:** local mode has no accounts, and its only user is the machine owner (D-001); on the hosted site logs expose server internals (PROJECT key decision). Polling a 404 forever from every visitor (R13) is removed.
+- **Evidence:** spec "Phase 3 facts and decisions"; `hub/log_panel.js` polls `/api/logs?brief=1` today.
+
+## D-013: Phase 3 ships the sign-in UI; sync waits for Phase 5
+- **Date:** 2026-11-23  **Plan:** 03 gate (R27)  **Status:** decided (written default)
+- **Decision:** `hub/auth.js` and the header sign-in control and avatar menu (sign out, delete account, admin log panel) ship in Phase 3 from mockups 01 and 04; `sync.js` is not loaded before Phase 5; sync status and MT5 bridge entries appear in their phases.
+- **Why:** the Phase 3 accept line (first sign-in creates one user, the second reuses it) needs a way to sign in, and delete account (CUJ 8) belongs with accounts; loading a file that does not exist until Phase 5 is a 404 (R27).
+- **Evidence:** spec items 24, 25; `.paul/design/opendesign/vtradingview/01-signin-avatar-menu.html`, `04-delete-account.html`.
+
+## D-014: Single-table SQL only (pgsqlite through sqlx)
+- **Date:** 2026-11-23  **Plan:** 03 architect grounding  **Status:** decided (measured)
+- **Decision:** every statement the server issues touches exactly one table and uses no `RETURNING`, join, subquery, cast, function or column default. Multi-table work is a sequence of single-table statements in one transaction. An upsert is `INSERT ... ON CONFLICT DO NOTHING` followed by a `SELECT` by key. A uniqueness conflict is SQLSTATE `23505` (Postgres) or `42000` whose message contains `UNIQUE constraint failed` (pgsqlite). The test suite runs on pgsqlite and Postgres 17.
+- **Why:** a sqlx 0.8 probe against the owner's `~/.local/bin/pgsqlite` 0.0.22 decoded single-table reads correctly but returned `RETURNING`, join and subquery columns typed TEXT with binary payloads (undecodable), and casts gave a protocol error; the fork build fixes only plain `RETURNING`. Rejected: requiring the fork (owner uses the installed binary), decoding everything as text (casts break too).
+- **Evidence:** `.paul/phases/03-auth/03-GROUNDING.md` (probe table); spec "Phase 3 facts and decisions".
+
+## D-015: Any desktop exchange attempt burns the code
+- **Date:** 2026-11-24  **Plan:** 03 architect  **Status:** decided (written default at plan time; owner may override)
+- **Decision:** `POST /auth/desktop/exchange` deletes the code row before any check (`rows_affected == 1` wins), so a wrong `desktop_key`, an expired code and a reuse all spend it; the app restarts the flow.
+- **Why:** stops guessing `desktop_key` against a known code; the one-time property rests on the measured exact `rows_affected`. Cost accepted: whoever holds a leaked code can cancel a real sign-in (not complete it).
+- **Evidence:** `.paul/phases/03-auth/03-ARCHITECTURE.md` (Open questions; statement S13); grounding Addendum.
+
+## D-016: No database readiness on /api/health in Phase 3
+- **Date:** 2026-11-24  **Plan:** 03 architect  **Status:** decided (written default)
+- **Decision:** `/api/health` keeps its Phase 1 parity body. With auth on, start-up already fails when the database cannot connect or migrate (`Db::open`); a readiness field arrives with the Phase 4 deploy.
+- **Why:** keeps the parity contract unchanged and puts readiness where the deploy needs it.
+- **Evidence:** `03-ARCHITECTURE.md` Open questions; spec item 20 (superseded).
+
+## D-017: /auth/me carries the public Google client id
+- **Date:** 2026-11-24  **Plan:** 03 architect  **Status:** decided (written default)
+- **Decision:** with auth on, every `/auth/me` body adds `"client_id": "<GOOGLE_CLIENT_ID>"` (additive to the R4 shape); `hub/auth.js` reads it there. No templating of static HTML.
+- **Why:** the client id is public by design (it is in every Google sign-in page), and one request gives the page both the mode and the id.
+- **Evidence:** `03-ARCHITECTURE.md` Open questions; spec "Phase 3 facts and decisions" (Routes).
+
+## D-018: Every pool checks a connection before handing it out (pgsqlite desync after an error)
+- **Date:** 2026-11-24  **Plan:** 03-01 task 1  **Status:** decided (measured)
+- **Decision:** every pool in hub-core and its tests is built from `db::pool_options()`, whose `before_acquire` runs `SELECT 1` and closes any connection that does not answer 1. Inside a transaction, the first error ends the transaction (propagate it; never issue another statement on that transaction).
+- **Why:** on pgsqlite (owner's 0.0.22 and the fork) a statement error leaves the connection's replies one message late: the next re-executed INSERT reported success with 0 rows and wrote nothing, and later statements failed with "expected ParseComplete, got ReadyForQuery". Closing the poisoned connection rolls back its transaction and leaves other connections writable (measured). `SELECT 1` always fails on a poisoned connection (measured). Postgres pays one loopback round trip per acquire. The root fix is being made in `~/project/pgsqlite` (owner's request); the guard stays as defence.
+- **Evidence:** `tests/db_engines.rs::a_failed_statement_does_not_poison_later_writes`; `.paul/phases/03-auth/03-GROUNDING.md` Addendum 2.

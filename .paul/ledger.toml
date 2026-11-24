@@ -63,3 +63,31 @@ phase = 2
 action = "unify"
 date = "2026-11-23"
 result = "UNIFIED: routes + AppState; in-process route tests; contract 40/0/0 with order-flow values equal on closed windows; agent-run browser check (R-6) footprint, SVP, delta on BTCUSD and Deriv gold all 200; key-order comparator fixed (preserve_order) with errata in 02-01/02-02; guards (D-009); L-017, L-018; DEBT-008 owner look; reflect pending (owner)"
+
+[[entry]]
+plan = "03-01"
+phase = 3
+action = "apply"
+date = "2026-11-24"
+result = "APPLIED: 3/3 tasks; AC-1..AC-5 pass on pgsqlite (Postgres not run locally: DEBT-005); AC-6 partial (db listens 0.0.0.0: DEBT-011); 18/18 mutations fail after fixing 2 blind checks; pgsqlite desync after an error found, guarded (D-018); gates fmt/clippy/test 0, workspace 96 passed"
+
+[[entry]]
+plan = "03-01"
+phase = 3
+action = "unify"
+date = "2026-11-24"
+result = "UNIFIED: AC-1..AC-5 pass, AC-6 partial (db binds 0.0.0.0: DEBT-011); 18/18 mutations fail; 9 deviations verified; D-018 confirmed; reflect+rsi deferred to phase close (reflect: pstack); 3 learning candidates stay in SUMMARY; DEBT 0 overdue 8 waiting 3 done"
+
+[[entry]]
+action = "plan"
+phase = 3
+plan = "03-02"
+at = "2026-11-24T10:28:00+07:00"
+note = "/paul-plan 03-02 on a plan that already existed (created 2026-11-24 with 03-01/03-03): validated, not redrafted; debt gate 0 overdue, no waiting row triggers on 03-02 (DEBT-005 named in plan verification, DEBT-009/DEBT-011 have their own triggers); STATE/ROADMAP/paul.toml reconciled to the real position - APPLY mid-flight, tasks 1-2 committed (21c9a8f, 903e1b5, afc575e), task 3 uncommitted"
+
+[[entry]]
+action = "apply"
+phase = 3
+plan = "03-02"
+at = "2026-11-24T14:44:10+07:00"
+result = "APPLIED: 3/3 tasks; AC-1..AC-8 pass on pgsqlite (Postgres in CI: DEBT-005); auth 14, admin 1, gate 4 green; 22/22 mutations fail then restore; fmt/clippy exit 0; feature tree 0; start-up exit 1 names VTV_SECRET_KEY. 9 deviations: table mount fn, fallback prefixes, five test-IdP repairs, over_http, transactional effect with busy retry, S4/S8 renumber (pgsqlite param-order bug, DEBT-012), S4 count not a signal, S11 in-tx, ring fan-out (5 blind checks fixed). Real Google wiring proven live to the redirect; owner round trip needs the redirect URI registered (DEBT-010)."

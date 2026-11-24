@@ -16,7 +16,7 @@ Rust (Axum) server, Google accounts that sync each user's work, and a Tauri 2 de
 
 **v0.1 Hosted launch** (v0.1.0)
 Status: In progress
-Phases: 1 of 4 complete
+Phases: 2 of 4 complete
 
 ## Milestones
 
@@ -30,8 +30,8 @@ Phases: 1 of 4 complete
 | Phase | Name | Milestone | Plans | Status | Completed |
 |-------|------|-----------|-------|--------|-----------|
 | 01 | Rust workspace and hub-server parity | v0.1 | 3 (01-01, 01-02, 01-03) | Complete | 2026-11-23 |
-| 02 | Order flow in Rust | v0.1 | 3 (02-01, 02-02, 02-03) | 3/3 unified; reflect pending | - |
-| 03 | Database and Google sign-in | v0.1 | TBD | Not started | - |
+| 02 | Order flow in Rust | v0.1 | 3 (02-01, 02-02, 02-03) | Complete (reflect deferred) | 2026-11-23 |
+| 03 | Database and Google sign-in | v0.1 | 3 (03-01, 03-02, 03-03) | In progress | - |
 | 04 | Public deploy | v0.1 | TBD | Not started | - |
 | 05 | Synced state | v0.2 | TBD | Not started | - |
 | 06 | Tauri desktop | v0.2 | TBD | Not started | - |
@@ -73,10 +73,12 @@ the right thing, not when the code does.
   redirect sign-in, sessions, admin gate (`/admin/*`), account deletion.
 - **Accept:** first Google sign-in creates exactly one user, the second reuses it; CI green on pgsqlite
   and Postgres 17; non-admins get 404 on every `/admin/*`.
-- **Gate:** CSRF approach (C1: derived token, or drop the token per N5 with `Origin` required); full
+- **Gate: cleared 2026-11-23** (spec "Phase 3 facts and decisions"; D-010 to D-013). Was: CSRF approach (C1: derived token, or drop the token per N5 with `Origin` required); full
   column tables with types, indexes and cascades (R3); request and response shapes for every new route
   (R4); session slide, cookie MAC, key separation, issuer rule (R21); `AUTH_ENABLED` behaviour (R18);
   log panel polling gated on admin status (R13); `sync.js` not loaded before Phase 05 (R27).
+- **Plans (2026-11-24):** 03-01 config, db, migrations; 03-02 auth and routes; 03-03 frontend sign-in,
+  log panel gating, browser check. Contract: `phases/03-auth/03-ARCHITECTURE.md` (D-014 to D-017).
 
 ### Phase 04: Public deploy
 - **Build:** production host, Cloudflare Tunnel `tunnel` line, rate limits, CSP and security headers,

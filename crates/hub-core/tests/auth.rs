@@ -735,6 +735,17 @@ engines!(
         );
         // And the refusal was actually logged (the reason only), or the scan is vacuous.
         assert!(lines.contains("refusal"), "the refusal lines reached the ring");
+        // The contract is stricter than "redaction saved us": the refusal line carries the
+        // variant and nothing else. A credential field, even one the redactor masks, fails.
+        for row in &rows {
+            if row.msg.contains("refusal") {
+                assert!(
+                    !row.msg.contains("token=") && !row.msg.contains("credential="),
+                    "a refusal line must not carry a credential field: {}",
+                    row.msg
+                );
+            }
+        }
         assert!(!lines.contains("g-2@example.test"), "no email in the ring");
         server.abort();
     }

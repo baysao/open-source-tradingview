@@ -811,6 +811,86 @@ Decisions applied: D-001 (local mode, no MT5 ports) and D-002 (protocol kept, up
 
 ### Phase 3: Database and auth
 
+**Phase 3 facts and decisions.** Gate cleared 2026-11-23 (C1 via N5, R3, R4, R13, R18, R21, R27). Where items 19 to 29 below disagree with this block, this block wins.
+*   **SQL through sqlx on pgsqlite: the single-table rule (D-014, measured with a sqlx 0.8 probe):**
+    typed binds and single-table `SELECT`, `UPDATE`, `DELETE`, `count(*)` and transactions decode
+    correctly; `RETURNING`, joins, scalar subqueries and casts return columns mistyped as TEXT (or a
+    protocol error), and a unique violation arrives as SQLSTATE `42000` with `UNIQUE constraint
+    failed` in the message. So every statement touches one table with no `RETURNING`, join, subquery,
+    cast, function or column default; an upsert is `INSERT ... ON CONFLICT DO NOTHING` then a `SELECT`
+    by key; uniqueness conflicts are `23505` or that `42000` message. The suite runs on both engines.
+*   **Database engine (measured 2026-11-23 with `psql` against pgsqlite 0.0.22, both the owner's
+    `~/.local/bin/pgsqlite` and a build of the `fix/insert-select-returning-timestamptz` fork):**
+    `uuid`, `timestamptz`, `boolean`, `bytea`, `text`, `bigint` columns; composite `PRIMARY KEY` and
+    `UNIQUE` enforced; foreign keys enforced with `ON DELETE CASCADE`; `INSERT ... ON CONFLICT ... DO
+    UPDATE ... RETURNING`; `'\x..'::bytea` literals; transactional DDL (`ROLLBACK` undoes `CREATE
+    TABLE`). Not available: `decode()`, `pg_advisory_lock()`, and on the owner's binary `DEFAULT now()`
+    (rewritten into invalid SQLite). Therefore (D-011): migrations use plain DDL with no function
+    defaults, every id and timestamp is written by Rust, and `db.rs` runs its own migration table
+    (`schema_migrations(version bigint PRIMARY KEY, name text NOT NULL, checksum bytea NOT NULL,
+    applied_at timestamptz NOT NULL)`, one transaction per file) instead of `sqlx::migrate!`'s runner,
+    which needs the advisory lock and a `DEFAULT now()` table. The binary is `PGSQLITE_BIN`, default
+    `~/.local/bin/pgsqlite`; gaffa is `~/.local/bin/gaffa`. CI runs pgsqlite and Postgres 17.
+*   **Schema (R3), migration `0001_users`:**
+    `users(id uuid PRIMARY KEY, email text NOT NULL, email_verified boolean NOT NULL, name text NULL,
+    picture text NULL, created_at timestamptz NOT NULL, last_login_at timestamptz NOT NULL)`;
+    `identities(provider text NOT NULL, subject text NOT NULL, user_id uuid NOT NULL REFERENCES users(id)
+    ON DELETE CASCADE, created_at timestamptz NOT NULL, PRIMARY KEY (provider, subject))` with an index
+    on `user_id`; `sessions(id_hash bytea PRIMARY KEY, user_id uuid NOT NULL REFERENCES users(id) ON DELETE
+    CASCADE, created_at timestamptz NOT NULL, expires_at timestamptz NOT NULL, last_seen_at timestamptz
+    NOT NULL, user_agent text NULL)` with an index on `user_id`; `desktop_auth_codes(code_hash bytea
+    PRIMARY KEY, desktop_key_hash bytea NOT NULL, session_id_hash bytea NOT NULL REFERENCES
+    sessions(id_hash) ON DELETE CASCADE, expires_at timestamptz NOT NULL)`. Hashes are SHA-256 (32
+    bytes); `email` is not unique (one Google account can change its address; the identity is the key).
+    Deleting a user removes its identities, sessions and codes by cascade (CUJ 8).
+*   **CSRF (C1, decided by N5, D-010):** no synchronizer token. Every non-GET to `/api/me*`, `/auth/*`
+    and `/admin/*` must carry `Origin` equal to `PUBLIC_ORIGIN` (403 `{"error": "forbidden origin"}`
+    otherwise, a missing `Origin` included) and a JSON body where it has one; the session cookie is
+    `__Host-vtv_session`, `SameSite=Lax`. One Tap uses the JavaScript callback, which POSTs
+    `{"credential": "<id token>"}` as JSON from the page, so Google's `g_csrf_token` form post is not
+    used. The `{user, csrf_token}` return, the stored token hash and the `X-CSRF-Token` header are
+    removed from this spec; reload and second-tab writes need nothing extra.
+*   **Sessions and keys (R21):** `VTV_SECRET_KEY` is at least 32 random bytes, base64url, required when
+    auth is on. Two keys are derived with HKDF-SHA256 (salt `vtv`): info `oauth-cookie-mac` (HMAC-SHA256
+    of the sign-in cookie) and info `reserved` (unused in Phase 3). The sign-in cookie
+    `__Host-vtv_oauth` holds base64url JSON `{state, nonce, verifier, client, dk_hash, exp}` plus its MAC,
+    `HttpOnly`, `Secure`, `SameSite=Lax`, `Path=/`, `Max-Age=600`; it is cleared by the callback. A
+    session lasts 30 days from its last slide; it slides (new `expires_at`, `last_seen_at`) at most once
+    per 24 h, on the first authenticated request after that. JWKS: cached for its `Cache-Control`
+    max-age clamped to 5 min to 24 h; an unknown `kid` refetches at most once per minute.
+    `GOOGLE_ISSUER`, `GOOGLE_JWKS_URL`, `GOOGLE_TOKEN_URL` and `GOOGLE_AUTH_URL` are read only in
+    builds with the `test-idp` feature; release builds use Google's and accept issuers
+    `accounts.google.com` and `https://accounts.google.com` only.
+*   **Configuration and state (R18):** `AUTH_ENABLED` default `false` (local mode, D-001: no database,
+    no sign-in, `127.0.0.1` only, `/api/logs` served as today). With `AUTH_ENABLED=true`, start-up
+    requires `DATABASE_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `VTV_SECRET_KEY` and an
+    `https://` `PUBLIC_ORIGIN`, and still binds `127.0.0.1` (ingress through the tunnel); `ADMIN_EMAILS`
+    is a comma list, empty by default. Each missing variable fails start-up with its name.
+    `AppState` gains `auth: Option<Auth>` (the pool, keys, JWKS cache, config); `app(state)` stays the
+    only router. Local-mode logs (D-012): with auth off `/api/logs` and `/api/logs/journal` stay as in
+    Phase 1; with auth on they answer 404 and the same handlers serve `/admin/logs` and
+    `/admin/logs/journal` to admins only.
+*   **Routes (R4):** `GET /auth/me` returns `{"auth": false}` in local mode, `{"auth": true, "user":
+    null}` signed out, and `{"auth": true, "user": {"id", "email", "name", "picture"}, "admin": bool}`
+    signed in. `POST /auth/google/onetap` `{"credential"}` and `POST /auth/desktop/exchange` `{"code",
+    "desktop_key"}` return `{"user": {...}, "admin": bool}` and set the session cookie; a bad token or
+    code answers 401 `{"error": "sign-in failed"}` (the reason is logged, not returned).
+    `GET /auth/google/start?client=web|desktop&dk=<desktop_key>` redirects (302) to Google;
+    `GET /auth/google/callback?state&code` redirects to `/hub.html` (web) or
+    `vtradingview://auth?code=<code>` (desktop), or to `/hub.html?signin=failed` on failure.
+    `POST /auth/logout` returns 204 and clears the cookie. `DELETE /api/me` returns 204, deletes the user
+    (cascade) and clears the cookie. `GET /admin/logs`, `POST /admin/logs/journal` keep the Phase 1
+    bodies; `/admin/restart` and `/admin/metrics` are not in Phase 3 (restart has no target since D-001;
+    metrics come with the TTFC beacon in Phase 4). Signed-out or non-admin requests to `/admin/*`
+    answer 404 `{"error": "not found"}`.
+*   **Frontend in Phase 3 (R13, R27):** `hub/auth.js` and the header sign-in control and avatar menu
+    ship in Phase 3 (mockup `01-signin-avatar-menu.html`, delete account `04-delete-account.html`). The
+    menu has sign out, delete account, and for admins the log panel; sync status (Phase 5) and MT5
+    bridges (Phase 7) are absent until their phase. `sync.js` is not loaded before Phase 5. The log
+    panel asks `/auth/me` once: `auth: false` polls `/api/logs`, an admin polls `/admin/logs`, anyone
+    else gets no log entry and no polling.
+
+
 #### 19. `migrations/0001_users.up.sql`, `migrations/0001_users.down.sql` (C)
 *   **Type / Scope**: schema.
 *   **Proposed Changes**: `users`, `identities` (unique `(provider, subject)`), `sessions`,
@@ -829,8 +909,8 @@ Decisions applied: D-001 (local mode, no MT5 ports) and D-002 (protocol kept, up
     nonce and PKCE; code exchange. `session.rs`: create, load (extractor `SessionUser`), slide, revoke.
     `csrf.rs`: token issue plus header and `Origin` check. `desktop.rs`: one-time code issue and exchange
     bound to `desktop_key`. `admin.rs`: `AdminUser` extractor that answers 404 on failure. For tests,
-    the JWKS URL, issuer and token endpoint come from `Config` (`GOOGLE_JWKS_URL`, `GOOGLE_ISSUER`,
-    `GOOGLE_TOKEN_URL`), and a `test-idp` cargo feature adds a local signer that `auth.rs` and
+    the JWKS URL, issuer, auth and token endpoints come from `Config` only with the `test-idp` cargo
+    feature (R21 above), which also adds a local signer that `auth.rs` and
     `sync_harness.js` use; release builds are compiled without that feature and refuse a non-Google
     issuer.
 
