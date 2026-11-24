@@ -77,7 +77,7 @@ kind = "artifact"
 origin = "02-01 unify"
 owner = "owner"
 trigger = "event:phase02-commit"
-status = "open"
+status = "done"
 check = { type = "command", run = "git cat-file -e HEAD:crates/hub-core/src/orderflow/calc.rs && git cat-file -e HEAD:crates/hub-core/tests/orderflow_golden.rs && git cat-file -e HEAD:crates/hub-core/tests/fixtures/orderflow/py_numeric.json && git cat-file -e HEAD:.paul/phases/02-orderflow/02-01-SUMMARY.md && git cat-file -e HEAD:crates/hub-core/src/orderflow/trades.rs && git cat-file -e HEAD:crates/hub-core/tests/orderflow_replay.rs && git cat-file -e HEAD:.paul/phases/02-orderflow/02-02-SUMMARY.md && git cat-file -e HEAD:crates/hub-core/src/routes/orderflow.rs && git cat-file -e HEAD:.paul/phases/02-orderflow/02-03-SUMMARY.md && echo phase02-landed", expect = "phase02-landed" }
 
 [[debt]]
@@ -89,3 +89,46 @@ owner = "owner"
 trigger = "event:owner-ui-look"
 status = "open"
 check = { type = "text_present", path = ".paul/phases/02-orderflow/02-03-SUMMARY.md", pattern = "Owner look: done" }
+
+[[debt]]
+id = "DEBT-009"
+title = "Retrieve the modern-web-guidance guides for 03-03 (menu button, modal dialog, third-party script loading) before its APPLY; npx was denied at plan time on 2026-11-24"
+kind = "tech"
+origin = "03-03 plan, guides unresolved (denied)"
+owner = "owner"
+trigger = "event:npx-allowed"
+blocking = "phase-03-exit"
+status = "open"
+check = { type = "text_present", path = ".paul/phases/03-auth/03-03-SUMMARY.md", pattern = "Modern Web Guidance: retrieved" }
+
+[[debt]]
+id = "DEBT-010"
+title = "Owner look at sign-in with a real Google account on the hosted site (One Tap, button, avatar menu, delete account), what the test-idp browser check cannot judge"
+kind = "uat"
+origin = "03-03 checkpoint agent-run under R-6"
+owner = "owner"
+trigger = "phase:04"
+status = "open"
+check = { type = "text_present", path = ".paul/phases/03-auth/03-03-SUMMARY.md", pattern = "Owner look with Google: done" }
+
+[[debt]]
+id = "DEBT-011"
+title = "The dev db (scripts/dev.sh _svc db) listens on 127.0.0.1 only: pgsqlite 0.0.22 binds 0.0.0.0 with no password and has no listen-address option (fix being made in ~/project/pgsqlite, then reinstall ~/.local/bin/pgsqlite)"
+kind = "tech"
+origin = "03-01 task 3 (security review, measured with netstat)"
+owner = "owner"
+trigger = "event:pgsqlite-host-option"
+blocking = "phase-03-exit"
+status = "open"
+check = { type = "command", run = "bash -c \"C:/Users/Dell/.local/bin/pgsqlite.exe --help 2>/dev/null | grep -q -- --host && echo HOST-OPTION-PRESENT || echo HOST-OPTION-ABSENT\"", expect = "HOST-OPTION-PRESENT" }
+
+[[debt]]
+id = "DEBT-012"
+title = "pgsqlite 0.0.22 mis-maps UPDATE parameters when the placeholder numbers are out of text order (UPDATE t SET a = $2 WHERE id = $1 matched 0 rows and reported rows_affected 0; the same statement with sequential numbers matched and persisted). Worked around in S4 and S8; the fix belongs in ~/project/pgsqlite so future SQL need not obey this rule"
+kind = "tech"
+origin = "03-02 task 3 (measured with probes: UPDATE ... WHERE id = $1 after SET x = $2 hit 0 rows; renumbered, 1 row)"
+owner = "owner"
+trigger = "event:pgsqlite-param-order-fix"
+status = "open"
+check = { type = "command", run = "bash -c \"C:/Users/Dell/.local/bin/pgsqlite.exe --help 2>&1 | head -1 | grep -q 0.0.23 && echo ENGINE-PARAM-ORDER-FIXED || echo STILL-OLD-BUILD\"", expect = "ENGINE-PARAM-ORDER-FIXED" }
+note = "The check reads the installed engine version: it passes when a build newer than 0.0.22 replaces the one that mis-maps parameters. S4 and S8 keep sequential placeholders until then (their comments say why). Also measured: UPDATE rows_affected on pgsqlite is not a usable signal for an unchanged row, so the sign-in effect checks S7 instead."

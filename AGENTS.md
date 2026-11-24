@@ -12,6 +12,18 @@ Follow the steps in order, run each check, and report what passed and what did n
   tunnel for remote MT5.
 - Ask the user before installing MetaTrader 5, changing their SSH config, or doing anything on their server.
 
+## Skills to load at the start of every session
+
+Load these before the first task, every session, without being asked:
+
+- **`context-budget`**: keeps the working context inside its budget (what to read, what to summarize, when to
+  stop and delegate). Load first, it governs how the rest of the session reads files.
+- **`caveman`**: the full caveman style for prose this repo produces (commit messages, plan text, summaries).
+  Use the complete style, not a light version.
+- **`ponytail`**: the review and debt discipline for changes and deferrals.
+
+If a skill is not installed in the agent's environment, say so once and continue; do not silently skip it.
+
 ## 1. Free feeds (always do this first)
 Two servers serve the same hub. The Rust server (branch `arch/axum-tauri`) is the new one; the Python server
 stays until the Rust one has replaced it, and is the only one with MT5 until Phase 07 (see sections 2 and 3).
