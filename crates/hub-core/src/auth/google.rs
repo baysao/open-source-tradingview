@@ -13,6 +13,7 @@ use chrono::{DateTime, Duration, Utc};
 use reqwest::Client as HttpClient;
 
 use crate::auth::rules::{jwks_needs_fetch, jwks_ttl, KeySet};
+#[cfg(feature = "test-idp")]
 use crate::auth::test_idp::{Claims, TestIdp};
 
 /// What a token exchange answers: the id token to verify.
@@ -44,16 +45,16 @@ impl Idp {
     /// GET the JWKS document and decode it into a [`KeySet`].
     pub(crate) async fn fetch_jwks(&self) -> JwksFetch {
         match self {
-            Idp::Http {
-                http, jwks_url, ..
-            } => {
+            Idp::Http { http, jwks_url, .. } => {
                 let resp = match http.get(jwks_url).send().await {
                     Ok(r) => r,
                     Err(_) => return JwksFetch::Err,
                 };
-                let ttl = jwks_ttl(resp.headers().get(reqwest::header::CACHE_CONTROL).and_then(
-                    |v| v.to_str().ok(),
-                ));
+                let ttl = jwks_ttl(
+                    resp.headers()
+                        .get(reqwest::header::CACHE_CONTROL)
+                        .and_then(|v| v.to_str().ok()),
+                );
                 let doc: serde_json::Value = match resp.json().await {
                     Ok(d) => d,
                     Err(_) => return JwksFetch::Err,

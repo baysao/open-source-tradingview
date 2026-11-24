@@ -120,9 +120,7 @@ pub(crate) fn verify_id_token(
 
     let audience_ok = match claims.aud.as_ref() {
         Some(Value::String(aud)) => aud == x.client_id,
-        Some(Value::Array(items)) => items
-            .iter()
-            .any(|v| v.as_str() == Some(x.client_id)),
+        Some(Value::Array(items)) => items.iter().any(|v| v.as_str() == Some(x.client_id)),
         _ => false,
     };
     if !audience_ok {
@@ -311,8 +309,8 @@ impl OauthTicket {
             dk_hash,
             exp: self.exp,
         };
-        let payload = URL_SAFE_NO_PAD
-            .encode(serde_json::to_vec(&wire).expect("a ticket always serializes"));
+        let payload =
+            URL_SAFE_NO_PAD.encode(serde_json::to_vec(&wire).expect("a ticket always serializes"));
         let mut mac =
             HmacSha256::new_from_slice(&keys.oauth_mac).expect("HMAC accepts any key length");
         mac.update(payload.as_bytes());
@@ -376,19 +374,15 @@ mod tests {
 
     const CLIENT: &str = "client-id";
 
-    fn issuers() -> Vec<String> {
-        vec![
-            "https://accounts.google.com".to_string(),
-            "accounts.google.com".to_string(),
-        ]
-    }
-
     fn key_set() -> KeySet {
         // Real key material is unnecessary: the signature edge is covered by
         // `auth_connectivity_and_tokens` over a real socket. Here the checks are order and
         // refusal reasons, so a set with one decodable-format key entry is enough.
         let mut ks = KeySet::new();
-        ks.insert("k0", DecodingKey::from_base64_secret("c29tZVJhbmRvbUJ5dGVz").expect("base64"));
+        ks.insert(
+            "k0",
+            DecodingKey::from_base64_secret("c29tZVJhbmRvbUJ5dGVz").expect("base64"),
+        );
         ks
     }
 
@@ -411,7 +405,10 @@ mod tests {
 
     #[test]
     fn jwks_ttl_reads_max_age_and_clamps() {
-        assert_eq!(jwks_ttl(Some("public, max-age=600")), Duration::seconds(600));
+        assert_eq!(
+            jwks_ttl(Some("public, max-age=600")),
+            Duration::seconds(600)
+        );
         assert_eq!(jwks_ttl(Some("max-age=1")), Duration::seconds(300)); // clamped up
         assert_eq!(jwks_ttl(Some("max-age=999999")), Duration::seconds(86_400));
         assert_eq!(jwks_ttl(Some("no-cache")), Duration::seconds(300)); // absent
@@ -437,7 +434,12 @@ mod tests {
         assert!(!jwks_needs_fetch(Some(fresh), Some(now), false, now));
 
         // Fresh but unknown kid, last attempt over 60 s old: fetch once more.
-        assert!(jwks_needs_fetch(Some(fresh), Some(now - Duration::seconds(61)), false, now));
+        assert!(jwks_needs_fetch(
+            Some(fresh),
+            Some(now - Duration::seconds(61)),
+            false,
+            now
+        ));
         // Unknown kid with no recorded attempt: fetch.
         assert!(jwks_needs_fetch(Some(fresh), None, false, now));
 
@@ -503,10 +505,7 @@ mod tests {
             parse_client(Some("desktop"), Some("has space inside_123456789")),
             Err(Refusal::Malformed)
         );
-        assert_eq!(
-            parse_client(Some("desktop"), None),
-            Err(Refusal::Malformed)
-        );
+        assert_eq!(parse_client(Some("desktop"), None), Err(Refusal::Malformed));
         assert_eq!(parse_client(Some("app"), None), Err(Refusal::Malformed));
     }
 
@@ -527,7 +526,12 @@ mod tests {
         );
         // In window, right key: ok.
         assert_eq!(
-            decide_exchange(&stored, now + Duration::seconds(60), "good-key-abcdefghijklmnop", now),
+            decide_exchange(
+                &stored,
+                now + Duration::seconds(60),
+                "good-key-abcdefghijklmnop",
+                now
+            ),
             Ok(())
         );
     }
@@ -570,8 +574,7 @@ mod tests {
         let keys = Keys::derive(b"secret");
         let dk = KeyHash::of_key("desktop-key-abcdefghijklmnop");
         let t = ticket(Client::Desktop(dk), Some(dk));
-        let opened =
-            OauthTicket::open(&t.seal(&keys), &keys, 1_700_000_000).expect("opens");
+        let opened = OauthTicket::open(&t.seal(&keys), &keys, 1_700_000_000).expect("opens");
         assert_eq!(opened, t);
         assert!(opened.dk_hash.is_some());
     }
@@ -592,11 +595,7 @@ mod tests {
         let (payload, sig) = sealed.split_once('.').unwrap();
         let mut bytes = URL_SAFE_NO_PAD.decode(payload).unwrap();
         bytes[0] ^= 0x01;
-        let forged = format!(
-            "{}.{}",
-            URL_SAFE_NO_PAD.encode(&bytes),
-            sig
-        );
+        let forged = format!("{}.{}", URL_SAFE_NO_PAD.encode(&bytes), sig);
         assert_eq!(
             OauthTicket::open(&forged, &keys, 1_700_000_000),
             Err(Refusal::TicketBadMac)

@@ -35,18 +35,20 @@ use axum::Router;
 use bars_cache::BarsCache;
 use catalog::Catalog;
 use clock::Clock;
-use config::{Config, ConfigError};
+use config::{AuthMode, Config, ConfigError};
+use db::Db;
 use feeds::{FeedHub, Limits};
 use logbus::{Line, LogBus};
 use sources::{Endpoints, Sources};
 use std::collections::HashMap;
+use std::fmt;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::TcpListener;
 use tokio::task::JoinHandle;
 
 /// Everything a route needs. Every field is a cheap clone. 01-02 adds `clock` and `feeds`, 01-03
-/// adds `logs`, Phase 03 adds `db`.
+/// adds `logs`, 03-02 adds `auth` (present only in hosted mode).
 #[derive(Clone)]
 pub struct AppState {
     pub cfg: Arc<Config>,
@@ -56,29 +58,133 @@ pub struct AppState {
     pub feeds: FeedHub,
     pub logs: LogBus,
     pub orderflow: orderflow::OrderFlow,
+    pub auth: Option<auth::Auth>,
     limiter: net::RateLimiter,
     sources: Arc<Sources>,
 }
 
+/// Why [`AppState::start`] could not bring the state up. `Display` names the missing environment
+/// variable, the invalid one, or the failing migration; secret values never appear.
+#[derive(Debug)]
+pub enum StartError {
+    /// The environment was already wrong (`Config::from_lookup` failed).
+    Config(ConfigError),
+    /// The database could not be opened or migrated.
+    Db(db::DbError),
+}
+
+impl fmt::Display for StartError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            StartError::Config(e) => write!(f, "{e}"),
+            StartError::Db(e) => write!(f, "{e}"),
+        }
+    }
+}
+
+impl std::error::Error for StartError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            StartError::Config(e) => Some(e),
+            StartError::Db(e) => Some(e),
+        }
+    }
+}
+
+impl From<ConfigError> for StartError {
+    fn from(e: ConfigError) -> StartError {
+        StartError::Config(e)
+    }
+}
+
+impl From<db::DbError> for StartError {
+    fn from(e: db::DbError) -> StartError {
+        StartError::Db(e)
+    }
+}
+
 impl AppState {
     /// The real upstream endpoints. No network I/O happens here.
+    ///
+    /// Hosted mode is not served by this constructor: it needs the database, so it goes through
+    /// [`AppState::start`] (which opens and migrates). `build` refuses it with the instruction.
     pub fn build(cfg: Config) -> Result<AppState, ConfigError> {
-        // Hosted mode is served from 03-02 on (AppState::start); until then it is refused, so no
-        // build can serve the local log routes with auth on (D-012).
         if !cfg.auth.is_local() {
-            return Err(ConfigError::AuthNotAvailable);
+            return Err(ConfigError::Invalid {
+                key: "AUTH_ENABLED",
+                value: "use AppState::start".into(),
+            });
         }
         let dir = cfg.log_dir.clone();
-        Ok(AppState::assemble(cfg, Endpoints::default(), Some(&dir)))
+        Ok(AppState::assemble(
+            cfg,
+            Endpoints::default(),
+            Some(&dir),
+            None,
+        ))
     }
 
-    /// Same as [`build`](Self::build) with the providers pointed at `endpoints` (tests use fakes).
+    /// Local mode with the providers pointed at `endpoints` (tests use fakes).
     /// The log stays in memory here (no `hub.log`), so tests never write files.
     pub fn build_with(cfg: Config, endpoints: Endpoints) -> AppState {
-        AppState::assemble(cfg, endpoints, None)
+        AppState::assemble(cfg, endpoints, None, None)
     }
 
-    fn assemble(cfg: Config, endpoints: Endpoints, log_dir: Option<&std::path::Path>) -> AppState {
+    /// Local mode with a fully constructed [`Auth`] (test suites: the in-memory Idp and the manual
+    /// clock). Panics on a local config: only tests that deliberately build hosted state call it.
+    #[cfg(feature = "test-idp")]
+    pub fn build_with_auth(cfg: Config, endpoints: Endpoints, auth: auth::Auth) -> AppState {
+        assert!(
+            !cfg.auth.is_local(),
+            "build_with_auth is for hosted configs"
+        );
+        AppState::assemble(cfg, endpoints, None, Some(auth))
+    }
+
+    /// The one entry point that may serve hosted mode: local mode never touches the network,
+    /// hosted mode opens and migrates the account database first, then builds the [`auth::Auth`]
+    /// service with the production Idp and the wall clock.
+    pub async fn start(cfg: Config) -> Result<AppState, StartError> {
+        if cfg.auth.is_local() {
+            let dir = cfg.log_dir.clone();
+            return Ok(AppState::assemble(
+                cfg,
+                Endpoints::default(),
+                Some(&dir),
+                None,
+            ));
+        }
+        let AuthMode::Google(settings) = &cfg.auth else {
+            unreachable!("not local means hosted")
+        };
+        let origin = cfg.public_origin.clone();
+        let redirect_uri = format!("{}/auth/google/callback", origin.trim_end_matches('/'));
+        let db = Db::open(&settings.database_url).await?;
+        let auth = auth::Auth::new(
+            settings.clone(),
+            &origin,
+            db,
+            auth::AuthDeps::production(settings, redirect_uri),
+        );
+        let dir = cfg.log_dir.clone();
+        tracing::info!(
+            target: "server",
+            "auth: hosted mode on (Google sign-in, database connected)"
+        );
+        Ok(AppState::assemble(
+            cfg,
+            Endpoints::default(),
+            Some(&dir),
+            Some(auth),
+        ))
+    }
+
+    fn assemble(
+        cfg: Config,
+        endpoints: Endpoints,
+        log_dir: Option<&std::path::Path>,
+        auth: Option<auth::Auth>,
+    ) -> AppState {
         let sources = Arc::new(Sources::new(endpoints));
         let catalog = Catalog::new(cfg.http_port);
         let bars = BarsCache::new(sources.clone());
@@ -119,6 +225,7 @@ impl AppState {
             feeds,
             logs,
             orderflow,
+            auth,
             limiter: net::RateLimiter::new(20.0, 40.0),
             sources,
         }
@@ -134,6 +241,26 @@ impl AppState {
             self.catalog.clone(),
             self.bars.clone(),
         ));
+        // Hosted mode only: expire dead sessions and oauth tickets once an hour (03-02).
+        if let Some(auth) = self.auth.clone() {
+            tasks.push(tokio::spawn(async move {
+                let mut tick = tokio::time::interval(std::time::Duration::from_secs(3600));
+                tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+                tick.tick().await; // the first tick completes immediately
+                loop {
+                    tick.tick().await;
+                    match auth.sweep_expired().await {
+                        Ok(n) if n > 0 => tracing::info!(
+                            target: "server",
+                            "auth: expired {} session(s) and ticket(s)",
+                            n
+                        ),
+                        Ok(_) => {}
+                        Err(e) => tracing::warn!(target: "server", "auth: sweep failed: {e:?}"),
+                    }
+                }
+            }));
+        }
         let clock = self.clock.clone();
         tasks.push(tokio::spawn(async move {
             match clock.measure("time.windows.com:123").await {
@@ -225,7 +352,7 @@ mod build_tests {
     use super::*;
 
     #[test]
-    fn build_refuses_hosted_mode_until_auth_exists() {
+    fn build_refuses_hosted_mode() {
         let vars = [
             ("AUTH_ENABLED", "true"),
             ("DATABASE_URL", "postgres://127.0.0.1:1/x"),
@@ -245,7 +372,10 @@ mod build_tests {
         .expect("hosted config parses");
         assert!(matches!(
             AppState::build(cfg),
-            Err(ConfigError::AuthNotAvailable)
+            Err(ConfigError::Invalid {
+                key: "AUTH_ENABLED",
+                ..
+            })
         ));
         // The local-mode half is not built here: `build` opens hub/logs/hub.log (L-008).
     }

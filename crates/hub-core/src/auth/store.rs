@@ -46,7 +46,8 @@ const S14: &str = "DELETE FROM sessions WHERE expires_at < $1";
 
 /// Every statement this file issues, for the shape test.
 #[cfg(test)]
-pub(crate) const STATEMENTS: &[&str] = &[S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14];
+pub(crate) const STATEMENTS: &[&str] =
+    &[S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14];
 
 /// A user row as S7 reads it.
 pub(crate) struct UserRow {
@@ -172,9 +173,14 @@ pub(crate) async fn session_row(
     pool: &PgPool,
     id_hash: &SessionHash,
 ) -> Result<Option<SessionRow>, sqlx::Error> {
-    sqlx::query_as::<_, (uuid::Uuid, chrono::DateTime<chrono::Utc>, chrono::DateTime<chrono::Utc>)>(
-        S6,
-    )
+    sqlx::query_as::<
+        _,
+        (
+            uuid::Uuid,
+            chrono::DateTime<chrono::Utc>,
+            chrono::DateTime<chrono::Utc>,
+        ),
+    >(S6)
     .bind(id_hash.as_bytes())
     .fetch_optional(pool)
     .await
@@ -187,7 +193,10 @@ pub(crate) async fn session_row(
     })
 }
 
-pub(crate) async fn user_row(pool: &PgPool, id: uuid::Uuid) -> Result<Option<UserRow>, sqlx::Error> {
+pub(crate) async fn user_row(
+    pool: &PgPool,
+    id: uuid::Uuid,
+) -> Result<Option<UserRow>, sqlx::Error> {
     sqlx::query_as::<_, (uuid::Uuid, String, bool, Option<String>, Option<String>)>(S7)
         .bind(id)
         .fetch_optional(pool)
@@ -260,9 +269,7 @@ pub(crate) async fn code_row(
         .await
         .map(|r| {
             r.map(|(k, s, expires_at)| CodeRow {
-                desktop_key_hash: KeyHash::from_bytes(
-                    k.try_into().expect("key hash is 32 bytes"),
-                ),
+                desktop_key_hash: KeyHash::from_bytes(k.try_into().expect("key hash is 32 bytes")),
                 session_id_hash: SessionHash::from_bytes(
                     s.try_into().expect("session hash is 32 bytes"),
                 ),

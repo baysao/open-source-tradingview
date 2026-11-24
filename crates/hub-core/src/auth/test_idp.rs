@@ -71,8 +71,8 @@ impl IdpKeys {
         static KEYS: OnceLock<IdpKeys> = OnceLock::new();
         KEYS.get_or_init(|| {
             let mk = |kid: &str| {
-                let private = RsaPrivateKey::new(&mut rsa::rand_core::OsRng, 2048)
-                    .expect("rsa keygen");
+                let private =
+                    RsaPrivateKey::new(&mut rsa::rand_core::OsRng, 2048).expect("rsa keygen");
                 let public: RsaPublicKey = private.clone().into();
                 IdpKey {
                     kid: kid.to_string(),
@@ -186,7 +186,10 @@ impl TestIdp {
     /// RS256 signature over the signing input; exposed for tamper tests.
     pub fn sign(&self, signing_input: &[u8], kid: usize) -> String {
         let keys = IdpKeys::get();
-        keys.0[kid % keys.0.len()].signing.sign(signing_input).to_string()
+        keys.0[kid % keys.0.len()]
+            .signing
+            .sign(signing_input)
+            .to_string()
     }
 
     /// The `kid` values the JWKS serves, in order.
@@ -216,7 +219,10 @@ impl TestIdp {
             payload["exp"] = json!(exp);
         }
         // `Some(None)` deliberately omits `nonce`; `None` falls back to the caller's nonce.
-        let n = claims.nonce.clone().or_else(|| nonce.map(|n| Some(n.to_string())));
+        let n = claims
+            .nonce
+            .clone()
+            .or_else(|| nonce.map(|n| Some(n.to_string())));
         if let Some(Some(n)) = n {
             payload["nonce"] = json!(n);
         }
@@ -234,7 +240,8 @@ impl TestIdp {
     pub fn id_token_unknown_kid(&self, claims: &Claims, nonce: Option<&str>) -> String {
         let keys = IdpKeys::get();
         let mut c = claims.clone();
-        c.iss.get_or_insert_with(|| "https://accounts.google.com".into());
+        c.iss
+            .get_or_insert_with(|| "https://accounts.google.com".into());
         let token = self.id_token(&c, nonce, 1);
         // Signed by key 1 but labelled kid 0 in the header: unknown until the refetch serves it.
         token.replacen(&keys.0[1].kid, &keys.0[0].kid, 1)
@@ -242,17 +249,14 @@ impl TestIdp {
 
     /// Stores an authorization code the way `/authorize` would.
     pub fn grant_code(&self, code: &str, challenge: &str, nonce: &str, redirect_uri: &str) {
-        self.codes
-            .lock()
-            .unwrap_or_else(|p| p.into_inner())
-            .insert(
-                code.to_string(),
-                CodeGrant {
-                    challenge: challenge.to_string(),
-                    nonce: nonce.to_string(),
-                    redirect_uri: redirect_uri.to_string(),
-                },
-            );
+        self.codes.lock().unwrap_or_else(|p| p.into_inner()).insert(
+            code.to_string(),
+            CodeGrant {
+                challenge: challenge.to_string(),
+                nonce: nonce.to_string(),
+                redirect_uri: redirect_uri.to_string(),
+            },
+        );
     }
 }
 
@@ -337,7 +341,10 @@ struct AuthorizeQuery {
     redirect_uri: String,
 }
 
-async fn authorize(State(idp): State<TestIdp>, axum::extract::Query(q): axum::extract::Query<AuthorizeQuery>) -> Response {
+async fn authorize(
+    State(idp): State<TestIdp>,
+    axum::extract::Query(q): axum::extract::Query<AuthorizeQuery>,
+) -> Response {
     let code = URL_SAFE_NO_PAD.encode({
         let mut b = [0u8; 24];
         getrandom::getrandom(&mut b).expect("os random");
@@ -382,7 +389,10 @@ mod tests {
     fn two_keys_exist_and_sign_differently() {
         let idp = TestIdp::new();
         assert_ne!(idp.sign(b"x", 0), idp.sign(b"x", 1));
-        assert_eq!(idp.kids(), ["test-key-0".to_string(), "test-key-1".to_string()]);
+        assert_eq!(
+            idp.kids(),
+            ["test-key-0".to_string(), "test-key-1".to_string()]
+        );
     }
 
     #[test]

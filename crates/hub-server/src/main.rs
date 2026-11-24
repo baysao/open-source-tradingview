@@ -36,7 +36,7 @@ async fn main() -> ExitCode {
     };
     let addr = cfg.bind_addr();
     let port = cfg.http_port;
-    let state = match AppState::build(cfg) {
+    let state = match AppState::start(cfg).await {
         Ok(s) => s,
         Err(e) => {
             eprintln!("hub-server: {e}");

@@ -24,12 +24,15 @@ use chrono::{DateTime, Duration, Utc};
 use serde::Serialize;
 use uuid::Uuid;
 
-use crate::auth::google::{memory_id_token, memory_keys, Idp, JwksCache};
+#[cfg(feature = "test-idp")]
+use crate::auth::google::{memory_id_token, memory_keys};
+use crate::auth::google::{Idp, JwksCache};
 use crate::auth::ids::{CodeHash, DesktopCode, Keys, SessionHash, SessionId};
 use crate::auth::rules::{
     decide_exchange, is_admin, parse_client, session_check, verify_id_token, Client, Expect,
     OauthTicket, Refusal, SessionCheck, VerifiedIdentity,
 };
+#[cfg(feature = "test-idp")]
 use crate::auth::test_idp::{ManualClock, TestIdp};
 use crate::config::AuthSettings;
 use crate::db::{now_micros, Db};
@@ -119,7 +122,6 @@ impl SetCookie {
             .any(|v| v.to_str().is_ok_and(|s| s.starts_with(SESSION_COOKIE)))
     }
 
-    #[cfg(feature = "test-idp")]
     pub fn values(&self) -> Vec<String> {
         self.0
             .iter()
@@ -136,16 +138,9 @@ pub struct SignedIn {
 
 /// Where the oauth callback lands. The oauth cookie is cleared in all three.
 pub enum Landing {
-    Web {
-        cookies: SetCookie,
-    },
-    Desktop {
-        code: String,
-        cookies: SetCookie,
-    },
-    Failed {
-        cookies: SetCookie,
-    },
+    Web { cookies: SetCookie },
+    Desktop { code: String, cookies: SetCookie },
+    Failed { cookies: SetCookie },
 }
 
 /// Why an auth call failed at the handler level (the refusal itself logs, never renders).
@@ -239,21 +234,13 @@ pub struct CallbackParams<'a> {
 }
 
 impl Auth {
-    pub fn new(
-        settings: Arc<AuthSettings>,
-        public_origin: &str,
-        db: Db,
-        deps: AuthDeps,
-    ) -> Auth {
+    pub fn new(settings: Arc<AuthSettings>, public_origin: &str, db: Db, deps: AuthDeps) -> Auth {
         let keys = Keys::derive(settings.secret_key.bytes());
         let jwks = JwksCache::new();
         // The memory Idp never fetches: its keys are installed fresh at build (feature only).
+        #[cfg(feature = "test-idp")]
         if let Idp::Memory(idp) = &deps.idp {
-            jwks.install(
-                memory_keys(idp),
-                Duration::hours(24),
-                deps.clock.now(),
-            );
+            jwks.install(memory_keys(idp), Duration::hours(24), deps.clock.now());
         }
         Auth(Arc::new(Inner {
             settings,
@@ -288,11 +275,7 @@ impl Auth {
         dk: Option<&str>,
     ) -> Result<(String, SetCookie), AuthError> {
         let parsed = parse_client(client, dk).map_err(|_| AuthError::BadRequest)?;
-        let (state, nonce, verifier) = (
-            b64url_random(32),
-            b64url_random(32),
-            b64url_random(64),
-        );
+        let (state, nonce, verifier) = (b64url_random(32), b64url_random(32), b64url_random(64));
         let now = self.now();
         let (client_for_ticket, dk_hash) = match &parsed {
             Client::Web => ("web".to_string(), None),
@@ -307,7 +290,8 @@ impl Auth {
             dk_hash,
             exp: now.timestamp() + OAUTH_COOKIE_TTL,
         };
-        let cookie_value = format!("{}={}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age={}",
+        let cookie_value = format!(
+            "{}={}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age={}",
             OAUTH_COOKIE,
             ticket.seal(&self.0.keys),
             OAUTH_COOKIE_TTL,
@@ -416,9 +400,7 @@ impl Auth {
                     let user = store::user_row(pool, existing.user_id)
                         .await
                         .map_err(db_unavailable)?
-                        .ok_or_else(|| {
-                            AuthError::Unavailable("user row vanished".to_string())
-                        })?;
+                        .ok_or_else(|| AuthError::Unavailable("user row vanished".to_string()))?;
                     let session_id = SessionId::fresh();
                     let (cookie_header, id_hash) = self.session_cookie(&session_id);
                     store::insert_session(
@@ -463,15 +445,10 @@ impl Auth {
                     )
                     .await
                     .map_err(db_unavailable)?;
-                    let won = store::insert_identity(
-                        pool,
-                        PROVIDER,
-                        &identity.subject,
-                        user_id,
-                        now,
-                    )
-                    .await
-                    .map_err(db_unavailable)?;
+                    let won =
+                        store::insert_identity(pool, PROVIDER, &identity.subject, user_id, now)
+                            .await
+                            .map_err(db_unavailable)?;
                     if !won {
                         // A concurrent first sign-in for the same subject won the S3 race:
                         // our user row is inert (nothing points at it) and the retry re-reads
@@ -536,12 +513,7 @@ impl Auth {
         let now = self.now();
         let kid = peek_kid(token).ok_or(AuthError::SignInFailed(Refusal::Malformed))?;
         let known = self.0.jwks.kid_known(&kid);
-        if self
-            .0
-            .jwks
-            .plan(now, known)
-            .unwrap_or(false)
-        {
+        if self.0.jwks.plan(now, known).unwrap_or(false) {
             match self.0.idp.fetch_jwks().await {
                 crate::auth::google::JwksFetch::Ok { keys, ttl } => {
                     self.0.jwks.store(keys, ttl, now);
@@ -563,8 +535,7 @@ impl Auth {
             issuers: &self.0.settings.idp.issuers,
             nonce,
         };
-        verify_id_token(token, &keys, &expect, now)
-            .map_err(AuthError::SignInFailed)
+        verify_id_token(token, &keys, &expect, now).map_err(AuthError::SignInFailed)
     }
 
     /// The gate's one call: S6, S7, maybe S8. Bad or unknown cookie -> Anonymous, no write.
@@ -712,7 +683,9 @@ impl Auth {
             },
             Client::Desktop(kh) => {
                 // Placeholder session (60 s, its raw id discarded at once) + the code row.
-                let result = self.desktop_callback_effect(&identity, Client::Desktop(*kh), ua).await;
+                let result = self
+                    .desktop_callback_effect(&identity, Client::Desktop(*kh), ua)
+                    .await;
                 match result {
                     Ok(code_value) => Landing::Desktop {
                         code: code_value,
@@ -771,15 +744,9 @@ impl Auth {
                 )
                 .await
                 .map_err(db_unavailable)?;
-                let won = store::insert_identity(
-                    pool,
-                    PROVIDER,
-                    &identity.subject,
-                    user_id,
-                    now,
-                )
-                .await
-                .map_err(db_unavailable)?;
+                let won = store::insert_identity(pool, PROVIDER, &identity.subject, user_id, now)
+                    .await
+                    .map_err(db_unavailable)?;
                 if won {
                     user_id
                 } else {
@@ -789,9 +756,7 @@ impl Auth {
                         .await
                         .map_err(db_unavailable)?
                         .map(|a| a.user_id)
-                        .ok_or_else(|| {
-                            AuthError::Unavailable("identity race".to_string())
-                        })?
+                        .ok_or_else(|| AuthError::Unavailable("identity race".to_string()))?
                 }
             }
         };
@@ -865,17 +830,14 @@ impl Auth {
         let now = self.now();
         let session_id = SessionId::fresh();
         let (cookie_header, id_hash) = self.session_cookie(&session_id);
-        store::insert_session(
-            pool,
-            &id_hash,
-            user.id,
-            now + SESSION_TTL,
-            ua,
-            now,
-        )
-        .await
-        .map_err(db_unavailable)?;
-        let admin = is_admin(&user.email, user.email_verified, &self.0.settings.admin_emails);
+        store::insert_session(pool, &id_hash, user.id, now + SESSION_TTL, ua, now)
+            .await
+            .map_err(db_unavailable)?;
+        let admin = is_admin(
+            &user.email,
+            user.email_verified,
+            &self.0.settings.admin_emails,
+        );
         Ok(SignedIn {
             member: Member {
                 user: User {

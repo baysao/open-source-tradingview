@@ -122,8 +122,6 @@ pub enum ConfigError {
     Invalid { key: &'static str, value: String },
     /// Required variables that are absent or empty, every one at once, in the spec's order.
     Missing { keys: Vec<&'static str> },
-    /// A hosted config given to a build that cannot serve it yet (removed by 03-02).
-    AuthNotAvailable,
 }
 
 impl fmt::Display for ConfigError {
@@ -131,9 +129,6 @@ impl fmt::Display for ConfigError {
         match self {
             ConfigError::Invalid { key, value } => write!(f, "invalid value for {key}: {value:?}"),
             ConfigError::Missing { keys } => write!(f, "missing {}", keys.join(", ")),
-            ConfigError::AuthNotAvailable => f.write_str(
-                "AUTH_ENABLED=true needs plan 03-02; this build has the database layer only",
-            ),
         }
     }
 }
