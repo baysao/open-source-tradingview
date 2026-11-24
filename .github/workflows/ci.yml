@@ -26,6 +26,7 @@ jobs:
       - run: rustup show && rustup component add clippy
       - uses: Swatinem/rust-cache@v2
       - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo clippy -p hub-core --all-targets --features test-idp -- -D warnings
 
   test:
     runs-on: ubuntu-latest
@@ -36,6 +37,36 @@ jobs:
       # Without CONTRACT_PY_URL the contract tests skip; the contract job below runs them.
       - run: cargo test --workspace
 
+  db:
+    # Phase 03: the migration runner and the account schema on both engines (03-01). A missing
+    # engine fails here instead of printing SKIPPED (VTV_TEST_REQUIRE).
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      VTV_TEST_PG_URL: postgres://postgres:postgres@127.0.0.1:5432/postgres?sslmode=disable
+      VTV_TEST_REQUIRE: pgsqlite,postgres
+      PGSQLITE_BIN: /home/runner/.cargo/bin/pgsqlite
+      PGSQLITE_REV: 5e34b2d2a3e6ca2e9a74a15f723cc942a9a739fc
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup show
+      - uses: Swatinem/rust-cache@v2
+      # pgsqlite has no release binary for this runner: build the owner's fork at a pinned commit
+      # (the dev binary's source branch head on 2026-11-24). Bump the rev to take a pgsqlite fix.
+      - uses: actions/cache@v4
+        with:
+          path: /home/runner/.cargo/bin/pgsqlite
+          key: pgsqlite-${{ env.PGSQLITE_REV }}
+      - run: test -x "$PGSQLITE_BIN" || cargo install --locked --git https://github.com/baysao/pgsqlite --rev "$PGSQLITE_REV" pgsqlite
+      - run: cargo test -p hub-core --features test-idp --test db_engines
+
   audit:
     runs-on: ubuntu-latest
     steps:
@@ -44,6 +75,15 @@ jobs:
         with:
           tool: cargo-audit
       - run: cargo audit
+      # The test-IdP router mints a token for any `sub`, so a release build must not carry it. The
+      # feature is opt-in and hub-server never enables it; `rsa` is its only dependency, and it must
+      # be absent from the release tree. Mutate with `--features test-idp` to see this step fail.
+      - name: release build excludes test-idp
+        run: |
+          if cargo tree -p hub-server -e features | grep -q 'rsa v'; then
+            echo "test-idp leaked into the release tree"; exit 1
+          fi
+          echo "release feature tree clean"
 
   contract:
     # G1: the Python hub (oracle, port 8770) and the built hub-server (port 8771) answer the same

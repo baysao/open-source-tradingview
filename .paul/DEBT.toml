@@ -47,7 +47,7 @@ kind = "tech"
 origin = "01-03 task 3 skill gap"
 owner = "owner"
 trigger = "event:npx-allowed"
-status = "open"
+status = "done"
 check = { type = "text_present", path = ".paul/phases/01-rust-parity/01-03-SUMMARY.md", pattern = "validate-origins: retrieved" }
 
 [[debt]]
@@ -98,7 +98,7 @@ origin = "03-03 plan, guides unresolved (denied)"
 owner = "owner"
 trigger = "event:npx-allowed"
 blocking = "phase-03-exit"
-status = "open"
+status = "done"
 check = { type = "text_present", path = ".paul/phases/03-auth/03-03-SUMMARY.md", pattern = "Modern Web Guidance: retrieved" }
 
 [[debt]]
@@ -119,7 +119,7 @@ origin = "03-01 task 3 (security review, measured with netstat)"
 owner = "owner"
 trigger = "event:pgsqlite-host-option"
 blocking = "phase-03-exit"
-status = "open"
+status = "done"
 check = { type = "command", run = "bash -c \"C:/Users/Dell/.local/bin/pgsqlite.exe --help 2>/dev/null | grep -q -- --host && echo HOST-OPTION-PRESENT || echo HOST-OPTION-ABSENT\"", expect = "HOST-OPTION-PRESENT" }
 
 [[debt]]
@@ -143,3 +143,43 @@ trigger = "phase:04"
 status = "open"
 check = { type = "text_present", path = ".paul/phases/03-auth/03-03-SUMMARY.md", pattern = "Google redirect URI registered: done" }
 note = "DEBT-010 is the owner's look at the finished sign-in; this row is the prerequisite that blocks it. Verified live 2026-11-24: /auth/google/start redirected to accounts.google.com with PKCE S256 and the sealed ticket, against the owner's real client id."
+
+[[debt]]
+id = "DEBT-014"
+title = "design-tokens.json fails validate_contrast on semantic.text.link in both themes (the DTCG export never carried a link colour); theme.js is the token source, so fixing it is a design decision, not a rename"
+kind = "decision"
+origin = "03-03 AC-4 gate run (pre-existing, not introduced by the plan)"
+owner = "owner"
+trigger = "phase:04"
+status = "open"
+check = { type = "command", run = "node C:/Users/Dell/.agents/ux-ui-agent-skills/scripts/gate.mjs validate_contrast.py design-tokens.json", expect = "OK: all required contrast pairs pass WCAG 2.2 minimums" }
+
+[[debt]]
+id = "DEBT-015"
+title = "03-03 browser check needs a live VTV_TEST_IDP=1 hub-server and Playwright from the ux-ui kit node_modules, so it cannot run in CI as written; either a cargo-test-driven headless run or a CI job with both is needed before the checks guard later plans"
+kind = "tech"
+origin = "03-03 Task 3 (agent-run check, R-6)"
+owner = "agent"
+trigger = "phase:04"
+status = "open"
+check = { type = "command", run = "node .paul/runs/check-0303.mjs", expect = "66/66 passed" }
+
+[[debt]]
+id = "DEBT-016"
+title = "Render gates (verify_states, axe_audit, measure_render, lint_intent) and the huashu scripts (polish.py, design_lint.py) load file:// only, so a page whose controls are injected from /auth/me is measured empty and reports a vacuous green; a served-URL mode or a generated (not hand-copied) harness is needed before AC-4 evidence on any further UI plan can be trusted"
+kind = "tech"
+origin = "03-03 UNIFY reflect (judgment 1/2, tooling 2/3, divergent 1)"
+owner = "agent"
+trigger = "phase:04"
+status = "open"
+check = { type = "text_present", path = ".paul/phases/04-deploy/04-01-SUMMARY.md", pattern = "render gate measured the served page" }
+
+[[debt]]
+id = "DEBT-017"
+title = "The five-gate design set is run piecemeal; lint_hardcodes and validate_tokens were skipped on 03-03 while a new colour was written into a JS template string outside design-tokens.json (the badge repair moved the value where no token gate sees it). A single gate script that runs all five and diffs the receipt set is needed"
+kind = "tech"
+origin = "03-03 UNIFY reflect (divergent 2)"
+owner = "agent"
+trigger = "phase:04"
+status = "open"
+check = { type = "command", run = "test -f .paul/runs/gate_all.py && python .paul/runs/gate_all.py --check-receipts", expect = "5/5 gates receipted" }

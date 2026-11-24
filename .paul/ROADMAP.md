@@ -16,7 +16,7 @@ Rust (Axum) server, Google accounts that sync each user's work, and a Tauri 2 de
 
 **v0.1 Hosted launch** (v0.1.0)
 Status: In progress
-Phases: 2 of 4 complete
+Phases: 3 of 4 complete
 
 ## Milestones
 
@@ -31,7 +31,7 @@ Phases: 2 of 4 complete
 |-------|------|-----------|-------|--------|-----------|
 | 01 | Rust workspace and hub-server parity | v0.1 | 3 (01-01, 01-02, 01-03) | Complete | 2026-11-23 |
 | 02 | Order flow in Rust | v0.1 | 3 (02-01, 02-02, 02-03) | Complete (reflect deferred) | 2026-11-23 |
-| 03 | Database and Google sign-in | v0.1 | 3 (03-01, 03-02, 03-03) | In progress | - |
+| 03 | Database and Google sign-in | v0.1 | 3 (03-01, 03-02, 03-03) | Complete | 2026-11-24 |
 | 04 | Public deploy | v0.1 | TBD | Not started | - |
 | 05 | Synced state | v0.2 | TBD | Not started | - |
 | 06 | Tauri desktop | v0.2 | TBD | Not started | - |
@@ -79,6 +79,13 @@ the right thing, not when the code does.
   log panel polling gated on admin status (R13); `sync.js` not loaded before Phase 05 (R27).
 - **Plans (2026-11-24):** 03-01 config, db, migrations; 03-02 auth and routes; 03-03 frontend sign-in,
   log panel gating, browser check. Contract: `phases/03-auth/03-ARCHITECTURE.md` (D-014 to D-017).
+
+**Phase 03 exit (2026-11-24):** all three plans unified. 03-01 config, schema and the migration runner;
+03-02 the auth module, gate and route tables; 03-03 the header control, avatar menu, delete dialog and the
+gated log panel. Gates: `cargo test --workspace` 118 passed, fmt and clippy clean in both feature ways,
+the browser check 66/66 with four mutations each red then restored, axe 0 violations both themes. The
+dev db now binds loopback (`pgsqlite --host`, DEBT-011 discharged). Still open: the first green CI run
+(DEBT-005), the real-Google round trip (DEBT-010, blocked on DEBT-013), and the owner's UI look.
 
 ### Phase 04: Public deploy
 - **Build:** production host, Cloudflare Tunnel `tunnel` line, rate limits, CSP and security headers,

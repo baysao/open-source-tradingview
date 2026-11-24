@@ -7,19 +7,21 @@
 # Do not pass `gaffa --shell bash` on Windows: gaffa 2026.11.1 then drops the arguments after the
 # script name. The Procfile lines start with plain `bash`; `dev` puts this bash first on PATH.
 #
-#   bash scripts/dev.sh dev          # every service in the Procfile (today: hub)
+#   bash scripts/dev.sh dev          # every service in the Procfile (db, hub)
 #   bash scripts/dev.sh run hub      # one service without gaffa
 #   bash scripts/dev.sh _svc hub     # what the Procfile calls
 #
 # hub: `cargo build -p hub-server`, then target/debug/hub-server on 127.0.0.1:${HUB_HTTP_PORT:-8770}.
 # It refuses to start when that port is taken (the Python hub, or another hub-server).
+# db: pgsqlite (PGSQLITE_BIN, default ~/.local/bin/pgsqlite) over data/vtv.db on
+# 127.0.0.1:${PGSQLITE_PORT:-55432}. Only hub-server with AUTH_ENABLED=true uses it (D-011).
 
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROCFILE="$ROOT/Procfile"
 LOG_DIR="$ROOT/.dev/logs"
-ALL_SERVICES=(hub)
+ALL_SERVICES=(db hub)
 
 case "$(uname -s)" in
   MINGW*|MSYS*|CYGWIN*) EXE=".exe" ;;
@@ -37,11 +39,22 @@ port_busy() {
 }
 
 svc_known() {
-  case "$1" in hub) return 0 ;; *) return 1 ;; esac
+  case "$1" in db|hub) return 0 ;; *) return 1 ;; esac
 }
 
 svc_port() {
-  case "$1" in hub) echo "${HUB_HTTP_PORT:-8770}" ;; *) echo 0 ;; esac
+  case "$1" in
+    db)  echo "${PGSQLITE_PORT:-55432}" ;;
+    hub) echo "${HUB_HTTP_PORT:-8770}" ;;
+    *)   echo 0 ;;
+  esac
+}
+
+# The pgsqlite binary: PGSQLITE_BIN, else ~/.local/bin/pgsqlite (the owner's install, D-011).
+pgsqlite_bin() {
+  local b="${PGSQLITE_BIN:-$HOME/.local/bin/pgsqlite$EXE}"
+  [ -x "$b" ] || [ -f "$b" ] || return 1
+  printf '%s\n' "$b"
 }
 
 # _svc <name>: one service in the foreground.
@@ -51,10 +64,22 @@ cmd_svc() {
   local port
   port="$(svc_port "$name")"
   if [ "$port" -gt 0 ] && port_busy "$port"; then
-    die "$name: 127.0.0.1:$port is already in use (stop the Python hub or the other hub-server first)"
+    die "$name: 127.0.0.1:$port is already in use (stop the process that holds it first)"
   fi
   cd "$ROOT"
   case "$name" in
+    db)
+      local bin
+      bin="$(pgsqlite_bin)" || die "db: pgsqlite not found; set PGSQLITE_BIN (default \$HOME/.local/bin/pgsqlite$EXE)"
+      mkdir -p "$ROOT/data"
+      # pgsqlite 0.0.22 has no listen-address option and binds 0.0.0.0 with no password
+      # (DEBT-011): pass --host 127.0.0.1 once the installed binary supports it.
+      if "$bin" --help 2>/dev/null | grep -q -- '--host'; then
+        exec "$bin" --host 127.0.0.1 --database "$ROOT/data/vtv.db" --port "$port"
+      fi
+      err "db: this pgsqlite listens on every interface (no --host option); do not leave it running on an untrusted network"
+      exec "$bin" --database "$ROOT/data/vtv.db" --port "$port"
+      ;;
     hub)
       cargo build -p hub-server
       exec "$ROOT/target/debug/hub-server$EXE"

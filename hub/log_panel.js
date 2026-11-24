@@ -26,7 +26,7 @@
   .lg-l.debug span { color:var(--faint) } .lg-l.warn span { color:var(--accent) }
   .lg-l.error { background:color-mix(in srgb, var(--bad) 13%, transparent) } .lg-l.error span, .lg-l.error b { color:var(--bad) }
   .lg-foot { padding:3px 10px; border-top:1px solid var(--line); color:var(--dim); font-size:11px; display:flex; justify-content:space-between; gap:10px }
-  #logBadge { cursor:pointer; white-space:nowrap } #logBadge.bad { color:var(--bad) }`;
+  #logBadge { cursor:pointer; white-space:nowrap; color:var(--text) } #logBadge.bad { color:color-mix(in srgb, var(--bad) 70%, var(--text)) }`;
   document.head.appendChild(css);
 
   const MAX_KEEP = 8000, MAX_SHOW = 1500, LV = { debug: 0, info: 1, warn: 2, error: 3 };
@@ -35,21 +35,54 @@
   let body = null, ban = null, srcs = null, foot = null;
 
   // ---------- rail button + status bar count ----------
-  const rail = document.getElementById("rail"), b = document.createElement("button");
-  b.dataset.panel = "logs"; b.title = "Backend log: everything the backend is doing, live";
-  b.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M12.5 15H17"/></svg>';
-  b.onclick = () => openPanelByName(openPanel === "logs" ? null : "logs");
-  rail.insertBefore(b, rail.querySelector('[data-panel="settings"]'));
-  PANELS.logs = render;
-  const baseOpen = openPanelByName;
-  window.openPanelByName = (name) => { baseOpen(name); if (name !== "logs") { document.getElementById("dock").classList.remove("logwide"); body = null; } };
+  // Reached only when the viewer may read logs: local mode (no auth, D-012) or an admin.
+  let base = "/api/logs", started = false, intervals = [], railBtn = null, badgeEl = null;
+  const rail = document.getElementById("rail");
+  const status = document.getElementById("status");
+  // Installed once, not per start: a sign-out then sign-in must not chain a second wrapper.
+  const baseOpen = window.openPanelByName;
+  window.openPanelByName = (name) => {
+    baseOpen(name);
+    if (name !== "logs") { document.getElementById("dock").classList.remove("logwide"); body = null; }
+  };
 
-  const badge = document.createElement("span");
-  badge.id = "logBadge"; badge.title = "Open the backend log"; badge.textContent = "log ...";
-  badge.onclick = () => { if (openPanel !== "logs") openPanelByName("logs"); };
-  document.getElementById("status").appendChild(badge);
+  function start(admin) {
+    if (started) return;
+    started = true;
+    base = admin ? "/admin/logs" : "/api/logs";
+    railBtn = document.createElement("button");
+    railBtn.dataset.panel = "logs"; railBtn.title = "Backend log: everything the backend is doing, live";
+    railBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M12.5 15H17"/></svg>';
+    railBtn.onclick = () => openPanelByName(openPanel === "logs" ? null : "logs");
+    rail.insertBefore(railBtn, rail.querySelector('[data-panel="settings"]'));
+    PANELS.logs = render;
+
+    badgeEl = document.createElement("span");
+    badgeEl.id = "logBadge"; badgeEl.title = "Open the backend log"; badgeEl.textContent = "log ...";
+    badgeEl.onclick = () => { if (openPanel !== "logs") openPanelByName("logs"); };
+    status.appendChild(badgeEl);
+
+    // Open panel: live tail. Closed: only the count, so the problem is visible anywhere in the hub.
+    intervals.push(setInterval(() => { if (openPanel === "logs") tick(); }, 1500));
+    intervals.push(setInterval(() => { if (openPanel !== "logs") tick(); }, 5000));
+    tick();
+  }
+
+  function stop() {
+    if (!started) return;
+    started = false;
+    intervals.forEach(clearInterval); intervals = [];
+    if (railBtn) railBtn.remove();
+    if (badgeEl) badgeEl.remove();
+    railBtn = badgeEl = null;
+    delete PANELS.logs;
+    if (openPanel === "logs") { openPanel = null; document.getElementById("dock").hidden = true; document.getElementById("dock").classList.remove("wide", "logwide"); body = null; }
+    lines = []; lastId = 0; boot = null; info = null; down = false; dirty = true;
+  }
 
   function paintBadge() {
+    if (!badgeEl) return;
+    const badge = badgeEl;
     if (down) { badge.className = "bad"; badge.textContent = "log: server not answering"; return; }
     if (!info) return;
     const p = Object.keys(info.problems).length, e = info.errors_15m;
@@ -64,7 +97,7 @@
   async function tick() {
     const open = openPanel === "logs";
     try {
-      const r = await (await fetch(open ? `/api/logs?since=${lastId}` : "/api/logs?brief=1", { cache: "no-store" })).json();
+      const r = await (await fetch(open ? `${base}?since=${lastId}` : `${base}?brief=1`, { cache: "no-store" })).json();
       down = false; info = r;
       if (boot !== null && boot !== r.boot) { lines = []; lastId = 0; dirty = true; boot = r.boot; if (open) return; }
       boot = r.boot;
@@ -93,7 +126,7 @@
     q.oninput = () => { v.q = q.value.toLowerCase(); dirty = true; paint(true); };
     sel.onchange = () => { v.level = +sel.value; dirty = true; paint(true); };
     raw.onchange = () => { v.raw = raw.checked; if (raw.checked && v.level > 0) { v.level = 0; sel.value = 0; }
-      fetch("/api/logs/journal", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ raw: raw.checked }) }); dirty = true; };
+      fetch(`${base}/journal`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ raw: raw.checked }) }); dirty = true; };
     const pause = d.querySelector('[data-a="pause"]');
     pause.onclick = () => { v.paused = !v.paused; v.held = 0; pause.classList.toggle("on", v.paused); pause.textContent = v.paused ? "Paused" : "Pause"; dirty = true; paint(true); };
     pause.classList.toggle("on", v.paused); pause.textContent = v.paused ? "Paused" : "Pause";
@@ -146,8 +179,20 @@
     foot.children[0].textContent = `${show.length} shown of ${lines.length} loaded. Times are UTC. Shift-click a source for only that one.`;
   }
 
-  // Open panel: live tail. Closed: only the count, so the problem is visible anywhere in the hub.
-  setInterval(() => { if (openPanel === "logs") tick(); }, 1500);
-  setInterval(() => { if (openPanel !== "logs") tick(); }, 5000);
-  tick();
+  // ---------- gate (R13, D-012) ----------
+  // Ask /auth/me once: no auth (local mode) keeps today's behaviour on /api/logs; an admin polls
+  // /admin/logs; anyone else gets no rail button, no badge and no interval.
+  function apply(state) {
+    if (!state || !state.auth) { start(false); return; }
+    if (state.admin) start(true); else stop();
+  }
+  async function begin() {
+    if (window.HubAuth) apply(await window.HubAuth.me);
+    else {
+      const s = await fetch("/auth/me", { cache: "no-store" }).then((r) => (r.ok ? r.json() : { auth: false })).catch(() => ({ auth: false }));
+      apply(s);
+    }
+    if (window.HubAuth) window.HubAuth.onChange(apply);
+  }
+  begin();
 })();

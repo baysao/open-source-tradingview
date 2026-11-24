@@ -71,7 +71,8 @@ preferences:
   learnings: true
   parallel_agents: true
   reflect: pstack
+  session_reset: plan
 ```
 
 ---
-*Config created: 2026-11-23 by /seed launch (lite defaults; uxui on). Updated 2026-11-23 via /paul-config: mode full.*
+*Config created: 2026-11-23 by /seed launch (lite defaults; uxui on). Updated 2026-11-23 via /paul-config: mode full. Updated 2026-11-24 via /paul-config: preferences.session_reset = plan (full, customized).*

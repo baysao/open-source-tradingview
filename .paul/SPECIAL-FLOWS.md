@@ -70,6 +70,27 @@
   agent, delegated by owner`, and leaves one residual owner `uat` row for what a script cannot judge.
   Rationale: the owner set it as standing ("use playwright self check/verify", confirmed at the Phase 01
   reflect); in 01-03 the browser pass found a defect that 55 tests and the contract suite missed.
+- **R-7: probe a runtime Fact with one command before any task builds evidence on it.** A route, a feature
+  flag's effect, a mount, an env var: the Fact is a hypothesis until curl/grep says otherwise. A disproved
+  Fact becomes a recorded deviation with the smallest fix, not a surprise at the checkpoint.
+  Rationale: 03-03's plan assumed `hub-server --features test-idp` served `/__test-idp/*`; the feature
+  compiled the code but `app()` mounts that router only for an in-memory Idp, so the whole browser check
+  had no IdP (`/__test-idp/jwks` 404). The premise was one curl away the entire time.
+- **R-8: quote the exit status of the command you judged, bare.** A pipeline's status is its last stage's,
+  so `cargo fmt --check | tail` reports `tail`'s 0. Pass/fail commands run bare, under `set -o pipefail`,
+  or followed by `; echo exit=$?`. Pipes are for logs, never for the command whose status is the claim.
+  Rationale: 03-03 claimed "fmt clean" from a tailed command; `cargo fmt --all --check` was in fact
+  failing on the new helper.
+- **R-9: an incomplete gate set is an unrun gate.** Enumerate the project's gates, run all of them, and
+  treat a missing receipt as a failure. A gate named in a document but absent from the run is unverified
+  and must not be cited.
+  Rationale: 03-03 cited "CI's `cargo tree` assertion" that `ci.yml` never had, and ran the five-gate
+  design set as four, skipping exactly `lint_hardcodes`/`validate_tokens`.
+- **R-10: editing a checker invalidates its mutation results.** After any edit to a check, a driver or a
+  gate, re-run the mutation set before claiming coverage. Tuning a check until green proves agreement,
+  not correctness.
+  Rationale: 03-03's browser driver was edited twice to green; the four AC-5 mutations were then re-run
+  against the final script at UNIFY, which is the only reason the claim holds.
 
 ---
 
@@ -78,4 +99,5 @@
 | Date | Change | Reason |
 |------|--------|--------|
 | 2026-11-23 | uxui kit preset written (10 rows), phase overrides 03, 04, 06, 07, Session Rules R-4 and R-5 | /seed launch: design track D3 done for a rendered surface |
+| 2026-11-24 | Session Rules R-7 (probe a runtime Fact), R-8 (bare exit status), R-9 (incomplete gate set), R-10 (re-run mutations after editing a checker) | 03-03 UNIFY reflect: 4 accepted findings, all with direct evidence in the session |
 | 2026-11-23 | pstack preset written for stage `plan` (architect, interrogate, swarm, technical-writing, paul-security, cstack-reflect, reflect); `poteto-mode` and per-task `architect` not written (stage plan); `show-me-your-work` dropped (not installed); pstack `design-taste-frontend` row dropped (the uxui row already owns it as required) | via /paul-config: mode full |

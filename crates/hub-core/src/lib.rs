@@ -168,6 +168,33 @@ impl From<db::DbError> for StartError {
     }
 }
 
+/// Serves `/__test-idp/*`: with the feature on, a production build still points at Google, so the
+/// browser check (R-6, 03-03) needs a way to get the in-process Idp into the binary. `VTV_TEST_IDP=1`
+/// does that and nothing else. Three guards, because this mints a token for any `sub`: the feature
+/// (never in a release build), `debug_assertions` (a release binary refuses even if the feature
+/// leaked in), and the variable. A build holding all three is a development build that asked for it.
+#[cfg(feature = "test-idp")]
+fn test_idp_deps() -> Option<auth::AuthDeps> {
+    if !cfg!(debug_assertions) {
+        return None;
+    }
+    let on = std::env::var("VTV_TEST_IDP")
+        .map(|v| v.trim() == "1")
+        .unwrap_or(false);
+    if !on {
+        return None;
+    }
+    let idp = auth::test_idp::TestIdp::new();
+    // The wall clock: the browser check drives real flows, not TTL boundaries.
+    let clock = auth::test_idp::ManualClock::new(chrono::Utc::now().timestamp());
+    Some(auth::AuthDeps::in_memory(&idp, &clock))
+}
+
+#[cfg(not(feature = "test-idp"))]
+fn test_idp_deps() -> Option<auth::AuthDeps> {
+    None
+}
+
 impl AppState {
     /// The real upstream endpoints. No network I/O happens here.
     ///
@@ -225,12 +252,9 @@ impl AppState {
         let origin = cfg.public_origin.clone();
         let redirect_uri = format!("{}/auth/google/callback", origin.trim_end_matches('/'));
         let db = Db::open(&settings.database_url).await?;
-        let auth = auth::Auth::new(
-            settings.clone(),
-            &origin,
-            db,
-            auth::AuthDeps::production(settings, redirect_uri),
-        );
+        let deps =
+            test_idp_deps().unwrap_or_else(|| auth::AuthDeps::production(settings, redirect_uri));
+        let auth = auth::Auth::new(settings.clone(), &origin, db, deps);
         let dir = cfg.log_dir.clone();
         tracing::info!(
             target: "server",

@@ -17,27 +17,31 @@ layouts and scripts kept in their Google account.
 ## Current Position
 
 Milestone: v0.1 Hosted launch
-Phase: 03 of 07 (Database and Google sign-in), in progress
-Plan: 03-02 UNIFIED (3 of 3 tasks; commits 21c9a8f, 903e1b5, afc575e, 3cf8721, 16787d5, 597e8c2)
-Status: Loop closed - ready for PLAN 03-03 (last plan of Phase 03)
-Last activity: 2026-11-24 15:05 (+07) - 03-02 UNIFY complete
+Phase: 04 of 07 (Public deploy), not started
+Plan: 03-03 UNIFIED - Phase 03 complete
+Status: Ready to plan Phase 04
+Last activity: 2026-11-24 18:20 (+07) - Phase 03 complete, transitioned to Phase 04
 
 Progress:
 - Phase 01: complete 2026-11-23 (milestone v0.1: 1 of 4 phases)
 - Phase 02: complete 2026-11-23 (reflect deferred: owner has not run /reflect)
-- Phase 03: [███████░░░] 2 of 3 plans unified (03-01, 03-02); 03-03 next
+- Phase 03: complete 2026-11-24 (3 of 3 plans unified; reflect + RSI done at 03-03)
+- Phase 04: next (public deploy)
 
 ## Loop Position
 
 Current loop state:
 ```
 PLAN ──▶ APPLY ──▶ UNIFY
- done     done     done  [03-02 loop closed - next is PLAN 03-03]
+  ✓        ✓        ✓    [Phase 03 closed - ready for PLAN 04-01]
 ```
 
 ## Accumulated Context
 
 ### Decisions
+| D-019 | The header control is sticky to the bar's right edge (the bar scrolls sideways at 1280 px) | Phase 03 | #authSlot |
+| D-020 | Delete confirmation uses native `<dialog>` + showModal(); the browser owns the focus trap and Esc (modern-web-guidance "dialog" Rule 1) | Phase 03 | auth.js |
+| D-021 | `VTV_TEST_IDP=1` makes the test-idp build serve `/__test-idp/*`; release builds can never reach it (feature-gated, CI asserts the tree) | Phase 03 | lib.rs |
 | D-018 | Pools check a connection (SELECT 1) before handing it out; pgsqlite desyncs after an error | Phase 03 | db::pool_options |
 | D-017 | /auth/me carries the public client_id | Phase 03 | auth.js |
 | D-016 | No DB readiness on /api/health in Phase 3 | Phase 03 | health unchanged |
@@ -56,6 +60,8 @@ PLAN ──▶ APPLY ──▶ UNIFY
 | D-003 | Keep `mt5`/`arm` as "off" in /api/symbols (amends D-001) | Phase 01 | lab.js unchanged except wsUrl() |
 | D-002 | Keep today's websocket protocol (one subscription per socket); 24 sockets per IP; upstream shared per (source, symbol) | Phase 01 | lab.js changes only the URL; /ws parity testable against Python |
 | D-001 | Local mode for charts only (auth off, no DB, 127.0.0.1); MT5 only through Phase 07 bridges, loopback allowed when auth is off | Phase 01 | removes Local MT5 and arm until Phase 07; tag `python-final` |
+- Session rules R-7..R-10 (probe runtime Facts, bare exit status, complete gate set, re-run mutations after
+  editing a checker) came out of the 03-03 phase reflect; full text in `.paul/SPECIAL-FLOWS.md`.
 - Imported from `.paul/PLANNING.md` and the design doc; see PROJECT.md Key Decisions.
 - Owner concluded every EGM review stage with findings open; they are carried as phase gates in
   ROADMAP.md, not applied to the spec.
@@ -65,6 +71,14 @@ PLAN ──▶ APPLY ──▶ UNIFY
 - DEBT-007 done 2026-11-23 (commit 6ae3ea1).
 - DEBT-011 open (blocking phase-03-exit): dev db binds 0.0.0.0; needs pgsqlite with --host (see .paul/DEBT.toml).
 - DEBT-012 open: pgsqlite 0.0.22 mis-maps UPDATE parameters out of text order; S4/S8 work around it.
+- DEBT-004 done 2026-11-24 (validate-origins retrieved; wsUrl() needs no change).
+- DEBT-009 done 2026-11-24 (menu, dialog, secure-external-subresources retrieved; applied in 03-03).
+- DEBT-011 done 2026-11-24 (pgsqlite fork built and installed: `--host 127.0.0.1`; old binary kept as
+  `~/.local/bin/pgsqlite.0.0.22.bak`; the dev db no longer binds 0.0.0.0).
+- DEBT-014 open (owner, phase:04): `semantic.text.link` token missing, `validate_contrast` fails both themes (pre-existing).
+- DEBT-015 open (agent, phase:04): the 03-03 browser check needs a live `VTV_TEST_IDP=1` server, so it cannot run in CI as written.
+- DEBT-016 open (agent, phase:04): render gates and the huashu scripts load `file://` only, so a JS-injected UI measures empty.
+- DEBT-017 open (agent, phase:04): the five-gate design set is run piecemeal; a single runner that diffs the receipt set is needed.
 - DEBT-013 open (owner, phase:04): register the loopback Google redirect URI and serve hosted mode over HTTPS; the prerequisite for DEBT-010.
 
 ### Skill Audit (Phase 03, plan 02)
@@ -76,6 +90,18 @@ PLAN ──▶ APPLY ──▶ UNIFY
 | /reflect (pstack) | deferred | runs at the UNIFY of 03-03 (phase's last plan), not here |
 | context-budget, caveman, ponytail | yes | loaded and applied this session (AGENTS.md rule) |
 
+### Skill Audit (Phase 03, plan 03)
+| Expected | Invoked | Notes |
+|----------|---------|-------|
+| /design-doctrine, /design-component, /design-code | yes | kit bodies read; menu and dialog specced from the mockups before code |
+| /design-taste-frontend, /huashu-design | partial | harness built and gated; `polish.py shot` cannot load a served page (DEBT-016) |
+| /a11y-audit | yes | axe 0 violations both themes, verify_states 36/36 AA, 2.4.11 occlusion assertion added |
+| /design-gate (unify) | yes | run at UNIFY; the incomplete receipt set is DEBT-017 |
+| /modern-web-guidance | yes | menu, dialog, secure-external-subresources, validate-origins retrieved and applied |
+| /security-review (Phase 03 override) | yes | at APPLY; the UNIFY reflect added the release-guard fix |
+| /reflect (pstack) | yes | phase scope, 3 reviewers + synthesizer, R-7..R-10, L-019..L-023 |
+| /rsi | yes | no candidate; DEBT-016/017 carry the two that need building |
+
 ### Blockers/Concerns
 - Design doc Blockers still in the spec: C1, C2, R1 to R7 (see ROADMAP.md gates and
   `.paul/design/reviews/vtradingview/implementation_readiness_report.md`).
@@ -83,15 +109,17 @@ PLAN ──▶ APPLY ──▶ UNIFY
 
 ## Session Continuity
 
-Last session: 2026-11-24 15:26 (+07) (paused after 03-02 UNIFY)
-Stopped at: idle - 03-02 UNIFIED, no work mid-flight; working tree holds the AGENTS.md split (full guide moved to APP.md), .env.example, ci.yml, Procfile and dev.sh, all uncommitted by the owner's choice
+Last session: 2026-11-24 18:20 (+07) (Phase 03 complete)
+Stopped at: Phase 03 closed and transitioned; nothing in flight. Working tree: hub/auth.js (new), hub/hub.html, hub/log_panel.js, lib.rs test hook, 03-03-SUMMARY, 01-03-SUMMARY (DEBT-004), DEBT.toml, polish-log, STATE; plus the earlier AGENTS.md split (APP.md), .env.example, ci.yml, Procfile, dev.sh - all uncommitted by the owner's choice
 DUE (2026-11-23, deferred by owner): /reflect for Phase 02 (reflect: pstack)
 ~~DUE NOW (2026-11-23): 01-03 checkpoint:human-verify, owner checks the hub on hub-server (DEBT-002)~~ closed 2026-11-23: verified by agent with Playwright at the owner's request
 ~~DUE NOW (2026-11-23): owner types /reflect for the Phase 01 close (reflect: pstack)~~ done 2026-11-23 (6 accepted edits applied, R-6, L-010..L-012)
-Next action: owner allowlists `npx -y modern-web-guidance@latest *` (DEBT-009), then /paul:apply .paul/phases/03-auth/03-03-PLAN.md; DEBT-011 (pgsqlite --host) blocks the Phase 03 exit; DEBT-013 (redirect URI, HTTPS origin) is the prerequisite for the owner's Google look DEBT-010; /reflect (pstack) runs at the UNIFY of 03-03
-Resume file: .paul/handoffs/HANDOFF-2026-11-24-1526.md
+Next action: /paul:plan for Phase 04 (public deploy). Owner items queued first: the phase commit (uncommitted since 03-03), DEBT-013 (Google console redirect URI + an HTTPS origin, gates DEBT-010), DEBT-005 (first green CI run, which now also asserts the release tree has no test-IdP)
+Resume file: .paul/ROADMAP.md
 Resume context:
-- 03-02 is UNIFIED; nothing is half-done, so resuming means starting 03-03, not finishing 03-02.
+- 03-03 is APPLIED and its SUMMARY exists; the next step is UNIFY, not more code.
+- The browser check needs `VTV_TEST_IDP=1` and a pgsqlite on any free port; `.paul/runs/check-0303.mjs` is the whole check (gitignored, DEBT-015).
+- The agent could not see the screenshots this session; look-and-feel claims rest on gates, and the human look is DEBT-010.
 - `.env` has AUTH_ENABLED=true with the owner's real Google client: hub-server starts hosted and needs pgsqlite on port 55432. Set AUTH_ENABLED=false for local-mode charts.
 - AGENTS.md is the three-skill preamble now; the full setup guide lives in APP.md (untracked, owner's call to commit).
 

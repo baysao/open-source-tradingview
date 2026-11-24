@@ -146,3 +146,20 @@ Modified: `Cargo.toml` (member, `hub-core`, `regex`, `dotenvy`), `crates/hub-cor
   (55 passed, 0 failed).
 - Reflect done (owner, 2026-11-23). Open: the commit (DEBT-001), the first CI run (DEBT-005), the owner's
   look at the UI (DEBT-006).
+
+## validate-origins: retrieved (DEBT-004, 2026-11-24)
+
+The `modern-web-guidance` guide `validate-origins` was retrieved (npx is allowlisted again). Cross-check
+against `hub/lab.js` `wsUrl()`:
+
+```js
+const wsUrl = () => { const u = new URL("/ws", location.href); u.protocol = u.protocol === "https:" ? "wss:" : "ws:"; return u.href; };
+```
+
+The function derives the socket URL from `location` itself, so no candidate string is compared and none of
+the guide's spoofing classes apply: there is no prefix/substring match to bypass
+(`https://app.example.com.attacker.example`), no unnormalized literal to equal, no public-suffix split, and
+no opaque-origin comparison. The one remote-origin check on the page is the iframe guard
+`if (e.origin !== location.origin || !e.data) return;`, an exact serialized-origin equality on a
+same-origin `<iframe>` with no sandbox (`"null"` cannot appear), which is the case the guide keeps string
+equality for. No change required; the guide is applied as a fact, not a fix.

@@ -72,3 +72,16 @@ Lint: red 0, yellow 0. Kept: hub-native direction fixed by owner. Note: Playwrig
 Round 1: worst: draft note 13px under 14px floor; meta line small and dim; text-only screens (kept: long-form legal page, no graphics by design).
 Changed: draft note to fs-lg, meta to fs-md. Lint: red 0, yellow 0.
 Status: done, red 0, yellow 0; contact address still marked missing (draft note and Contact section).
+
+### Screen 08
+## 03-03 / hub.html header control, avatar menu, log gating
+Round 1: `polish.py shot hub/hub.html` cannot measure a served page (it loads `file://`, so `/api/*` and
+`/auth/me` fail and its only output is console noise). Artifact deleted. States measured instead on a
+purpose-built harness reusing hub.html's own auth CSS: 36 element-states, AA in dark and light.
+Worst three found and fixed by the gates and the browser check:
+1. The account control sat 72 px past the bar's right edge at 1280 px (the bar scrolls); now sticky to the right edge, gap 8 px.
+2. `#logBadge` at `var(--dim)` 11 px measured 4.02:1 on graphite (axe SERIOUS, both themes); now `var(--text)` at rest, bad state `color-mix(--bad 70%, --text)`.
+3. `<html>` had no `lang` (axe SERIOUS); added.
+Lint: axe 0 violations both themes; verify_states 36/36 AA both themes; measure_render 30/30 text AA;
+verify_responsive clean 280..951 px; lint_intent OK. design_lint on hub.html: red 0 apart from its own file:// fetch errors.
+Status: done, red 0. Not visually inspected by the agent (no image input this session); owner look is DEBT-010.

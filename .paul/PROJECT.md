@@ -27,7 +27,7 @@ scripts kept in their Google account.
 | Type | Application (complex) |
 | Version | 0.0.0 |
 | Status | Initializing |
-| Last Updated | 2026-11-23 |
+| Last Updated | 2026-11-24 |
 
 ## Requirements
 
@@ -43,10 +43,12 @@ scripts kept in their Google account.
 - Closed origin: all traffic through the Cloudflare Tunnel (G8)
 
 ### Validated (Shipped)
-None yet.
+- ✓ Same charts on the new server: `/api/*` and `/ws` keep their shapes, contract suite vs the Python hub (G1) - Phase 01
+- ✓ Order flow in Rust: delta, footprint and session profile from fixtures within tolerance, no numpy/pandas/pyarrow (G2) - Phase 02
+- ✓ Google sign-in: first sign-in creates one user, the second reuses it, sessions revocable, admin gate 404s outsiders (G3) - Phase 03
 
 ### Active (In Progress)
-None yet.
+- [ ] Closed origin and public deploy through the Cloudflare Tunnel, with backups and a restore drill (G8) - Phase 04
 
 ### Planned (Next)
 - v0.1 Hosted launch: Rust parity, order flow in Rust, database and Google sign-in, public deploy
@@ -96,6 +98,9 @@ None yet.
 | Public deploy before sync, desktop and MT5 | later phases ship onto a live site | 2026-11-23 | Active |
 | New screens in the hub theme, 12 px labels and 14 px text | owner fixed the direction; text floor from the D4 lint | 2026-11-23 | Active |
 | Local mode for charts only (D-001) | dev and CI need it anyway; keeps the AGPL self-hosted promise; MT5 returns via Phase 07 bridges | 2026-11-23 | Active |
+| Sign-in control sticky-free: scrollable bar content plus an outside account slot | a sticky overlay covered the bar's own buttons at three widths (WCAG 2.4.11) | 2026-11-24 | Active |
+| Delete confirmation uses the native `<dialog>` modal | the browser owns the focus trap, Esc and top layer; the modern-web-guidance rule for destructive actions | 2026-11-24 | Active |
+| The test-IdP router needs feature, debug profile and `VTV_TEST_IDP=1` | it mints a token for any `sub`; a release build must refuse it, verified 404 | 2026-11-24 | Active |
 
 ## Success Metrics
 
