@@ -263,6 +263,18 @@ pub fn plan_migrations<'m>(
     Ok(pending)
 }
 
+/// A busy/locked database on either engine: pgsqlite `42000 database is locked` (03-01
+/// measured a second concurrent writer waiting then failing so), Postgres `55P03` or the
+/// `database is locked` text. A busy statement did not run: the work may be retried whole.
+pub fn is_busy(e: &sqlx::Error) -> bool {
+    e.as_database_error().is_some_and(|d| {
+        let code = d.code();
+        code.as_deref() == Some("55P03")
+            || (code.as_deref() == Some("42000") && d.message().contains("database is locked"))
+            || d.message().contains("database is locked")
+    })
+}
+
 /// A uniqueness conflict on either engine: Postgres `23505`, pgsqlite `42000` with SQLite's text.
 pub fn is_unique_violation(e: &sqlx::Error) -> bool {
     e.as_database_error().is_some_and(|d| {

@@ -16,7 +16,7 @@ use axum::{Json, Router};
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
 use rsa::pkcs1v15::SigningKey;
-use rsa::signature::Signer;
+use rsa::signature::{SignatureEncoding, Signer};
 use rsa::traits::PublicKeyParts;
 use rsa::{RsaPrivateKey, RsaPublicKey};
 use serde::{Deserialize, Serialize};
@@ -183,13 +183,15 @@ impl TestIdp {
         *self.cache_control.lock().unwrap_or_else(|p| p.into_inner()) = value.to_string();
     }
 
-    /// RS256 signature over the signing input; exposed for tamper tests.
-    pub fn sign(&self, signing_input: &[u8], kid: usize) -> String {
+    /// The raw RS256 signature bytes over the signing input (jsonwebtoken verifies raw
+    /// bytes; `Signature::to_string()` would be hex text and would never verify).
+    pub fn sign(&self, signing_input: &[u8], kid: usize) -> Vec<u8> {
         let keys = IdpKeys::get();
         keys.0[kid % keys.0.len()]
             .signing
             .sign(signing_input)
-            .to_string()
+            .to_bytes()
+            .to_vec()
     }
 
     /// The `kid` values the JWKS serves, in order.
@@ -233,18 +235,27 @@ impl TestIdp {
             b64(payload.to_string().as_bytes())
         );
         let sig = self.sign(input.as_bytes(), kid);
-        format!("{input}.{}", b64(sig.as_bytes()))
+        format!("{input}.{}", b64(&sig))
     }
 
-    /// A token signed by a key the JWKS does not name (rotation test).
+    /// A token whose header names a kid the JWKS never serves, signed by a real key (the
+    /// unknown-kid edge: refused at lookup, before any signature work).
     pub fn id_token_unknown_kid(&self, claims: &Claims, nonce: Option<&str>) -> String {
-        let keys = IdpKeys::get();
         let mut c = claims.clone();
         c.iss
             .get_or_insert_with(|| "https://accounts.google.com".into());
-        let token = self.id_token(&c, nonce, 1);
-        // Signed by key 1 but labelled kid 0 in the header: unknown until the refetch serves it.
-        token.replacen(&keys.0[1].kid, &keys.0[0].kid, 1)
+        let signed = self.id_token(&c, nonce, 1);
+        // Rebuild the header with a kid the key set does not contain (a rotation the client
+        // has not caught up with). The signature stays key 1's: the refusal must come from
+        // the kid lookup, not from the signature.
+        let keys = IdpKeys::get();
+        let header = json!({"alg": "RS256", "typ": "JWT", "kid": "retired-key-9"});
+        let (_, rest) = signed.split_once('.').expect("header.payload.sig");
+        let _ = keys;
+        format!(
+            "{}.{rest}",
+            URL_SAFE_NO_PAD.encode(header.to_string().as_bytes())
+        )
     }
 
     /// Stores an authorization code the way `/authorize` would.
@@ -260,11 +271,16 @@ impl TestIdp {
     }
 }
 
+/// The token request, exactly the form `google.rs` posts. `grant_type` arrives and only the
+/// authorization-code grant exists here, so it is accepted and unread (the field is prefixed
+/// for serde to skip unknown-form errors while keeping the shape documented).
 #[derive(Deserialize)]
 struct TokenBody {
     code: String,
     code_verifier: String,
     redirect_uri: String,
+    #[serde(rename = "grant_type")]
+    _grant_type: String,
 }
 
 /// The JWKS document for the served keys (also read directly by the memory Idp path).
@@ -287,7 +303,7 @@ fn jwks_doc() -> serde_json::Value {
 }
 
 /// `GET /__test-idp/jwks`.
-async fn jwks(State(idp): State<TestIdp>) -> Response {
+async fn jwks(State((idp, _client_id)): State<(TestIdp, String)>) -> Response {
     idp.jwks_fetches.fetch_add(1, Ordering::SeqCst);
     let cc = idp
         .cache_control
@@ -302,8 +318,12 @@ async fn jwks(State(idp): State<TestIdp>) -> Response {
     resp
 }
 
-/// `POST /__test-idp/token`: checks PKCE, spends the code, answers an id token.
-async fn token(State(idp): State<TestIdp>, Json(body): Json<TokenBody>) -> Response {
+/// `POST /__test-idp/token`: checks PKCE, spends the code, answers an id token. The body is
+/// the form `google.rs` posts (`client_id`, `client_secret`, `grant_type` accepted, unused).
+async fn token(
+    State((idp, client_id)): State<(TestIdp, String)>,
+    axum::Form(body): axum::Form<TokenBody>,
+) -> Response {
     let mut codes = idp.codes.lock().unwrap_or_else(|p| p.into_inner());
     match codes.remove(&body.code) {
         None => (
@@ -323,6 +343,7 @@ async fn token(State(idp): State<TestIdp>, Json(body): Json<TokenBody>) -> Respo
                     .into_response();
             }
             let claims = Claims {
+                aud: Some(client_id.clone()),
                 nonce: Some(Some(grant.nonce.clone())),
                 ..Claims::for_sub("g-0")
             };
@@ -339,10 +360,14 @@ struct AuthorizeQuery {
     code_challenge: String,
     nonce: String,
     redirect_uri: String,
+    /// Echoed back with the code (the real endpoint does; our `start` reads its own cookie,
+    /// but a driver that wants the pair has it).
+    #[serde(default)]
+    state: String,
 }
 
 async fn authorize(
-    State(idp): State<TestIdp>,
+    State((idp, _client_id)): State<(TestIdp, String)>,
     axum::extract::Query(q): axum::extract::Query<AuthorizeQuery>,
 ) -> Response {
     let code = URL_SAFE_NO_PAD.encode({
@@ -351,22 +376,64 @@ async fn authorize(
         b
     });
     idp.grant_code(&code, &q.code_challenge, &q.nonce, &q.redirect_uri);
-    (StatusCode::FOUND, [("Location", "/hub.html?code=granted")]).into_response()
+    // The code rides a fragment-free query so the driver of the flow (a test, or the 03-03
+    // browser stub) can complete it: a real Idp would redirect into the app with `code=`.
+    (
+        StatusCode::FOUND,
+        [(
+            "Location",
+            format!("{}?code={code}&state={}", q.redirect_uri, q.state),
+        )],
+    )
+        .into_response()
 }
 
 /// `POST /__test-idp/mint`: mints a token with the posted claims (One Tap stub).
-async fn mint(State(idp): State<TestIdp>, Json(claims): Json<Claims>) -> Response {
+/// `aud` defaults to the configured client id, like a real Google token would.
+async fn mint(
+    State((idp, client_id)): State<(TestIdp, String)>,
+    Json(body): Json<MintBody>,
+) -> Response {
+    // Only `sub` is required; everything else defaults to a Google-shaped profile.
+    let mut claims = Claims::for_sub(&body.sub).aud(&client_id);
+    if let Some(email) = body.email {
+        claims = claims.email(&email, body.email_verified.unwrap_or(true));
+    }
+    if let Some(nonce) = body.nonce {
+        claims = claims.nonce(Some(&nonce));
+    }
+    if let Some(exp) = body.exp {
+        claims = claims.exp(Some(Some(exp)));
+    }
     Json(json!({"credential": idp.id_token(&claims, None, 0)})).into_response()
 }
 
-/// The `/__test-idp` router. Mounted only in hosted mode with the feature.
-pub fn router(idp: TestIdp) -> Router<crate::AppState> {
+/// The mint request: `sub` plus any claim override the caller wants.
+#[derive(Deserialize)]
+struct MintBody {
+    sub: String,
+    #[serde(default)]
+    email: Option<String>,
+    #[serde(default)]
+    email_verified: Option<bool>,
+    #[serde(default)]
+    nonce: Option<String>,
+    #[serde(default)]
+    exp: Option<i64>,
+}
+
+/// The `/__test-idp` router. Mounted only in hosted mode with the feature. It carries its own
+/// `(TestIdp, client_id)` state, so it nests into the app as a service (`nest_service`) with
+/// no host-state coupling: `client_id` is the configured `GOOGLE_CLIENT_ID` (public; minted
+/// credentials must carry it as `aud` to pass verification) and the Idp is the mounted one.
+pub fn router(idp: TestIdp, client_id: String) -> Router<()> {
     Router::new()
-        .route("/__test-idp/jwks", get(jwks))
-        .route("/__test-idp/token", post(token))
-        .route("/__test-idp/authorize", get(authorize))
-        .route("/__test-idp/mint", post(mint))
-        .with_state(idp)
+        // Nested under `/__test-idp` by the host: the inner paths are relative.
+        .route("/jwks", get(jwks))
+        .route("/token", post(token))
+        .route("/authorize", get(authorize))
+        .route("/mint", post(mint))
+        .with_state((idp, client_id))
 }
 
 #[cfg(test)]

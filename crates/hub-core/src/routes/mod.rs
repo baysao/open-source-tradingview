@@ -3,10 +3,14 @@
 //! API responses always carry `Content-Type: application/json` and `Cache-Control: no-store`
 //! (`hub/server.py:1018-1024`); errors are `{"error": "<text>"}`.
 
+pub mod auth;
+pub mod gate;
 pub mod health;
 pub mod logs;
 pub mod market;
+pub mod me;
 pub mod orderflow;
+pub mod table;
 pub mod ws;
 
 use axum::http::{header, HeaderValue, StatusCode};

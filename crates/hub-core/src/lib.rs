@@ -47,6 +47,71 @@ use std::sync::Arc;
 use tokio::net::TcpListener;
 use tokio::task::JoinHandle;
 
+/// The router, with every mounted route under the mode's gate (hosted) or none (local). Public so
+/// the contract suites mount the same router the binary serves.
+pub fn app(state: AppState) -> Router {
+    let hosted = state.auth.is_some();
+    // The table routes first (`/auth/me` and the mode's own: local log routes, hosted auth
+    // routes). The Phase 1 `/api/*` routes follow; `/api/logs*` is already in the local table.
+    let mut router = routes::table::mount_routes(&state);
+    router = router
+        .route("/api/status", get(routes::market::status))
+        .route("/api/symbols", get(routes::market::symbols))
+        .route("/api/instruments", get(routes::market::instruments))
+        .route("/api/bars", get(routes::market::bars))
+        .route("/api/health", get(routes::health::health))
+        .route("/ws", get(routes::ws::upgrade))
+        .route(
+            "/api/orderflow/delta",
+            get(
+                |State(s): State<AppState>, Query(q): Query<HashMap<String, String>>| {
+                    routes::orderflow::serve(orderflow::Kind::Delta, s, q)
+                },
+            ),
+        )
+        .route(
+            "/api/orderflow/profile",
+            get(
+                |State(s): State<AppState>, Query(q): Query<HashMap<String, String>>| {
+                    routes::orderflow::serve(orderflow::Kind::Profile, s, q)
+                },
+            ),
+        )
+        .route(
+            "/api/orderflow/footprint",
+            get(
+                |State(s): State<AppState>, Query(q): Query<HashMap<String, String>>| {
+                    routes::orderflow::serve(orderflow::Kind::Footprint, s, q)
+                },
+            ),
+        );
+    // Hosted mode: the gate on the whole router, and the test Idp under its prefix. Local mode
+    // mounts no gate and no `/auth/*` route except the shared `/auth/me`.
+    if hosted {
+        router = router.layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            routes::gate::gate,
+        ));
+        #[cfg(feature = "test-idp")]
+        if let Some(auth) = state.auth.as_ref() {
+            if let Some(idp) = auth.memory_idp() {
+                router = router.nest_service(
+                    "/__test-idp",
+                    crate::auth::test_idp::router(idp, auth.client_id().to_string()),
+                );
+            }
+        }
+    }
+    router
+        .fallback(fallback)
+        .layer(axum::middleware::from_fn_with_state(
+            state.limiter.clone(),
+            net::rate_limit,
+        ))
+        .layer(axum::middleware::from_fn(net::security_headers))
+        .with_state(state)
+}
+
 /// Everything a route needs. Every field is a cheap clone. 01-02 adds `clock` and `feeds`, 01-03
 /// adds `logs`, 03-02 adds `auth` (present only in hosted mode).
 #[derive(Clone)]
@@ -285,54 +350,13 @@ impl Drop for BackgroundTasks {
 
 /// The only router. Unknown `/api/*` paths and refused static paths answer 404
 /// `{"error":"not found"}`.
-pub fn app(state: AppState) -> Router {
-    Router::new()
-        .route("/api/status", get(routes::market::status))
-        .route("/api/symbols", get(routes::market::symbols))
-        .route("/api/instruments", get(routes::market::instruments))
-        .route("/api/bars", get(routes::market::bars))
-        .route("/api/health", get(routes::health::health))
-        .route("/ws", get(routes::ws::upgrade))
-        .route("/api/logs", get(routes::logs::logs))
-        .route(
-            "/api/orderflow/delta",
-            get(
-                |State(s): State<AppState>, Query(q): Query<HashMap<String, String>>| {
-                    routes::orderflow::serve(orderflow::Kind::Delta, s, q)
-                },
-            ),
-        )
-        .route(
-            "/api/orderflow/profile",
-            get(
-                |State(s): State<AppState>, Query(q): Query<HashMap<String, String>>| {
-                    routes::orderflow::serve(orderflow::Kind::Profile, s, q)
-                },
-            ),
-        )
-        .route(
-            "/api/orderflow/footprint",
-            get(
-                |State(s): State<AppState>, Query(q): Query<HashMap<String, String>>| {
-                    routes::orderflow::serve(orderflow::Kind::Footprint, s, q)
-                },
-            ),
-        )
-        .route(
-            "/api/logs/journal",
-            axum::routing::post(routes::logs::journal),
-        )
-        .fallback(fallback)
-        .layer(axum::middleware::from_fn_with_state(
-            state.limiter.clone(),
-            net::rate_limit,
-        ))
-        .layer(axum::middleware::from_fn(net::security_headers))
-        .with_state(state)
-}
-
 async fn fallback(State(st): State<AppState>, req: Request<Body>) -> Response {
-    if req.uri().path().starts_with("/api/") {
+    let path = req.uri().path();
+    if path.starts_with("/api/")
+        || path.starts_with("/auth/")
+        || path.starts_with("/admin/")
+        || path == "/api/me"
+    {
         return routes::api_error(StatusCode::NOT_FOUND, "not found");
     }
     static_files::serve(&st.cfg.static_dir, req).await

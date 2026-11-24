@@ -99,7 +99,8 @@ pub fn post_guard(cfg: &Config, headers: &HeaderMap, body_len: usize) -> Result<
     Ok(())
 }
 
-/// A per-client-IP token bucket for `/api/*`: `rate` tokens per second, `burst` at most.
+/// A per-client-IP token bucket for `/api/*`, `/auth/*` and `/admin/*`: `rate` tokens per
+/// second, `burst` at most.
 #[derive(Clone)]
 pub struct RateLimiter {
     inner: Arc<Mutex<HashMap<IpAddr, (f64, Instant)>>>,
@@ -135,13 +136,21 @@ impl RateLimiter {
     }
 }
 
-/// Middleware: 429 with `Retry-After` when a client IP empties its bucket on `/api/*`.
+/// The paths the limiter guards. Hosted auth endpoints are as exposed as the API, and the
+/// admin log routes read files, so all three areas share one bucket.
+pub fn is_limited(path: &str) -> bool {
+    ["/api/", "/auth/", "/admin/"]
+        .iter()
+        .any(|p| path.starts_with(p))
+}
+
+/// Middleware: 429 with `Retry-After` when a client IP empties its bucket on a guarded path.
 pub async fn rate_limit(
     axum::extract::State(limiter): axum::extract::State<RateLimiter>,
     req: Request<Body>,
     next: Next,
 ) -> Response {
-    if req.uri().path().starts_with("/api/") {
+    if is_limited(req.uri().path()) {
         let peer = req
             .extensions()
             .get::<ConnectInfo<SocketAddr>>()
@@ -221,6 +230,16 @@ mod guard_tests {
             status(post_guard(&cfg, &mk(None, "application/json"), 300_001)),
             StatusCode::PAYLOAD_TOO_LARGE
         );
+    }
+
+    #[test]
+    fn limiter_covers_api_auth_and_admin() {
+        for p in ["/api/bars", "/auth/start", "/auth/me", "/admin/logs"] {
+            assert!(is_limited(p), "{p} is limited");
+        }
+        for p in ["/", "/hub.html", "/ws", "/logout"] {
+            assert!(!is_limited(p), "{p} is not limited");
+        }
     }
 
     #[test]

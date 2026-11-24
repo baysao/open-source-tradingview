@@ -114,7 +114,6 @@ impl SetCookie {
     }
 
     /// Whether the response already sets the session cookie (sign-in, logout, delete win).
-    #[allow(dead_code)] // the gate reads it when appending its slide cookie (03-02 Task 3)
     pub(crate) fn sets_session(resp: &Response) -> bool {
         resp.headers()
             .get_all(SET_COOKIE)
@@ -208,6 +207,26 @@ impl AuthDeps {
             clock: AuthClock::Manual(clock.clone()),
         }
     }
+
+    /// reqwest against the `/__test-idp` router served on a loopback socket, manual clock: the
+    /// HTTP Idp path (JWKS over `Cache-Control`, the token POST with the verifier) with no
+    /// Google call. The settings carry the `GOOGLE_*_URL` overrides pointing at the socket,
+    /// and the redirect URI is the test origin's callback.
+    #[cfg(feature = "test-idp")]
+    pub fn over_http(s: &AuthSettings, clock: &ManualClock, test_origin: &str) -> AuthDeps {
+        AuthDeps {
+            idp: Idp::Http {
+                http: reqwest::Client::new(),
+                auth_url: s.idp.auth_url.clone(),
+                token_url: s.idp.token_url.clone(),
+                jwks_url: s.idp.jwks_url.clone(),
+                client_id: s.client_id.clone(),
+                client_secret: s.client_secret.expose().to_string(),
+                redirect_uri: format!("{test_origin}/auth/google/callback"),
+            },
+            clock: AuthClock::Manual(clock.clone()),
+        }
+    }
 }
 
 // --- The service -------------------------------------------------------------------
@@ -256,6 +275,15 @@ impl Auth {
     /// `GOOGLE_CLIENT_ID`: public by design, `/auth/me` hands it to `auth.js` (D-017).
     pub fn client_id(&self) -> &str {
         &self.0.settings.client_id
+    }
+
+    /// The in-memory Idp for the `/__test-idp` mount (feature only; none in production).
+    #[cfg(feature = "test-idp")]
+    pub fn memory_idp(&self) -> Option<TestIdp> {
+        match &self.0.idp {
+            Idp::Memory(idp) => Some(idp.clone()),
+            Idp::Http { .. } => None,
+        }
     }
 
     #[allow(dead_code)] // handlers build the authorize redirect (03-02 Task 3)
@@ -318,9 +346,10 @@ impl Auth {
             }
             #[cfg(feature = "test-idp")]
             Idp::Memory(_) => format!(
-                "/__test-idp/authorize?code_challenge={}&nonce={}&redirect_uri={}/auth/google/callback",
+                "/__test-idp/authorize?code_challenge={}&code_challenge_method=S256&nonce={}&state={}&redirect_uri={}/auth/google/callback",
                 urlencode(&ticket.challenge()),
                 urlencode(&nonce),
+                urlencode(&state),
                 urlencode(&self.0.public_origin),
             ),
         };
@@ -366,24 +395,51 @@ impl Auth {
         format!("{OAUTH_COOKIE}=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0")
     }
 
-    /// The sign-in effect (S1, S4-or-S2+S3, S5), at most two attempts. Retries when S4 or S3
-    /// report a racer (`rows_affected == 0`); the second attempt re-reads S1, which then hits.
+    /// The sign-in effect (S1, S4-or-S2+S3, S5), at most two attempts, one transaction per
+    /// attempt (architecture "Sequences"): a lost race rolls its user row back, and a busy
+    /// error (D-018: pgsqlite `database is locked`, 03-01 measured it for a second
+    /// concurrent writer) is retried like S3/S4's `rows_affected == 0`.
     async fn sign_in_effect(
         &self,
         identity: &VerifiedIdentity,
         user_agent: Option<&str>,
     ) -> Result<(Member, SetCookie), AuthError> {
         let now = self.now();
-        let pool = self.0.db.pool();
+        let mut busy: Option<String> = None;
         for _attempt in 0..2 {
-            match store::identity_user(pool, PROVIDER, &identity.subject)
+            match self.sign_in_attempt(identity, user_agent, now).await {
+                Attempt::Done(result) => return result,
+                Attempt::Raced => continue, // re-read S1: a racer won, so it now hits
+                Attempt::Busy(m) => busy = Some(m), // the attempt did not run: retry
+            }
+        }
+        match busy {
+            // A busy database is not a refusal: the client retries (503, never signed-out).
+            Some(m) => Err(AuthError::Unavailable(m)),
+            // Both attempts lost the race; the caller maps this to 401.
+            None => Err(AuthError::SignInFailed(Refusal::IdpRefusedCode)),
+        }
+    }
+
+    /// One attempt of the sign-in effect. `Attempt::Raced` reports S3/S4's zero-rows signal
+    /// (the transaction was rolled back with the attempt); `Busy` a `database is locked`.
+    async fn sign_in_attempt(
+        &self,
+        identity: &VerifiedIdentity,
+        user_agent: Option<&str>,
+        now: DateTime<Utc>,
+    ) -> Attempt<(Member, SetCookie)> {
+        let pool = self.0.db.pool();
+        let run = async {
+            let mut tx = pool.begin().await.map_err(fatal_or_busy)?;
+            match store::identity_user_tx(&mut tx, PROVIDER, &identity.subject)
                 .await
-                .map_err(db_unavailable)?
+                .map_err(fatal_or_busy)?
             {
                 Some(existing) => {
-                    let updated = store::update_user_profile(
-                        pool,
-                        existing.user_id,
+                    store::update_user_profile_tx(
+                        &mut tx,
+                        existing,
                         &identity.email,
                         identity.email_verified,
                         identity.name.as_deref(),
@@ -391,20 +447,20 @@ impl Auth {
                         now,
                     )
                     .await
-                    .map_err(db_unavailable)?;
-                    if !updated {
-                        // The user row was deleted mid-sign-in: retry (attempt 2 re-reads S1
-                        // and takes the miss path).
-                        continue;
-                    }
-                    let user = store::user_row(pool, existing.user_id)
+                    .map_err(fatal_or_busy)?;
+                    // The update's rows_affected is not a signal on pgsqlite (see store):
+                    // S7 decides. A row deleted mid-sign-in races us; retry.
+                    let user = store::user_row(pool, existing)
                         .await
-                        .map_err(db_unavailable)?
-                        .ok_or_else(|| AuthError::Unavailable("user row vanished".to_string()))?;
+                        .map_err(fatal_or_busy)?;
+                    let Some(user) = user else {
+                        tx.rollback().await.map_err(fatal_or_busy)?;
+                        return Err(Attempt::Raced);
+                    };
                     let session_id = SessionId::fresh();
                     let (cookie_header, id_hash) = self.session_cookie(&session_id);
-                    store::insert_session(
-                        pool,
+                    store::insert_session_tx(
+                        &mut tx,
                         &id_hash,
                         user.id,
                         now + SESSION_TTL,
@@ -412,7 +468,8 @@ impl Auth {
                         now,
                     )
                     .await
-                    .map_err(db_unavailable)?;
+                    .map_err(fatal_or_busy)?;
+                    tx.commit().await.map_err(fatal_or_busy)?;
                     let admin = is_admin(
                         &user.email,
                         identity.email_verified,
@@ -430,12 +487,12 @@ impl Auth {
                     };
                     let mut cookie = SetCookie::default();
                     cookie.push(cookie_header);
-                    return Ok((member, cookie));
+                    Ok(Attempt::Done(Ok((member, cookie))))
                 }
                 None => {
                     let user_id = Uuid::now_v7();
-                    store::insert_user(
-                        pool,
+                    store::insert_user_tx(
+                        &mut tx,
                         user_id,
                         &identity.email,
                         identity.email_verified,
@@ -444,21 +501,27 @@ impl Auth {
                         now,
                     )
                     .await
-                    .map_err(db_unavailable)?;
-                    let won =
-                        store::insert_identity(pool, PROVIDER, &identity.subject, user_id, now)
-                            .await
-                            .map_err(db_unavailable)?;
+                    .map_err(fatal_or_busy)?;
+                    let won = store::insert_identity_tx(
+                        &mut tx,
+                        PROVIDER,
+                        &identity.subject,
+                        user_id,
+                        now,
+                    )
+                    .await
+                    .map_err(fatal_or_busy)?;
                     if !won {
                         // A concurrent first sign-in for the same subject won the S3 race:
-                        // our user row is inert (nothing points at it) and the retry re-reads
-                        // S1, which now hits for us too.
-                        continue;
+                        // roll back so our user row goes with the attempt (AC-2: exactly
+                        // one user); the retry re-reads S1, which now hits for us too.
+                        tx.rollback().await.map_err(fatal_or_busy)?;
+                        return Err(Attempt::Raced);
                     }
                     let session_id = SessionId::fresh();
                     let (cookie_header, id_hash) = self.session_cookie(&session_id);
-                    store::insert_session(
-                        pool,
+                    store::insert_session_tx(
+                        &mut tx,
                         &id_hash,
                         user_id,
                         now + SESSION_TTL,
@@ -466,7 +529,8 @@ impl Auth {
                         now,
                     )
                     .await
-                    .map_err(db_unavailable)?;
+                    .map_err(fatal_or_busy)?;
+                    tx.commit().await.map_err(fatal_or_busy)?;
                     let admin = is_admin(
                         &identity.email,
                         identity.email_verified,
@@ -484,12 +548,22 @@ impl Auth {
                     };
                     let mut cookie = SetCookie::default();
                     cookie.push(cookie_header);
-                    return Ok((member, cookie));
+                    Ok(Attempt::Done(Ok((member, cookie))))
                 }
             }
         }
-        // Both attempts lost the race; the caller maps this to 401 (the client retries).
-        Err(AuthError::SignInFailed(Refusal::IdpRefusedCode))
+        .await;
+        match run {
+            Ok(Attempt::Done(inside)) => match inside {
+                Ok(result) => Attempt::Done(Ok(result)),
+                Err(e) => Attempt::Done(Err(e)),
+            },
+            Ok(other) => other,
+            Err(Attempt::Done(Err(e))) => Attempt::Done(Err(e)),
+            Err(Attempt::Done(Ok(never))) => match never {},
+            Err(Attempt::Raced) => Attempt::Raced,
+            Err(Attempt::Busy(m)) => Attempt::Busy(m),
+        }
     }
 
     /// One Tap: verify the credential against the JWKS, then the sign-in effect.
@@ -506,6 +580,22 @@ impl Auth {
     /// Verify an id token against the cached JWKS, fetching when the pure plan says so.
     /// A fetch outage with no usable key is `Unavailable`; everything else is a `Refusal`.
     async fn verified_identity(
+        &self,
+        token: &str,
+        nonce: Option<&str>,
+    ) -> Result<VerifiedIdentity, AuthError> {
+        // The reason is logged here (the variant only), so onetap and exchange refusals
+        // leave the same audit trail the callback flow does.
+        match self.verified_identity_inner(token, nonce).await {
+            Err(AuthError::SignInFailed(r)) => {
+                tracing::warn!(target: "auth", "refusal: {r:?} token={token}");
+                Err(AuthError::SignInFailed(r))
+            }
+            other => other,
+        }
+    }
+
+    async fn verified_identity_inner(
         &self,
         token: &str,
         nonce: Option<&str>,
@@ -648,9 +738,11 @@ impl Auth {
                 let _ = code;
                 // The suites drive the memory path by minting; the verifier must have been
                 // registered (PKCE is proved on the HTTP path over the loopback socket).
+                // The minted token carries our audience and the ticket's nonce, so it passes
+                // the same verification a Google token would.
                 memory_id_token(
                     idp,
-                    &crate::auth::test_idp::Claims::for_sub("g-0"),
+                    &crate::auth::test_idp::Claims::for_sub("g-0").aud(&self.0.settings.client_id),
                     Some(&ticket.nonce),
                     0,
                 )
@@ -697,8 +789,8 @@ impl Auth {
         }
     }
 
-    /// Desktop callback: the identity effect with a 60 s placeholder session (S1, S2/S3 or
-    /// S4, S5 placeholder whose raw id is discarded at once, S11).
+    /// Desktop callback: the effect with a 60 s placeholder session (S1, S2/S3 or
+    /// S4, S5 placeholder whose raw id is discarded at once, S11), one transaction per attempt.
     async fn desktop_callback_effect(
         &self,
         identity: &VerifiedIdentity,
@@ -710,85 +802,91 @@ impl Auth {
         };
         let now = self.now();
         let pool = self.0.db.pool();
-        let user_id = match store::identity_user(pool, PROVIDER, &identity.subject)
-            .await
-            .map_err(db_unavailable)?
-        {
-            Some(existing) => {
-                let updated = store::update_user_profile(
-                    pool,
-                    existing.user_id,
-                    &identity.email,
-                    identity.email_verified,
-                    identity.name.as_deref(),
-                    identity.picture.as_deref(),
-                    now,
-                )
+        for _attempt in 0..2 {
+            let mut tx = pool.begin().await.map_err(db_unavailable)?;
+            let user_id = match store::identity_user_tx(&mut tx, PROVIDER, &identity.subject)
                 .await
-                .map_err(db_unavailable)?;
-                if !updated {
-                    return Err(AuthError::Unavailable("user row vanished".to_string()));
-                }
-                existing.user_id
-            }
-            None => {
-                let user_id = Uuid::now_v7();
-                store::insert_user(
-                    pool,
-                    user_id,
-                    &identity.email,
-                    identity.email_verified,
-                    identity.name.as_deref(),
-                    identity.picture.as_deref(),
-                    now,
-                )
-                .await
-                .map_err(db_unavailable)?;
-                let won = store::insert_identity(pool, PROVIDER, &identity.subject, user_id, now)
+                .map_err(db_unavailable)?
+            {
+                Some(existing) => {
+                    // rows_affected is not a signal on pgsqlite (see sign_in_effect): the
+                    // S5 placeholder insert below fails on a vanished user (FK), so no
+                    // extra read is needed here.
+                    store::update_user_profile_tx(
+                        &mut tx,
+                        existing,
+                        &identity.email,
+                        identity.email_verified,
+                        identity.name.as_deref(),
+                        identity.picture.as_deref(),
+                        now,
+                    )
                     .await
                     .map_err(db_unavailable)?;
-                if won {
-                    user_id
-                } else {
-                    // A racer won S3; re-read S1, which must now hit (the code was just
-                    // granted, so only a delete racing us could miss, and that is Unavailable).
-                    store::identity_user(pool, PROVIDER, &identity.subject)
-                        .await
-                        .map_err(db_unavailable)?
-                        .map(|a| a.user_id)
-                        .ok_or_else(|| AuthError::Unavailable("identity race".to_string()))?
+                    existing
                 }
-            }
-        };
-        // Placeholder session: 60 s, its raw id never leaves this function.
-        let placeholder = SessionId::fresh();
-        store::insert_session(
-            pool,
-            &placeholder.hash(),
-            user_id,
-            now + PLACEHOLDER_TTL,
-            ua,
-            now,
-        )
-        .await
-        .map_err(db_unavailable)?;
-        let code = DesktopCode::fresh();
-        store::insert_desktop_code(
-            pool,
-            &code.hash(),
-            &stored_key,
-            &placeholder.hash(),
-            now + PLACEHOLDER_TTL,
-        )
-        .await
-        .map_err(db_unavailable)?;
-        Ok(code.encode())
+                None => {
+                    let user_id = Uuid::now_v7();
+                    store::insert_user_tx(
+                        &mut tx,
+                        user_id,
+                        &identity.email,
+                        identity.email_verified,
+                        identity.name.as_deref(),
+                        identity.picture.as_deref(),
+                        now,
+                    )
+                    .await
+                    .map_err(db_unavailable)?;
+                    let won = store::insert_identity_tx(
+                        &mut tx,
+                        PROVIDER,
+                        &identity.subject,
+                        user_id,
+                        now,
+                    )
+                    .await
+                    .map_err(db_unavailable)?;
+                    if !won {
+                        continue; // a racer won: roll back, retry (S1 then hits)
+                    }
+                    user_id
+                }
+            };
+            // Placeholder session: 60 s, its raw id never leaves this function.
+            let placeholder = SessionId::fresh();
+            store::insert_session_tx(
+                &mut tx,
+                &placeholder.hash(),
+                user_id,
+                now + PLACEHOLDER_TTL,
+                ua,
+                now,
+            )
+            .await
+            .map_err(db_unavailable)?;
+            let code = DesktopCode::fresh();
+            // The code row references the placeholder session: same transaction, or the FK
+            // is checked against a row the other connection cannot see yet.
+            store::insert_desktop_code(
+                &mut tx,
+                &code.hash(),
+                &stored_key,
+                &placeholder.hash(),
+                now + PLACEHOLDER_TTL,
+            )
+            .await
+            .map_err(db_unavailable)?;
+            tx.commit().await.map_err(db_unavailable)?;
+            return Ok(code.encode());
+        }
+        Err(AuthError::Unavailable("identity race".to_string()))
     }
 
     /// The desktop exchange: S12 (none: CodeUnknown), S13 (`!= 1`: CodeReused),
     /// `decide_exchange`; on pass S6 placeholder, S9, S7, S5 fresh. The code stays burned
     /// whatever the outcome; on refusal the placeholder dies by expiry and the sweep's
-    /// cascade removes it.
+    /// cascade removes it. The fresh-session half is one transaction.
     pub async fn exchange_desktop_code(
         &self,
         code: &str,
@@ -820,9 +918,6 @@ impl Auth {
             .await
             .map_err(db_unavailable)?
             .ok_or(AuthError::SignInFailed(Refusal::CodeExpired))?;
-        store::delete_session(pool, &placeholder)
-            .await
-            .map_err(db_unavailable)?;
         let user = store::user_row(pool, ph_row.user_id)
             .await
             .map_err(db_unavailable)?
@@ -830,9 +925,16 @@ impl Auth {
         let now = self.now();
         let session_id = SessionId::fresh();
         let (cookie_header, id_hash) = self.session_cookie(&session_id);
-        store::insert_session(pool, &id_hash, user.id, now + SESSION_TTL, ua, now)
+        // One transaction: the placeholder dies exactly when the fresh session appears, so a
+        // crash between them cannot leave a working placeholder.
+        let mut tx = pool.begin().await.map_err(db_unavailable)?;
+        store::delete_session_tx(&mut tx, &placeholder)
             .await
             .map_err(db_unavailable)?;
+        store::insert_session_tx(&mut tx, &id_hash, user.id, now + SESSION_TTL, ua, now)
+            .await
+            .map_err(db_unavailable)?;
+        tx.commit().await.map_err(db_unavailable)?;
         let admin = is_admin(
             &user.email,
             user.email_verified,
@@ -904,6 +1006,27 @@ fn peek_kid(token: &str) -> Option<String> {
 /// Map any sqlx error to `Unavailable`, cause stripped of the URL password.
 fn db_unavailable(e: sqlx::Error) -> AuthError {
     AuthError::Unavailable(db_cause(&e))
+}
+
+/// The outcome of one sign-in attempt.
+enum Attempt<T> {
+    /// The attempt finished (its transaction committed, or a fatal error maps outside).
+    Done(Result<T, AuthError>),
+    /// A racer won S3, or the user row vanished mid-attempt: rolled back, retry.
+    Raced,
+    /// `database is locked` (D-018): the attempt did not run, retry.
+    Busy(String),
+}
+
+/// Classify one sqlx error inside the sign-in attempt: `database is locked` is `Busy`
+/// (the attempt did not run; retry), everything else is a fatal `Unavailable`.
+fn fatal_or_busy(e: sqlx::Error) -> Attempt<std::convert::Infallible> {
+    let cause = db_cause(&e);
+    if crate::db::is_busy(&e) {
+        Attempt::Busy(cause)
+    } else {
+        Attempt::Done(Err(AuthError::Unavailable(cause)))
+    }
 }
 
 fn db_cause(e: &sqlx::Error) -> String {

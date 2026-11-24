@@ -11,10 +11,6 @@ use sqlx::PgPool;
 
 use crate::auth::ids::{CodeHash, KeyHash, SessionHash};
 
-pub(crate) struct IdentityId {
-    pub(crate) user_id: uuid::Uuid,
-}
-
 /// S1.
 const S1: &str = "SELECT user_id FROM identities WHERE provider = $1 AND subject = $2";
 /// S2.
@@ -22,7 +18,7 @@ const S2: &str = "INSERT INTO users (id, email, email_verified, name, picture, c
 /// S3.
 const S3: &str = "INSERT INTO identities (provider, subject, user_id, created_at) VALUES ($1, $2, $3, $4) ON CONFLICT (provider, subject) DO NOTHING";
 /// S4.
-const S4: &str = "UPDATE users SET email = $2, email_verified = $3, name = $4, picture = $5, last_login_at = $6 WHERE id = $1";
+const S4: &str = "UPDATE users SET email = $1, email_verified = $2, name = $3, picture = $4, last_login_at = $5 WHERE id = $6";
 /// S5.
 const S5: &str = "INSERT INTO sessions (id_hash, user_id, created_at, expires_at, last_seen_at, user_agent) VALUES ($1, $2, $3, $4, $5, $6)";
 /// S6.
@@ -30,7 +26,7 @@ const S6: &str = "SELECT user_id, expires_at, last_seen_at FROM sessions WHERE i
 /// S7.
 const S7: &str = "SELECT id, email, email_verified, name, picture FROM users WHERE id = $1";
 /// S8.
-const S8: &str = "UPDATE sessions SET expires_at = $2, last_seen_at = $3 WHERE id_hash = $1";
+const S8: &str = "UPDATE sessions SET expires_at = $1, last_seen_at = $2 WHERE id_hash = $3";
 /// S9.
 const S9: &str = "DELETE FROM sessions WHERE id_hash = $1";
 /// S10.
@@ -72,22 +68,23 @@ pub(crate) struct CodeRow {
     pub(crate) expires_at: chrono::DateTime<chrono::Utc>,
 }
 
-pub(crate) async fn identity_user(
-    pool: &PgPool,
+/// S1 over a transaction's connection (every identity read is part of an attempt).
+pub(crate) async fn identity_user_tx(
+    tx: &mut sqlx::PgConnection,
     provider: &str,
     subject: &str,
-) -> Result<Option<IdentityId>, sqlx::Error> {
+) -> Result<Option<uuid::Uuid>, sqlx::Error> {
     sqlx::query_as::<_, (uuid::Uuid,)>(S1)
         .bind(provider)
         .bind(subject)
-        .fetch_optional(pool)
+        .fetch_optional(&mut *tx)
         .await
-        .map(|r| r.map(|(user_id,)| IdentityId { user_id }))
+        .map(|r| r.map(|(user_id,)| user_id))
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(crate) async fn insert_user(
-    pool: &PgPool,
+pub(crate) async fn insert_user_tx(
+    tx: &mut sqlx::PgConnection,
     id: uuid::Uuid,
     email: &str,
     email_verified: bool,
@@ -103,14 +100,14 @@ pub(crate) async fn insert_user(
         .bind(picture)
         .bind(now)
         .bind(now)
-        .execute(pool)
+        .execute(&mut *tx)
         .await
         .map(|_| ())
 }
 
 /// `Ok(false)` is the racer signal (`rows_affected == 0`): another first sign-in won.
-pub(crate) async fn insert_identity(
-    pool: &PgPool,
+pub(crate) async fn insert_identity_tx(
+    tx: &mut sqlx::PgConnection,
     provider: &str,
     subject: &str,
     user_id: uuid::Uuid,
@@ -121,36 +118,38 @@ pub(crate) async fn insert_identity(
         .bind(subject)
         .bind(user_id)
         .bind(now)
-        .execute(pool)
+        .execute(&mut *tx)
         .await
         .map(|r| r.rows_affected() > 0)
 }
 
-/// `Ok(false)` is the deleted-midway signal (`rows_affected == 0`).
+/// The update's `rows_affected` is not a reliable signal on pgsqlite (it reports 0 for an
+/// unchanged row): the caller checks S7 after the update instead.
 #[allow(clippy::too_many_arguments)]
-pub(crate) async fn update_user_profile(
-    pool: &PgPool,
+pub(crate) async fn update_user_profile_tx(
+    tx: &mut sqlx::PgConnection,
     user_id: uuid::Uuid,
     email: &str,
     email_verified: bool,
     name: Option<&str>,
     picture: Option<&str>,
     now: chrono::DateTime<chrono::Utc>,
-) -> Result<bool, sqlx::Error> {
+) -> Result<(), sqlx::Error> {
+    // Sequential placeholders in text order (see the S4 comment).
     sqlx::query(S4)
-        .bind(user_id)
         .bind(email)
         .bind(email_verified)
         .bind(name)
         .bind(picture)
         .bind(now)
-        .execute(pool)
+        .bind(user_id)
+        .execute(&mut *tx)
         .await
-        .map(|r| r.rows_affected() > 0)
+        .map(|_| ())
 }
 
-pub(crate) async fn insert_session(
-    pool: &PgPool,
+pub(crate) async fn insert_session_tx(
+    tx: &mut sqlx::PgConnection,
     id_hash: &SessionHash,
     user_id: uuid::Uuid,
     expires_at: chrono::DateTime<chrono::Utc>,
@@ -164,7 +163,7 @@ pub(crate) async fn insert_session(
         .bind(expires_at)
         .bind(now)
         .bind(user_agent)
-        .execute(pool)
+        .execute(&mut *tx)
         .await
         .map(|_| ())
 }
@@ -219,9 +218,9 @@ pub(crate) async fn slide_session(
     last_seen_at: chrono::DateTime<chrono::Utc>,
 ) -> Result<(), sqlx::Error> {
     sqlx::query(S8)
-        .bind(id_hash.as_bytes())
         .bind(expires_at)
         .bind(last_seen_at)
+        .bind(id_hash.as_bytes())
         .execute(pool)
         .await
         .map(|_| ())
@@ -238,12 +237,24 @@ pub(crate) async fn delete_session(
         .map(|_| ())
 }
 
+/// S9 over a transaction's connection (the exchange's placeholder delete).
+pub(crate) async fn delete_session_tx(
+    tx: &mut sqlx::PgConnection,
+    id_hash: &SessionHash,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(S9)
+        .bind(id_hash.as_bytes())
+        .execute(&mut *tx)
+        .await
+        .map(|_| ())
+}
+
 pub(crate) async fn delete_user(pool: &PgPool, id: uuid::Uuid) -> Result<(), sqlx::Error> {
     sqlx::query(S10).bind(id).execute(pool).await.map(|_| ())
 }
 
 pub(crate) async fn insert_desktop_code(
-    pool: &PgPool,
+    tx: &mut sqlx::PgConnection,
     code_hash: &CodeHash,
     key_hash: &KeyHash,
     session_id_hash: &SessionHash,
@@ -254,7 +265,7 @@ pub(crate) async fn insert_desktop_code(
         .bind(key_hash.as_bytes())
         .bind(session_id_hash.as_bytes())
         .bind(expires_at)
-        .execute(pool)
+        .execute(&mut *tx)
         .await
         .map(|_| ())
 }

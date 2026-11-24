@@ -52,3 +52,20 @@ tempfile.workspace = true
 [[test]]
 name = "db_engines"
 required-features = ["test-idp"]
+
+[[test]]
+name = "auth"
+required-features = ["test-idp"]
+
+[[test]]
+name = "admin"
+required-features = ["test-idp"]
+
+[[test]]
+name = "gate"
+required-features = ["test-idp"]
+
+
+
+
+

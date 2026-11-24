@@ -457,6 +457,8 @@ mod tests {
             session_check(now - Duration::seconds(1), now, now),
             SessionCheck::Expired
         );
+        // Expiry is inclusive: at exactly expires_at the session is over.
+        assert_eq!(session_check(now, now, now), SessionCheck::Expired);
         // Active within 24 h: valid, nothing slides.
         assert_eq!(
             session_check(now + Duration::days(20), now - Duration::hours(3), now),
@@ -680,6 +682,25 @@ mod tests {
             Err(Refusal::Malformed),
             "an undecodable body stops at the signature edge"
         );
+    }
+
+    #[cfg(feature = "test-idp")]
+    #[test]
+    fn a_token_with_the_wrong_nonce_is_refused() {
+        use crate::auth::test_idp::{Claims, TestIdp};
+        let idp = TestIdp::new();
+        let ks = crate::auth::google::memory_keys(&idp);
+        let now = Utc::now();
+        let token = idp.id_token(&Claims::for_sub("g-1").aud(CLIENT), Some("nonce-a"), 0);
+        // The matching nonce passes every other check (aud, iss, exp, sub, email).
+        assert!(verify_id_token(&token, &ks, &expect(Some("nonce-a")), now).is_ok());
+        // A different nonce is refused, and only for that reason.
+        assert_eq!(
+            verify_id_token(&token, &ks, &expect(Some("nonce-b")), now),
+            Err(Refusal::NonceMismatch)
+        );
+        // With no nonce expected, the claim is not consulted.
+        assert!(verify_id_token(&token, &ks, &expect(None), now).is_ok());
     }
 
     #[test]
