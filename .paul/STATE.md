@@ -65,6 +65,7 @@ PLAN ──▶ APPLY ──▶ UNIFY
 - DEBT-007 done 2026-11-23 (commit 6ae3ea1).
 - DEBT-011 open (blocking phase-03-exit): dev db binds 0.0.0.0; needs pgsqlite with --host (see .paul/DEBT.toml).
 - DEBT-012 open: pgsqlite 0.0.22 mis-maps UPDATE parameters out of text order; S4/S8 work around it.
+- DEBT-013 open (owner, phase:04): register the loopback Google redirect URI and serve hosted mode over HTTPS; the prerequisite for DEBT-010.
 
 ### Skill Audit (Phase 03, plan 02)
 | Expected | Invoked | Notes |
@@ -82,13 +83,17 @@ PLAN ──▶ APPLY ──▶ UNIFY
 
 ## Session Continuity
 
-Last session: 2026-11-24 15:05 (+07) (03-02 UNIFY complete)
-Stopped at: 03-02 UNIFIED - 8/8 AC pass on pgsqlite (Postgres in CI), 22/22 mutations fail, gates exit 0; SUMMARY .paul/phases/03-auth/03-02-SUMMARY.md
+Last session: 2026-11-24 15:26 (+07) (paused after 03-02 UNIFY)
+Stopped at: idle - 03-02 UNIFIED, no work mid-flight; working tree holds the AGENTS.md split (full guide moved to APP.md), .env.example, ci.yml, Procfile and dev.sh, all uncommitted by the owner's choice
 DUE (2026-11-23, deferred by owner): /reflect for Phase 02 (reflect: pstack)
 ~~DUE NOW (2026-11-23): 01-03 checkpoint:human-verify, owner checks the hub on hub-server (DEBT-002)~~ closed 2026-11-23: verified by agent with Playwright at the owner's request
 ~~DUE NOW (2026-11-23): owner types /reflect for the Phase 01 close (reflect: pstack)~~ done 2026-11-23 (6 accepted edits applied, R-6, L-010..L-012)
-Next action: /paul:apply .paul/phases/03-auth/03-03-PLAN.md (its PLAN already exists); before that APPLY, allowlist `npx -y modern-web-guidance@latest *` (DEBT-009); DEBT-011 (pgsqlite --host) blocks the Phase 03 exit; DEBT-010 is the owner's real-Google look. /reflect (pstack) runs at the UNIFY of 03-03, the phase's last plan
-Resume file: .paul/phases/03-auth/03-02-SUMMARY.md
+Next action: owner allowlists `npx -y modern-web-guidance@latest *` (DEBT-009), then /paul:apply .paul/phases/03-auth/03-03-PLAN.md; DEBT-011 (pgsqlite --host) blocks the Phase 03 exit; DEBT-013 (redirect URI, HTTPS origin) is the prerequisite for the owner's Google look DEBT-010; /reflect (pstack) runs at the UNIFY of 03-03
+Resume file: .paul/handoffs/HANDOFF-2026-11-24-1526.md
+Resume context:
+- 03-02 is UNIFIED; nothing is half-done, so resuming means starting 03-03, not finishing 03-02.
+- `.env` has AUTH_ENABLED=true with the owner's real Google client: hub-server starts hosted and needs pgsqlite on port 55432. Set AUTH_ENABLED=false for local-mode charts.
+- AGENTS.md is the three-skill preamble now; the full setup guide lives in APP.md (untracked, owner's call to commit).
 
 ---
 *STATE.md: updated after every significant action*

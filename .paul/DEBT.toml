@@ -132,3 +132,14 @@ trigger = "event:pgsqlite-param-order-fix"
 status = "open"
 check = { type = "command", run = "bash -c \"C:/Users/Dell/.local/bin/pgsqlite.exe --help 2>&1 | head -1 | grep -q 0.0.23 && echo ENGINE-PARAM-ORDER-FIXED || echo STILL-OLD-BUILD\"", expect = "ENGINE-PARAM-ORDER-FIXED" }
 note = "The check reads the installed engine version: it passes when a build newer than 0.0.22 replaces the one that mis-maps parameters. S4 and S8 keep sequential placeholders until then (their comments say why). Also measured: UPDATE rows_affected on pgsqlite is not a usable signal for an unchanged row, so the sign-in effect checks S7 instead."
+
+[[debt]]
+id = "DEBT-013"
+title = "Owner registers the loopback redirect URI (http://127.0.0.1:8770/auth/google/callback) on the OAuth client in Google Cloud console, and serves hosted mode over HTTPS so the __Host- cookies are kept. Without both, the real-Google round trip cannot complete (the download's client JSON lists only https://vtradingview.com)"
+kind = "decision"
+origin = "03-02 task 3 (hosted start proven live up to the redirect; the cookie flags and the console allow-list stop the round trip)"
+owner = "owner"
+trigger = "phase:04"
+status = "open"
+check = { type = "text_present", path = ".paul/phases/03-auth/03-03-SUMMARY.md", pattern = "Google redirect URI registered: done" }
+note = "DEBT-010 is the owner's look at the finished sign-in; this row is the prerequisite that blocks it. Verified live 2026-11-24: /auth/google/start redirected to accounts.google.com with PKCE S256 and the sealed ticket, against the owner's real client id."
