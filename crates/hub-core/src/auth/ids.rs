@@ -32,6 +32,7 @@ impl SessionId {
     }
 
     /// Fixed bytes, for tests and for a session read back from a cookie.
+    #[allow(dead_code)] // a 03-02 test reconstructs a SessionId from fixed bytes
     pub(crate) fn from_bytes(bytes: [u8; SECRET_LEN]) -> SessionId {
         SessionId(bytes)
     }
@@ -83,6 +84,11 @@ impl SessionHash {
     #[allow(dead_code)] // the store reads rows by hash (03-02 Task 2)
     pub(crate) fn of_cookie(cookie: &str) -> SessionHash {
         SessionHash(sha256(cookie.as_bytes()))
+    }
+
+    /// Rebuilds a hash from a row's `bytea` (the store's reads, S6/S12).
+    pub(crate) fn from_bytes(bytes: [u8; SECRET_LEN]) -> SessionHash {
+        SessionHash(bytes)
     }
 
     #[allow(dead_code)]

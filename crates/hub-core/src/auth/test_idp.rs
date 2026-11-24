@@ -263,7 +263,11 @@ struct TokenBody {
     redirect_uri: String,
 }
 
-/// The JWKS document for the served keys.
+/// The JWKS document for the served keys (also read directly by the memory Idp path).
+pub(crate) fn jwks_document() -> serde_json::Value {
+    jwks_doc()
+}
+
 fn jwks_doc() -> serde_json::Value {
     let keys = IdpKeys::get();
     let one = |k: &IdpKey| {
