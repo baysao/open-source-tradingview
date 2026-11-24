@@ -114,19 +114,16 @@ Uncommitted: check1..4.txt (stale 03-02 compile logs, scratch)
 
 ## Session Continuity
 
-Last session: 2026-11-24 18:20 (+07) (Phase 03 complete)
-Stopped at: Phase 03 closed and transitioned; nothing in flight. Working tree: hub/auth.js (new), hub/hub.html, hub/log_panel.js, lib.rs test hook, 03-03-SUMMARY, 01-03-SUMMARY (DEBT-004), DEBT.toml, polish-log, STATE; plus the earlier AGENTS.md split (APP.md), .env.example, ci.yml, Procfile, dev.sh - all uncommitted by the owner's choice
+Last session: 2026-11-24 19:30 (+07) (paused by the owner after Phase 03 closed and committed)
+Stopped at: idle - Phase 03 complete and committed (9840fdf, 7ec1e61); the tree is clean except the
+stale `check1..4.txt` scratch logs the owner has not decided on; nothing mid-flight
 DUE (2026-11-23, deferred by owner): /reflect for Phase 02 (reflect: pstack)
 ~~DUE NOW (2026-11-23): 01-03 checkpoint:human-verify, owner checks the hub on hub-server (DEBT-002)~~ closed 2026-11-23: verified by agent with Playwright at the owner's request
 ~~DUE NOW (2026-11-23): owner types /reflect for the Phase 01 close (reflect: pstack)~~ done 2026-11-23 (6 accepted edits applied, R-6, L-010..L-012)
-Next action: /paul:plan for Phase 04 (public deploy). Owner items queued first: the phase commit (uncommitted since 03-03), DEBT-013 (Google console redirect URI + an HTTPS origin, gates DEBT-010), DEBT-005 (first green CI run, which now also asserts the release tree has no test-IdP)
-Resume file: .paul/ROADMAP.md
+Next action: /paul:plan for Phase 04 (public deploy); owner items first: DEBT-013 (Google console redirect URI + an HTTPS origin, gates DEBT-010), DEBT-005 (push, first green CI), DEBT-014 (the missing link token, a design decision)
+Resume file: .paul/HANDOFF-2026-11-24-1930.md
 Resume context:
-- 03-03 is APPLIED and its SUMMARY exists; the next step is UNIFY, not more code.
-- The browser check needs `VTV_TEST_IDP=1` and a pgsqlite on any free port; `.paul/runs/check-0303.mjs` is the whole check (gitignored, DEBT-015).
-- The agent could not see the screenshots this session; look-and-feel claims rest on gates, and the human look is DEBT-010.
-- `.env` has AUTH_ENABLED=true with the owner's real Google client: hub-server starts hosted and needs pgsqlite on port 55432. Set AUTH_ENABLED=false for local-mode charts.
-- AGENTS.md is the three-skill preamble now; the full setup guide lives in APP.md (untracked, owner's call to commit).
-
----
-*STATE.md: updated after every significant action*
+- Phase 03 is closed; nothing is half-done, so resuming means planning Phase 04, not finishing Phase 03.
+- `preferences.session_reset: plan` is now on: the next UNIFY pauses and asks the owner to /clear; the ZCode and Claude Code SessionStart hooks are both registered.
+- `~/.zcode/cli/config.json` was edited to register that hook (backup `config.json.sessreset-bak`); `~/.local/bin/pgsqlite.exe` was replaced by the fork with `--host` (old kept as `.0.0.22.bak`).
+- Render gates cannot measure a JS-injected page from `file://`; use the served page or a generated harness (DEBT-016, L-020).
