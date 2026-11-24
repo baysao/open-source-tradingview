@@ -102,6 +102,11 @@ PLAN ──▶ APPLY ──▶ UNIFY
 | /reflect (pstack) | yes | phase scope, 3 reviewers + synthesizer, R-7..R-10, L-019..L-023 |
 | /rsi | yes | no candidate; DEBT-016/017 carry the two that need building |
 
+### Git State
+Last commit: 7ec1e61 (feat(03): database and Google sign-in complete)
+Branch: arch/axum-tauri (not pushed; DEBT-005 waits on the first green CI run)
+Uncommitted: check1..4.txt (stale 03-02 compile logs, scratch)
+
 ### Blockers/Concerns
 - Design doc Blockers still in the spec: C1, C2, R1 to R7 (see ROADMAP.md gates and
   `.paul/design/reviews/vtradingview/implementation_readiness_report.md`).
