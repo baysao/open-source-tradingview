@@ -10,10 +10,12 @@
 //! hub_core::serve(listener, state).await?;      // app(state) with ConnectInfo
 //! ```
 
+pub mod auth;
 pub mod bars_cache;
 pub mod catalog;
 pub mod clock;
 pub mod config;
+pub mod db;
 pub mod feedlog;
 pub mod feeds;
 pub mod logbus;
@@ -61,6 +63,11 @@ pub struct AppState {
 impl AppState {
     /// The real upstream endpoints. No network I/O happens here.
     pub fn build(cfg: Config) -> Result<AppState, ConfigError> {
+        // Hosted mode is served from 03-02 on (AppState::start); until then it is refused, so no
+        // build can serve the local log routes with auth on (D-012).
+        if !cfg.auth.is_local() {
+            return Err(ConfigError::AuthNotAvailable);
+        }
         let dir = cfg.log_dir.clone();
         Ok(AppState::assemble(cfg, Endpoints::default(), Some(&dir)))
     }
@@ -78,7 +85,7 @@ impl AppState {
         let clock = Clock::default();
         let limits = Limits {
             max_upstreams: cfg.feed_max_symbols,
-            exempt_loopback: cfg.auth == config::AuthMode::Off,
+            exempt_loopback: cfg.auth.is_local(),
             ..Limits::default()
         };
         let feeds = FeedHub::new(
@@ -211,4 +218,35 @@ pub async fn serve(listener: TcpListener, state: AppState) -> std::io::Result<()
         app(state).into_make_service_with_connect_info::<SocketAddr>(),
     )
     .await
+}
+
+#[cfg(test)]
+mod build_tests {
+    use super::*;
+
+    #[test]
+    fn build_refuses_hosted_mode_until_auth_exists() {
+        let vars = [
+            ("AUTH_ENABLED", "true"),
+            ("DATABASE_URL", "postgres://127.0.0.1:1/x"),
+            ("GOOGLE_CLIENT_ID", "id"),
+            ("GOOGLE_CLIENT_SECRET", "s"),
+            (
+                "VTV_SECRET_KEY",
+                "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+            ),
+            ("PUBLIC_ORIGIN", "https://vtradingview.com"),
+        ];
+        let cfg = Config::from_lookup(|k| {
+            vars.iter()
+                .find(|(n, _)| *n == k)
+                .map(|(_, v)| v.to_string())
+        })
+        .expect("hosted config parses");
+        assert!(matches!(
+            AppState::build(cfg),
+            Err(ConfigError::AuthNotAvailable)
+        ));
+        // The local-mode half is not built here: `build` opens hub/logs/hub.log (L-008).
+    }
 }

@@ -1,6 +1,8 @@
 [workspace]
 resolver = "2"
 members = ["crates/hub-types", "crates/hub-core", "crates/hub-server"]
+# vendor/pgsqlite (the database, built separately) is its own workspace.
+exclude = ["vendor"]
 
 [workspace.package]
 edition = "2021"
@@ -28,3 +30,25 @@ toml = "0.8"
 regex = "1"
 dotenvy = "0.15"
 zip = { version = "2", default-features = false, features = ["deflate"] }
+# Phase 03 database (D-011, D-014): runtime-checked queries only, no macros, no TLS in Phase 3.
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "postgres", "uuid", "chrono"] }
+uuid = { version = "1", features = ["v7", "serde"] }
+chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
+sha2 = { version = "0.10", features = ["oid"] }
+base64 = "0.22"
+tempfile = "3"
+# Phase 03 auth (03-02): JWT verification, HKDF/HMAC, sealed ids, constant-time compares.
+jsonwebtoken = "9"
+hmac = "0.12"
+hkdf = "0.12"
+getrandom = "0.2"
+subtle = "2"
+# The test identity provider signs real RS256 tokens (feature `test-idp` only).
+rsa = "0.9"
+# rsa 0.9 depends on rand 0.9; keygen needs RngCore + CryptoRng from that same version.
+rand = "0.9"
+
+# The test identity provider generates RSA keys once per test binary; unoptimised bigint math
+# turns that into minutes. Only the key generation crate is affected, in dev builds only.
+[profile.dev.package.num-bigint-dig]
+opt-level = 3

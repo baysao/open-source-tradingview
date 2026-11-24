@@ -24,9 +24,31 @@ percent-encoding.workspace = true
 regex.workspace = true
 tracing-subscriber.workspace = true
 zip.workspace = true
+sqlx.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+sha2.workspace = true
+base64.workspace = true
+jsonwebtoken.workspace = true
+hmac.workspace = true
+hkdf.workspace = true
+getrandom.workspace = true
+subtle.workspace = true
+rsa = { workspace = true, optional = true }
+rand = { workspace = true, optional = true }
+
+[features]
+# Test support (Phase 03): down migrations and, from 03-02, the local identity provider.
+# Never enabled in a release build (CI asserts the feature tree).
+test-idp = ["dep:rsa", "dep:rand"]
 
 [dev-dependencies]
 # Tests compare key order with Python (order-flow goldens); feature-unified into test builds only.
 serde_json = { workspace = true, features = ["preserve_order"] }
 tokio = { workspace = true, features = ["test-util"] }
 toml.workspace = true
+tempfile.workspace = true
+
+[[test]]
+name = "db_engines"
+required-features = ["test-idp"]
