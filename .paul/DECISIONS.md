@@ -151,3 +151,34 @@ with a new entry that names the old id. -->
 - **Decision:** spec item 41's page list is amended: `hub/index.html` gets no `sync.js`. It is a 10-line redirect stub with no chart, no writers and a `meta refresh` to `hub.html`; a wrapper there would sync nothing and cost a request on the redirect.
 - **Why:** the sync layer's job is intercepting writes; a page with no writers gains nothing. The measured key table shows every allow-listed key is written from `hub.html` or one of the three engine pages.
 - **Evidence:** `hub/index.html` (10 lines, meta refresh, zero `localStorage` use); `.paul/phases/05-sync/05-03-PLAN.md` Facts; `.paul/phases/05-sync/05-ARCHITECTURE.md` decision 9.
+
+## D-026: no IndexedDB mirror in phase 05
+- **Date:** 2026-11-25  **Plan:** 05-03 UNIFY  **Status:** decided (owner approved the reflect panel's application, 2026-11-25)
+- **Decision:** phase 05 builds no IndexedDB mirror. The spec's storage surface is `localStorage`
+  through the sync wrapper plus the server; no AC in 05-01..05-04 requires a second storage
+  engine, and 05-03's SCOPE LIMITS already refuse a durable offline queue pending Q7/Q8.
+- **Why:** the phrase "IndexedDB mirror" appears in no plan, no AC and the spec — only in handoff
+  prose (`.paul/HANDOFF-2026-11-25-3.md`, itself marked "treat as a draft"). Recording the
+  decided-absence once stops the handoff from re-listing it in a later session.
+- **Evidence:** `grep -c IndexedDB .paul/phases/05-sync/*.md` → 0; `.paul/phases/05-sync/05-03-PLAN.md` SCOPE LIMITS (Q7/Q8 open); spec `.paul/design/specs/vtradingview.md` synced-state section.
+
+## D-027: a user write during a pending conflict is a new decision
+- **Date:** 2026-11-25  **Plan:** 05-03 UNIFY  **Status:** decided (owner approved the reflect panel's application, 2026-11-25)
+- **Decision:** AC-4's "no second PUT is issued until a choice is made" bars the machine, not the
+  user. A fresh local edit of a conflicted key resets its slot to dirty, re-PUTs after the debounce,
+  re-409s, and re-notices with the server's current body — no wedge, no dropped conflict. Only
+  automatic PUTs are barred while a conflict is pending.
+- **Why:** the code path is correct under this reading and the alternative (block writes to a
+  conflicted key) would freeze the chart UI on the exact keys the user is editing.
+- **Evidence:** `hub/sync.js` note() (slot reset) and flush() (conflict early-return); sync_harness.js A18 case ("user write during conflict re-notices (no wedge, no drop)").
+
+## D-028: a top-level engine page probes /auth/me once; AC-12's "no request" means no state request
+- **Date:** 2026-11-25  **Plan:** 05-03 UNIFY  **Status:** decided (owner approved the reflect panel's application, 2026-11-25)
+- **Decision:** engine pages opened top-level (not in the hub's iframe) load no auth.js, so
+  sync.js makes one idempotent `GET /auth/me` to learn sign-in state. AC-12's "sync.js makes no
+  request" is read as "no `/api/me/state` request and no notice" — the auth probe is auth's job,
+  not sync's. The zero-state-request property is asserted for vela.html top-level in
+  sync_harness.js ("AC12 top-level engine page makes no state request").
+- **Why:** the alternative (shipping auth.js into engine pages or a second sign-in implementation)
+  duplicates what 03-03 built; one cached, no-store probe per page load is the measured cost.
+- **Evidence:** `hub/sync.js` watchAuth/readMeDirectly; `hub/tests/sync_harness.js` AC12 engine-page case; `hub/hub.html` iframe embed is the normal path (child asks the parent over the channel, zero requests).

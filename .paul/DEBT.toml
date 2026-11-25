@@ -293,9 +293,9 @@ kind = "artifact"
 origin = "phase 04 reflect (3-lens panel)"
 owner = "agent"
 trigger = "phase:05"
-status = "open"
+status = "done"
 check = { type = "text_present", path = ".paul/DECISIONS.md", pattern = "## D-019" }
-note = "The three rows exist only in STATE's table (phase 03 wrote them there and nowhere else); a decisions table that skips ids turns every contiguity check red. Content source: .paul/STATE.md's Decisions table."
+note = "The three rows exist only in STATE's table (phase 03 wrote them there and nowhere else); a decisions table that skips ids turns every contiguity check red. Content source: .paul/STATE.md's Decisions table. 2026-11-25 discharged: D-019/D-020/D-021 (and D-024/D-025) are full entries in DECISIONS.md; checker confirmed OK, 05-04 task 3."
 
 [[debt]]
 id = "DEBT-028"
@@ -326,9 +326,9 @@ kind = "tech"
 origin = "ship checklist (DEBT-029's pages half exposed it)"
 owner = "agent"
 trigger = "phase:05"
-status = "open"
+status = "done"
 check = { type = "command", run = "python .paul/runs/gate_all.py --base http://127.0.0.1:8770 --pages hub.html,index.html --check-receipts", expect = "8/8 gates receipted" }
-note = "The pages half of R-9 exposed it on the first wider run: the failing receipts for hub.html are kept in .paul/ds-receipts/current/ as the evidence. hub.html is a legacy surface that predates the token discipline; the work is bringing it to tokens and landmarks without changing what it does. Until then the shipped-gate claim covers the new pages (privacy, notices) only."
+note = "The pages half of R-9 exposed it on the first wider run: the failing receipts for hub.html are kept in .paul/ds-receipts/current/ as the evidence. hub.html is a legacy surface that predates the token discipline; the work is bringing it to tokens and landmarks without changing what it does. Until then the shipped-gate claim covers the new pages (privacy, notices) only. 2026-11-25 discharged: hub.html tokenized (222 → 0 hardcodes) and gated served, 8/8 receipts for hub.html + index.html; checker confirmed OK, 05-04 task 3."
 
 [[debt]]
 id = "DEBT-031"
@@ -337,9 +337,9 @@ kind = "tech"
 origin = "mise dev-stack verification 2026-11-25"
 owner = "agent"
 trigger = "phase:05"
-status = "open"
-check = { type = "command", run = "bash scripts/dev.sh _svc db", expect = "listening on 55432" }
-note = "Pre-existing, not caused by the mise change: the file predates the current migration set. The fix is either a fresh dev db (mv data/vtv.db data/vtv.db.2026-11-24 && mise run dev:db, which re-migrates) or a schema-migration decision recorded as a D-row. Until then dev auth work needs a clean db; the local-mode chart work is unaffected."
+status = "done"
+check = { type = "command", run = "bash -c \"$HOME/.local/bin/pgsqlite --host 127.0.0.1 --database data/vtv.db --port 55439 >/c/Users/Dell/AppData/Local/Temp/vtv-031-check.log 2>&1 & p=$!; sleep 2; kill $p 2>/dev/null; grep -c TCP.server.listening.on.127.0.0.1:55439 /c/Users/Dell/AppData/Local/Temp/vtv-031-check.log\"", expect = "1" }
+note = "Pre-existing, not caused by the mise change: the file predates the current migration set. The fix is either a fresh dev db (mv data/vtv.db data/vtv.db.2026-11-24 && mise run dev:db, which re-migrates) or a schema-migration decision recorded as a D-row. Until then dev auth work needs a clean db; the local-mode chart work is unaffected. 2026-11-25 discharged: the dev db was rebuilt (old file preserved as data/vtv.db.2026-11-24); checker confirmed OK, 05-04 task 3. Same session the check was rewritten — the old `bash scripts/dev.sh _svc db` execs pgsqlite in the foreground and never exits, so debt.py hung >5 min on it. The probe starts pgsqlite on spare port 55439, waits 2 s, kills it, greps the log for the listening line. Quoting note: debt.py runs shell=True (cmd.exe), which strips an inner single-quote layer — the binary path must go unquoted; $HOME and POSIX paths still resolve inside the double-quoted bash -c. Controls through debt.py's own executor (subprocess shell=True): drifted db vtv.db.2026-11-24 exits 1, fresh db exits 0."
 
 [[debt]]
 id = "DEBT-032"
@@ -351,3 +351,26 @@ trigger = "phase:05"
 status = "open"
 check = { type = "command", run = "grep -c 'commit: ' /app/vtradingview/repo/hub/SOURCE.txt", expect = "1" }
 note = "Seen live: after checkout -f v0.1.2 the served SOURCE.txt was the placeholder again. Fix options: ops/deploy.sh writes it after the checkout and before the restart (it already does, but 'git checkout -f' in a later deploy wipes it), or the file moves outside the git tree and the static route serves it from there. The check above passes today because the file was written by hand; it fails again after the next checkout -f."
+
+[[debt]]
+id = "DEBT-033"
+title = "The 256-key cap on /api/me/state is corrective, not preventive: Auth::state_cap_check inserts, counts, then undoes the row at its own version, so a burst of concurrent inserts from one user can transiently hold more than 256 rows"
+kind = "decision"
+origin = "05-02 security review"
+owner = "agent"
+trigger = "phase:06"
+status = "open"
+check = { type = "command", run = "grep -c 'D-026' .paul/DECISIONS.md", expect = "1" }
+note = "Bounded by the per-IP Api bucket (20/s, burst 40) and by single-user scope, so it is not a quota bypass an attacker can hold; it is a window, not a leak. The preventive form would be a count inside the insert's WHERE (a subquery the single-table SQL discipline allows only as a scalar subquery) or an ON CONFLICT-style guard — 05-ARCHITECTURE decision 4 chose corrective deliberately. This row exists so the choice is revisited with Q7 (the per-user byte quota) rather than forgotten. The check is deliberately NOT a grep of `if count > KEY_MAX`: that text is already in auth/mod.rs, so it would pass on day one and report the decision as taken when nothing was decided. D-026 is the id reserved for the revisit; until the row is written in DECISIONS.md this row stays due."
+
+[[debt]]
+id = "DEBT-034"
+title = "The /api/me/state contract is documented only in 05-02's plan table and its SUMMARY; docs/ has no page for it, so a client author outside this repo has nothing to read"
+kind = "artifact"
+origin = "05-02 boundaries (docs deliberately deferred to 05-03)"
+owner = "agent"
+trigger = "phase:06"
+status = "open"
+check = { type = "text_present", path = "docs/api.md", pattern = "/api/me/state" }
+note = "05-02's SCOPE LIMITS say 05-03 writes the docs entry when it consumes the contract. If 05-03 lands and this is still open, the deferral slipped. The check names docs/api.md because that is the file the repo's other endpoint docs live in (or would); if the page lands under a different name, update the path rather than dropping the row."
+

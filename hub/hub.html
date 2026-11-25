@@ -1,5 +1,9 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>TradeX</title>
+<!-- sync.js FIRST, before anything else: it wraps Storage.prototype, and theme.js below reads
+     localStorage at parse time and this page JSON.parses "chartHub" in the body. Loaded later,
+     the first reads and writes of a session would slip past the wrapper. -->
+<script src="sync.js"></script>
 <script src="theme.js"></script>
 <script src="auth.js" defer></script>
 <script src="ttfc.js"></script>
@@ -216,7 +220,24 @@
   .notice > svg { margin-top:var(--ring); color:var(--bad) }
   .notice h3 { font-size:var(--fs-md); font-weight:600; margin:0 }
   .notice p { color:var(--dim); margin:var(--ring) 0 0 }
-  .notice .acts { grid-column:2; display:flex; gap:var(--sp-2) }
+  .notice .acts { grid-column:2; display:flex; gap:var(--sp-2); flex-wrap:wrap }
+  /* Sync notices (mockup 02): an inline stack under the header, role=alert per notice inside a
+     named region. Not a dialog, not a toast: the actions exist nowhere else. */
+  #syncNotices { position:fixed; top:var(--notice-top); left:50%; transform:translateX(-50%); z-index:56;
+    width:max-content; max-width:min(94vw, var(--notice-w)); display:grid; gap:var(--sp-2); justify-items:stretch }
+  .notice.sync-n { position:static; transform:none; max-width:none; animation:sync-in var(--ms,14ms) var(--ease, ease) }
+  .notice.sync-n > svg { margin-top:0 }
+  .notice.sync-n.ok svg { color:var(--ok) }
+  .notice.sync-n.warn svg { color:var(--accent) }
+  .notice.sync-n .keys { display:grid; margin-top:var(--sp-2); border:var(--hair) solid var(--line); border-radius:var(--r-sm); background:var(--bg) }
+  .notice.sync-n .keys .key { display:grid; grid-template-columns:1fr auto; gap:var(--sp-1) var(--sp-3); align-items:center; padding:var(--sp-2) var(--sp-3) }
+  .notice.sync-n .keys .key + .key { border-top:var(--hair) solid var(--line) }
+  .notice.sync-n .keys .key b { font:600 var(--fs-sm) var(--mono); overflow-wrap:anywhere }
+  .notice.sync-n .keys .key span { color:var(--dim); font-size:var(--fs-sm) }
+  .notice.sync-n .keys .key .btn { grid-row:1/span 2; grid-column:2 }
+  .notice.sync-n .keys .key.done span { color:var(--text) }
+  @keyframes sync-in { from { opacity:0 } to { opacity:1 } }
+  @media (prefers-reduced-motion: reduce) { .notice.sync-n { animation:none } }
   dialog#authDel { width:min(var(--dlg-w), 94vw); padding:var(--dlg-pad); background:var(--panel); color:var(--text);
     border:var(--hair) solid var(--line); border-radius:var(--r-lg); font:inherit; font-size:var(--fs-md) }
   dialog#authDel::backdrop { background:color-mix(in srgb, var(--bg) 78%, transparent) }
@@ -231,6 +252,7 @@
   dialog#authDel .acts { display:flex; flex-wrap:wrap-reverse; justify-content:flex-end; gap:var(--sp-2); margin-top:var(--sp-5) }
 </style></head><body>
 <div id="app">
+<div id="syncNotices" role="region" aria-label="Sync notices"></div>
 <header id="bar">
   <div id="barScroll">
   <h1 id="brand">TradeX</h1><span class="sep"></span>

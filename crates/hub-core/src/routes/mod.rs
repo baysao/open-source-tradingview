@@ -11,6 +11,7 @@ pub mod market;
 pub mod me;
 pub mod metrics;
 pub mod orderflow;
+pub mod state;
 pub mod table;
 pub mod ws;
 

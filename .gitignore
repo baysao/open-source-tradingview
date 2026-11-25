@@ -33,3 +33,6 @@ vendor/pgsqlite/
 .dev/
 .playwright-mcp/
 .ds-receipts/
+.paul/session-reset.json
+.paul/loop-logs/
+nul: nul

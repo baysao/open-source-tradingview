@@ -352,15 +352,17 @@ impl AppState {
             self.catalog.clone(),
             self.bars.clone(),
         ));
-        // Hosted mode only: expire dead sessions and oauth tickets once an hour (03-02).
+        // Hosted mode only: expire dead sessions and oauth tickets once an hour (03-02), and
+        // the daily backup prune (05-02): `backup:*` rows past 30 days go, by S21.
         if let Some(auth) = self.auth.clone() {
+            let auth_sweep = auth.clone();
             tasks.push(tokio::spawn(async move {
                 let mut tick = tokio::time::interval(std::time::Duration::from_secs(3600));
                 tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
                 tick.tick().await; // the first tick completes immediately
                 loop {
                     tick.tick().await;
-                    match auth.sweep_expired().await {
+                    match auth_sweep.sweep_expired().await {
                         Ok(n) if n > 0 => tracing::info!(
                             target: "server",
                             "auth: expired {} session(s) and ticket(s)",
@@ -368,6 +370,25 @@ impl AppState {
                         ),
                         Ok(_) => {}
                         Err(e) => tracing::warn!(target: "server", "auth: sweep failed: {e:?}"),
+                    }
+                }
+            }));
+            // The 30-day backup prune, daily, immediate first run — the same shape as the
+            // hourly sweep above (05-02 Task 3).
+            let auth_prune = auth.clone();
+            tasks.push(tokio::spawn(async move {
+                let mut tick = tokio::time::interval(std::time::Duration::from_secs(24 * 3600));
+                tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+                tick.tick().await; // the first tick completes immediately
+                loop {
+                    tick.tick().await;
+                    let cutoff = chrono::Utc::now() - chrono::Duration::days(30);
+                    match auth_prune.expire_backups(cutoff).await {
+                        Ok(n) if n > 0 => {
+                            tracing::info!(target: "server", "state: pruned {n} backup(s) past 30 days")
+                        }
+                        Ok(_) => {}
+                        Err(e) => tracing::warn!(target: "server", "state: backup prune failed: {e:?}"),
                     }
                 }
             }));

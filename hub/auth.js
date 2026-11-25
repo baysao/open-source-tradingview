@@ -115,11 +115,55 @@
     menu.appendChild(item("delete", "Delete account", null, "bad"));
     menu.appendChild(sep());
     menu.appendChild(item("signout", "Sign out"));
+    menu.appendChild(syncLine());
     slot.appendChild(menu);
 
     menu.addEventListener("keydown", onMenuKeys);
     if (!hasPopover()) document.addEventListener("pointerdown", onOutside, true);
     menu.querySelectorAll("[data-act]").forEach((el) => (el.onclick = () => act(el.dataset.act)));
+  }
+
+  // ---------- sync status line (mockup 02) ----------
+  // Wire it to VtvSync's 'status' event; the mockup's four states, icon plus words every time.
+  const SYNC_ICON = {
+    cloud: '<path d="M17.5 19a4.5 4.5 0 0 0 .42-8.98 6 6 0 0 0-11.7 1.6A4 4 0 0 0 6 19.5h11.5"/>',
+    cloudCheck: '<path d="M17.5 19a4.5 4.5 0 0 0 .42-8.98 6 6 0 0 0-11.7 1.6A4 4 0 0 0 6 19.5h11.5"/><path d="M9 15l2 2 4-4"/>',
+    cloudOff: '<path d="M3 3l18 18"/><path d="M17.5 19a4.5 4.5 0 0 0 .42-8.98 6 6 0 0 0-4.2-4.37"/><path d="M9.58 6.12A6 6 0 0 0 6.22 11.6 4 4 0 0 0 6 19.5h11.5"/>',
+    triangle: '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  };
+  const syncIcon = (d) =>
+    `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+
+  function syncLine() {
+    const line = document.createElement("div");
+    line.className = "sync-line";
+    line.setAttribute("role", "status");
+    const paint = (st) => {
+      if (st === "conflict") {
+        line.innerHTML = `${syncIcon(SYNC_ICON.triangle)}<span>Layout changed on another device</span>`;
+        line.style.color = "var(--accent)";
+      } else if (st === "saving") {
+        line.innerHTML = `<span class="spin" aria-hidden="true"></span><span>Saving changes</span><span class="when">now</span>`;
+        line.style.color = "";
+      } else if (st === "offline") {
+        line.innerHTML = `${syncIcon(SYNC_ICON.cloudOff)}<span>Offline: kept in this browser</span>`;
+        line.style.color = "";
+      } else {
+        const t = new Date(st.at || Date.now());
+        const hm = `${String(t.getHours()).padStart(2, "0")}:${String(t.getMinutes()).padStart(2, "0")}`;
+        line.innerHTML = `${syncIcon(SYNC_ICON.cloudCheck)}<span>Saved to your account</span><span class="when">${hm}</span>`;
+        line.style.color = "";
+      }
+    };
+    if (window.VtvSync) {
+      window.VtvSync.on("status", paint);
+      window.VtvSync.ready.then(() =>
+        window.VtvSync.signedIn ? undefined : paint({ state: "saved", at: Date.now() })
+      ).catch(() => {});
+    } else {
+      paint({ state: "saved", at: Date.now() });
+    }
+    return line;
   }
 
   const ICON = {

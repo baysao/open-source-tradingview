@@ -65,7 +65,12 @@ required-features = ["test-idp"]
 name = "gate"
 required-features = ["test-idp"]
 
+[[test]]
+name = "state"
+required-features = ["test-idp"]
 
-
+[[test]]
+name = "state_routes"
+required-features = ["test-idp"]
 
 

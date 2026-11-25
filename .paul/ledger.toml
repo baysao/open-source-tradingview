@@ -216,3 +216,27 @@ phase = 4
 plan = "deploy-live"
 at = "2026-11-25T04:00:00+07:00"
 result = "DEBT-018 DONE: https://vtradingview.com is live. Host 14.225.216.12, Ubuntu 22.04, SHARED with other projects (gateway-app holds 0.0.0.0:80/443, fcom-postgres holds 127.0.0.1:5432, hbbs/hbbr) - nothing of theirs was touched. Ours: Postgres 17.12 cluster on 127.0.0.1:5434 (installed 17 from PGDG, dropped the auto-created 14), role+db vtv, /etc/vtv/env 640 root:vtv, vtv.service (systemd, ProtectSystem=strict, ReadWritePaths limited to hub/logs + hub/.cache/orderflow), binary installed by mise from the release asset (rename_exe=vtv, MISE_ENV=host), tunnel 8d25b53f-d507-43bd-a1a3-e96785fe7c83 with cloudflared as its own systemd unit and ingress for apex+www -> 127.0.0.1:8770, DNS CNAMEs added with -f (replaced the A record that sent the domain to the gateway's port 80). Release pipeline fixed twice: aarch64 needed gcc-aarch64-linux-gnu for ring's build script (the failure had also aborted the x64 leg); mise bin=hub-server exposed the wrong tool name, rename_exe=vtv is correct (verified on the host). AGPL offer completed: notices.html names the public repo, /SOURCE.txt names commit ee3e1fe (the running build) and that tree answers 200. Verified publicly: health 200, hub/privacy/notices/SOURCE.txt 200, .env 404, /admin/logs 404 anon, CSP+nosniff+referrer-policy present, 8770 loopback only. New row DEBT-032: a redeploy's git checkout -f wipes the hand-written SOURCE.txt back to the placeholder. DEBT-021's repo-URL half done; DEBT-020 (contact) and DEBT-026 (owner page read) remain."
+
+[[entry]]
+action = "apply"
+phase = 5
+plan = "05-02"
+at = "2026-11-25T16:28:00+07:00"
+result = "The /api/me/state surface shipped: four routes (list/get_one/put/delete) in routes/state.rs, four hosted() specs, the gate test's {key} template fix (sample_path + !=404), the daily backup prune beside the hourly sweep in spawn_background, and 9 HTTP contract tests green on both engines (throwaway PG 18.7 on 127.0.0.1:55433 supplied the Postgres half). Workspace 192, fmt + clippy clean. Both plan-named mutations were non-biting as written (axum::Json extractor runs before the handler; the explicit-cutoff seam moves the literal off the tested path) and were replaced with mount/S21 mutations that failed the suite, then restored and re-proven after the checker edits. Security review reordered get_one/delete to answer 401 before key validation and asserted the signed-out run writes nothing. New rows DEBT-033 (cap is corrective) and DEBT-034 (no docs page)."
+
+[[entry]]
+action = "apply"
+phase = 5
+plan = "05-03"
+at = "2026-11-25T17:55:00+07:00"
+
+[[entry]]
+action = "unify"
+phase = 5
+plan = "05-03"
+at = "2026-11-25T19:50:00+07:00"
+
+[[entry]]
+action = "transition"
+phase = 5
+at = "2026-11-25T20:15:00+07:00"

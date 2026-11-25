@@ -15,8 +15,8 @@ Rust (Axum) server, Google accounts that sync each user's work, and a Tauri 2 de
 ## Current Milestone
 
 **v0.2 Accounts everywhere** (v0.2.0)
-Status: Phase 05 planned 2026-11-25 (4 plans drafted, awaiting approval); phases 06 and 07 not started
-Phases: 0 of 3 complete
+Status: Phase 05 complete 2026-11-25 (4 of 4 plans unified); phase 06 next, 07 not started
+Phases: 1 of 3 complete
 
 ## Milestones
 
@@ -139,6 +139,14 @@ CI run (005) and the 1,000-socket load target (022).
   (`sync.js`, the channel, the merge, the notices, the harness); 05-04 the phase's debt (hub.html under the
   gate set, the dev db, SOURCE.txt, the store writeback). 05-04 is wave 1 because 05-03's gate evidence over
   `hub.html` is impossible until that page passes.
+- **Status: ✅ Complete 2026-11-25** — 4/4 plans applied and unified. Accept evidence: a signed-out
+  layout appears in a second browser after sign-in (harness CUJ3/CUJ4); a concurrent edit 409s with
+  both values recoverable (CUJ5, A17/A18 cases); clashing keys back up and Restore works (AC-8);
+  cross-user reads impossible (05-02's 401-before-key-check ordering). Verification at close:
+  check-0503 22/22, harness 19/19, gate_all 8/8 + receipts, check-0402 56/56, CHECK_0303=1 → 66/66,
+  workspace 139 passed, fmt+clippy clean, phase-05 debt gate clear. Reflect panel: 20 accepted
+  (3 code fixes A15-A17, D-026/D-027/D-028, L-037 validated, 5 new candidate rows); rsi: 1 experiment
+  run and passed (L-037).
 
 ### Phase 06: Tauri desktop
 - **Build:** `crates/desktop`, deep-link sign-in handoff, tray, capability lock-down, installers.

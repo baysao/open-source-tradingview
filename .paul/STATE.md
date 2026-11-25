@@ -13,36 +13,40 @@ See: .paul/PROJECT.md (updated 2026-11-23)
 **Core value:** Free multi-feed TradingView-style charts in a browser or desktop app, with each user's
 layouts and scripts kept in their Google account.
 **Current focus:** Milestone v0.1 shipped its four phases; the public launch still waits on owner rows
-(DEBT-018 host, DEBT-013 OAuth URI, Q2/Q3/Q9, DEBT-005 CI). Milestone v0.2 phase 05 is now planned and
-awaiting approval.
+(DEBT-018 host, DEBT-013 OAuth URI, Q2/Q3/Q9, DEBT-005 CI). Milestone v0.2: phase 05 complete and
+unified 2026-11-25; phase 06 (Tauri desktop) is next to plan.
 
 ## Current Position
 
 Milestone: v0.2 Accounts everywhere
-Phase: 05 of 07 (Synced state) - Applying, paused 2026-11-25
-Plan: 05-01 COMPLETE (uncommitted); 05-04 Tasks 1-2 COMPLETE (uncommitted); Task 3 next
-Status: Apply paused mid-wave; resume at 05-04 Task 3 per the handoff
-Last activity: 2026-11-25 - 05-01 storage layer done (8 tests both engines, mutation proven);
-hub.html + index.html 8/8 gates receipted served; dev db + SOURCE.txt debt discharged locally
+Phase: 06 of 07 (Tauri desktop) - Not started
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-11-25 - Phase 05 complete and unified (4/4 plans). Close-out: reflect panel 20
+accepted (3 code fixes A15-A17 with harness cases, D-026/D-027/D-028, L-037 validated by experiment
+.paul/experiments/L-037.md, 5 new candidate rows, L-003/L-007/L-029 bumps); rsi run. Final
+verification: check-0503 22/22, harness 19/19, gate_all 8/8 + receipts, check-0402 56/56,
+CHECK_0303=1 → 66/66, workspace 139 passed, fmt+clippy clean, phase-05 debt gate clear.
 
 Progress:
 - Phase 01: complete 2026-11-23 (milestone v0.1: 1 of 4 phases)
 - Phase 02: complete 2026-11-23 (reflect deferred: owner has not run /reflect)
 - Phase 03: complete 2026-11-24 (3 of 3 plans unified; reflect + RSI done at 03-03)
 - Phase 04: complete 2026-11-25 (3 of 3 plans unified; phase reflect run)
-- Phase 05: planned 2026-11-25 (4 plans drafted, awaiting approval)
+- Phase 05: complete 2026-11-25 (4 of 4 plans unified; phase reflect + rsi run)
 
 ## Loop Position
 
 Current loop state:
 ```
 PLAN ──▶ APPLY ──▶ UNIFY
-  ✓        ●        ○     [APPLY: 05-01 done; 05-04 at Task 3 - paused]
+  ○        ○        ○     [Phase 05 complete; phase 06 not started]
 ```
 
 ## Accumulated Context
 
 ### Decisions
+| 2026-11-25: A signed-out caller gets 401 before any key check on all four `/api/me/state` routes (security-review ordering fix; AC-6) | Phase 05 | 05-03's client can read 401 as "sign in again", never a disguised 404/204 |
 | D-019 | The header control is sticky to the bar's right edge (the bar scrolls sideways at 1280 px) | Phase 03 | #authSlot |
 | D-020 | Delete confirmation uses native `<dialog>` + showModal(); the browser owns the focus trap and Esc (modern-web-guidance "dialog" Rule 1) | Phase 03 | auth.js |
 | D-021 | `VTV_TEST_IDP=1` makes the test-idp build serve `/__test-idp/*`; release builds can never reach it (feature-gated, CI asserts the tree) | Phase 03 | lib.rs |
@@ -86,6 +90,10 @@ PLAN ──▶ APPLY ──▶ UNIFY
 - DEBT-015 done 2026-11-25 (check-0303 wired into check-0402.sh, `CHECK_0303=1`; 66/66 under the shipped CSP; the CI-headless half lives in DEBT-017).
 - DEBT-016 open (agent, phase:04): render gates and the huashu scripts load `file://` only, so a JS-injected UI measures empty.
 - DEBT-017 open (agent, phase:04): the five-gate design set is run piecemeal; a single runner that diffs the receipt set is needed.
+- DEBT-033 open (agent, phase:06): the 256-key cap on `/api/me/state` is corrective, not
+  preventive; revisit with Q7 under D-026.
+- DEBT-034 open (agent, phase:06): the `/api/me/state` contract lives only in 05-02's plan table
+  and SUMMARY; `docs/` has no page.
 - DEBT-013 open (owner, phase:04): register the loopback Google redirect URI and serve hosted mode over HTTPS; the prerequisite for DEBT-010.
 
 ### Skill Audit (Phase 03, plan 02)
@@ -121,25 +129,23 @@ Uncommitted: check the tree; the phase surface landed in f744f09 (DEBT-024 done 
 
 ## Session Continuity
 
-Last session: 2026-11-25 (mid-apply pause)
-Stopped at: Phase 05 apply, wave 1 of 3 done. 05-01 (storage: migration 0002, S15..S21,
-Auth::state_*) is complete and tested green on both engines with a proven mutation; 05-04
-Tasks 1-2 are complete (hub.html + index.html 8/8 gates receipted served; dev db rebuilt;
-SOURCE.txt write proven). 05-04 Task 3 (store writeback + decisions check) is the next unit.
-All of it is uncommitted.
-Next action: /paul:apply continues at 05-04 Task 3, then 05-01-SUMMARY.md + 05-04-SUMMARY.md,
-then 05-02 (HTTP), then 05-03 (client).
-Resume file: .paul/HANDOFF-2026-11-25-2.md
+Last session: 2026-11-25 (phase 05 UNIFY + transition)
+Stopped at: Phase 05 complete, ready to plan Phase 06
+Next action: /paul:plan for Phase 06 (Tauri desktop)
+Resume file: .paul/ROADMAP.md
+Session rule: after each plan's APPLY, /paul:pause, owner clears, next plan via /paul:resume in a
+new session (CARL GLOBAL rule 2; config session_reset: plan).
 Resume context:
-- 05-02 depends on 05-01's statements; 05-03 depends on 05-02's contract table. Do not reorder.
-- Mutation facts for 05-01-SUMMARY: m1 (SQL predicate weakened) changed nothing - the Rust guard
-  rejects first; m1b (Rust check weakened to >) failed 2 tests, restored green. version is INT4
-  (i32); db_engines.rs was updated for the two-migration world.
-- gate_all.py changed this session: design_lint is measured served (imports design_lint's
-  COLLECT_JS/judge), --min-label 11 (spec: "the existing chart UI keeps its sizes"). It is a
-  checker - R-10 says re-run its mutation set if it is edited again.
-- DEBT-032's fix is landed and locally proven; the row stays open (host-only check).
-- D-024 (256 KiB value cap) and D-025 (sync.js not on index.html) are recorded in DECISIONS.md;
-  D-019..D-021 were transcribed by the crashed 04-03 session (L-031 pattern).
-- CARL GLOBAL rules now require: justrust for cargo, ygrep/agentgrep first for searches,
-  obscura first for browser checks. The bili/headroom MCP work is unrelated to phase 05.
+- Phase 05's surface is uncommitted until the phase commit (which the transition performs next):
+  crates state routes + migrations, hub/sync.js + page wiring, docs/vela-storage-keys.md, the two
+  test drivers, all .paul state files.
+- Reflect panel close-out applied: 3 code fixes (A15 unbacked-merge adoption, A16 per-key conflict
+  notices, A17 raced keep-mine) each with a harness case; D-026/D-027/D-028 recorded; L-037
+  validated by .paul/experiments/L-037.md; L-003→8, L-007→2, L-029→2; new candidates L-038..L-042.
+- The harness count is L-026-enforced: sync_harness.js CASES_EXPECTED=19, asserted in the run body.
+- Both test servers for 05-03 were throwaway (pgsqlite /tmp scratch on 55495, test-idp hub on 8771,
+  local on 8770); nothing in the repo points at them.
+- Playwright authenticated reads go through in-page fetch (L-037), never ctx.request (Secure cookie).
+- test-IdP accounts key on sub, not email; shared-dev-DB drivers scope entities per run (L-038).
+- CARL GLOBAL rules: justrust for cargo, ygrep/agentgrep first for searches, obscura first for
+  browser checks.

@@ -6,6 +6,7 @@ use super::auth;
 use super::logs;
 use super::me;
 use super::metrics;
+use super::state;
 use crate::AppState;
 use axum::http::Method;
 use axum::routing::MethodRouter;
@@ -60,6 +61,19 @@ pub(crate) fn hosted() -> Vec<(RouteSpec, MethodRouter<AppState>)> {
             Method::DELETE,
             "/api/me",
             axum::routing::delete(me::delete_me),
+        ),
+        // The saved-state surface (05-02): contract in routes/state.rs's module doc.
+        spec(Method::GET, "/api/me/state", get(state::list)),
+        spec(Method::GET, "/api/me/state/{key}", get(state::get_one)),
+        spec(
+            Method::PUT,
+            "/api/me/state/{key}",
+            axum::routing::put(state::put),
+        ),
+        spec(
+            Method::DELETE,
+            "/api/me/state/{key}",
+            axum::routing::delete(state::delete),
         ),
         // The Phase 1 handlers mounted directly behind the gate (no pass-through wrapper).
         spec(Method::GET, "/admin/logs", get(logs::logs)),

@@ -9,24 +9,24 @@ version = "1.4"
 source = "https://chrisai.cv/skool"
 
 [milestone]
-name = "v0.1 Hosted launch"
-version = "0.1.0"
+name = "v0.2 Accounts everywhere"
+version = "0.2.0"
 status = "in_progress"
-phases = 4
+phases = 7
 
 [phase]
-number = 4
-name = "Public deploy"
-status = "in_progress"
-plans_completed = 3
+number = 6
+name = "Tauri desktop"
+status = "not_started"
+plans_completed = 0
 
 [loop]
-position = "IDLE"
+position = "APPLY"
 
 [satellite]
 groom = true
 
 [stats]
-total_plans = 9
+total_plans = 10
 total_phases = 8
-last_activity = "2026-11-25T02:20:00+07:00"
+last_activity = "2026-11-25T20:15:00+07:00"

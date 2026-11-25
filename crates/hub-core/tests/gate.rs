@@ -17,6 +17,30 @@ use serde_json::json;
 
 const PUBLIC: &str = "http://127.0.0.1:8770";
 
+/// Axum 0.8 path parameters are `{name}` templates (`{key}`, not `:key` — `:key` parses as a
+/// literal segment). Building a request URL straight from `RouteSpec.path` would send the
+/// braces literally, match no route, and let a 404 stand in for the rule under test. Every
+/// enumerated request substitutes a sample value per `{...}` segment first.
+fn sample_path(path: &str) -> String {
+    let mut out = String::with_capacity(path.len());
+    let mut rest = path;
+    while let Some((before, after)) = rest.split_once('{') {
+        out.push_str(before);
+        match after.split_once('}') {
+            Some((_name, tail)) => {
+                out.push_str("sample");
+                rest = tail;
+            }
+            None => {
+                out.push('{');
+                rest = after;
+            }
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
 /// The one route mounted outside the gate, and why: an anonymous beacon that guards itself.
 const THE_BEACON: &str = "/api/metrics/ttfc";
 
@@ -63,11 +87,12 @@ engines!(
             if s.path == THE_BEACON {
                 continue;
             }
-            let url = format!("{base}{}", s.path);
+            let url = format!("{base}{}", sample_path(s.path));
             // No Origin: refused.
             let method = s.method.clone();
             let r = match method {
                 reqwest::Method::POST => h.client.post(&url),
+                reqwest::Method::PUT => h.client.put(&url),
                 reqwest::Method::DELETE => h.client.delete(&url),
                 m => panic!("unexpected method {m}"),
             }
@@ -83,6 +108,7 @@ engines!(
             // Foreign Origin: refused.
             let r = match s.method {
                 reqwest::Method::POST => h.client.post(&url),
+                reqwest::Method::PUT => h.client.put(&url),
                 reqwest::Method::DELETE => h.client.delete(&url),
                 _ => unreachable!(),
             }
@@ -95,9 +121,14 @@ engines!(
             assert_eq!(r.status(), expected, "{} {} foreign Origin", s.method, s.path);
 
             // PUBLIC_ORIGIN: reaches the handler (401/400/404/204 by the route's own rules,
-            // never 403).
+            // never 403) — and the URL was a real route, not a 404 from an unsubstituted
+            // template: a 404 here would mean "reached no route", which proves nothing
+            // about the Origin rule. EXCEPT the admin area, where 404 to a signed-out
+            // caller is the handler's own answer (outsiders learn nothing about which
+            // admin routes exist) — for those, not-403 is the reachability proof.
             let r = match s.method {
                 reqwest::Method::POST => h.client.post(&url),
+                reqwest::Method::PUT => h.client.put(&url),
                 reqwest::Method::DELETE => h.client.delete(&url),
                 _ => unreachable!(),
             }
@@ -107,6 +138,15 @@ engines!(
             .await
             .unwrap();
             assert_ne!(r.status(), 403, "{} {} with PUBLIC_ORIGIN", s.method, s.path);
+            if !s.path.starts_with("/admin/") {
+                assert_ne!(
+                    r.status(),
+                    404,
+                    "{} {} with PUBLIC_ORIGIN reached no route (template not substituted?)",
+                    s.method,
+                    s.path
+                );
+            }
         }
         server.abort();
     }

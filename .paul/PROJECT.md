@@ -50,6 +50,12 @@ scripts kept in their Google account.
 ### Active (In Progress)
 - [ ] Closed origin and public deploy through the Cloudflare Tunnel, with backups and a restore drill (G8) - Phase 04
 
+### Validated (Shipped) — v0.2 additions
+- ✓ Synced state per user: layouts and scripts identical across browsers, nothing overwritten
+  silently (G4) - Phase 05 — a signed-out layout appears in a second browser after sign-in; a
+  concurrent edit 409s with both values recoverable; clashing keys back up and Restore works
+  (harness CUJ3/4/5, AC-8; check-0503 22/22, harness 19/19)
+
 ### Planned (Next)
 - v0.1 Hosted launch: Rust parity, order flow in Rust, database and Google sign-in, public deploy
 - v0.2 Accounts everywhere: synced state, Tauri desktop, per-user MT5 bridges
@@ -134,3 +140,4 @@ See `.paul/config.md` and `.paul/SPECIAL-FLOWS.md`.
 
 ---
 *Created: 2026-11-23 (imported from .paul/PLANNING.md and .paul/design/specs/vtradingview.md)*
+*Last updated: 2026-11-25 after Phase 05*
