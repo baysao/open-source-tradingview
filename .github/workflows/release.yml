@@ -31,7 +31,15 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.target }}
+      # ring (via rustls) runs a C build script, so the aarch64 target needs the cross linker
+      # and gcc, not just the rust target.
+      - name: Cross toolchain for arm64
+        if: matrix.arch == 'arm64'
+        run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
       - name: Build the release binary
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+          CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
         run: cargo build --release -p hub-server --target ${{ matrix.target }}
       - name: Package
         run: |
