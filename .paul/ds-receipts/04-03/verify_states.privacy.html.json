@@ -1,0 +1,15 @@
+{
+ "gate": "verify_states",
+ "page": "privacy.html",
+ "base": "http://127.0.0.1:8775",
+ "result": "pass",
+ "ts": 1795548690.487913,
+ "counts": {
+  "pass": true,
+  "checked": 3,
+  "footerLinks": 2,
+  "unnamed": 0,
+  "hidden": 0,
+  "covered": 0
+ }
+}

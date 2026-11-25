@@ -12,28 +12,29 @@ See: .paul/PROJECT.md (updated 2026-11-23)
 
 **Core value:** Free multi-feed TradingView-style charts in a browser or desktop app, with each user's
 layouts and scripts kept in their Google account.
-**Current focus:** Phase 03: Database and Google sign-in (03-02 APPLY in flight)
+**Current focus:** Milestone v0.1: all 4 phases complete; the public launch waits on owner rows
+(DEBT-018 host, DEBT-024 commit, Q2/Q3/Q9, DEBT-005 CI)
 
 ## Current Position
 
 Milestone: v0.1 Hosted launch
-Phase: 04 of 07 (Public deploy), not started
-Plan: 03-03 UNIFIED - Phase 03 complete
-Status: Ready to plan Phase 04
-Last activity: 2026-11-24 18:20 (+07) - Phase 03 complete, transitioned to Phase 04
+Phase: 04 of 07 (Public deploy) - Complete 2026-11-25
+Plan: 04-03 UNIFIED (3 of 3 plans)
+Status: Phase closed, reflect run; next = new milestone (v0.2) or ship prep - the owner decides
+Last activity: 2026-11-25 03:25 (+07) - 04-03 UNIFIED + phase 04 reflect: R-11, R-9 pages half, uxui runner note, L-032..036 + L-031 validated, DEBT-027..029 opened
 
 Progress:
 - Phase 01: complete 2026-11-23 (milestone v0.1: 1 of 4 phases)
 - Phase 02: complete 2026-11-23 (reflect deferred: owner has not run /reflect)
 - Phase 03: complete 2026-11-24 (3 of 3 plans unified; reflect + RSI done at 03-03)
-- Phase 04: next (public deploy)
+- Phase 04: complete 2026-11-25 (3 of 3 plans unified; phase reflect run)
 
 ## Loop Position
 
 Current loop state:
 ```
 PLAN ──▶ APPLY ──▶ UNIFY
-  ✓        ✓        ✓    [Phase 03 closed - ready for PLAN 04-01]
+  ✓        ✓        ✓     [04-03 UNIFIED - phase 04 closed]
 ```
 
 ## Accumulated Context
@@ -42,6 +43,8 @@ PLAN ──▶ APPLY ──▶ UNIFY
 | D-019 | The header control is sticky to the bar's right edge (the bar scrolls sideways at 1280 px) | Phase 03 | #authSlot |
 | D-020 | Delete confirmation uses native `<dialog>` + showModal(); the browser owns the focus trap and Esc (modern-web-guidance "dialog" Rule 1) | Phase 03 | auth.js |
 | D-021 | `VTV_TEST_IDP=1` makes the test-idp build serve `/__test-idp/*`; release builds can never reach it (feature-gated, CI asserts the tree) | Phase 03 | lib.rs |
+| D-022 | The TTFC beacon posts with fetch keepalive only (sendBeacon sends text/plain, which post_guard 415s); ms measured with performance.now() inside ttfc.js, so pages need no t0 | Phase 04 | hub/ttfc.js |
+| D-023 | DEBT-015 discharged by wiring: check-0303 runs inside check-0402.sh (CHECK_0303=1) against the harness's own test-idp server; the CI-headless half narrowed into DEBT-017 | Phase 04 | check-0402.sh |
 | D-018 | Pools check a connection (SELECT 1) before handing it out; pgsqlite desyncs after an error | Phase 03 | db::pool_options |
 | D-017 | /auth/me carries the public client_id | Phase 03 | auth.js |
 | D-016 | No DB readiness on /api/health in Phase 3 | Phase 03 | health unchanged |
@@ -76,7 +79,8 @@ PLAN ──▶ APPLY ──▶ UNIFY
 - DEBT-011 done 2026-11-24 (pgsqlite fork built and installed: `--host 127.0.0.1`; old binary kept as
   `~/.local/bin/pgsqlite.0.0.22.bak`; the dev db no longer binds 0.0.0.0).
 - DEBT-014 open (owner, phase:04): `semantic.text.link` token missing, `validate_contrast` fails both themes (pre-existing).
-- DEBT-015 open (agent, phase:04): the 03-03 browser check needs a live `VTV_TEST_IDP=1` server, so it cannot run in CI as written.
+- DEBT-003 done 2026-11-25 (hub/lab.js reconnect with backoff shipped; observed in check-0402's kill-restart).
+- DEBT-015 done 2026-11-25 (check-0303 wired into check-0402.sh, `CHECK_0303=1`; 66/66 under the shipped CSP; the CI-headless half lives in DEBT-017).
 - DEBT-016 open (agent, phase:04): render gates and the huashu scripts load `file://` only, so a JS-injected UI measures empty.
 - DEBT-017 open (agent, phase:04): the five-gate design set is run piecemeal; a single runner that diffs the receipt set is needed.
 - DEBT-013 open (owner, phase:04): register the loopback Google redirect URI and serve hosted mode over HTTPS; the prerequisite for DEBT-010.
@@ -105,7 +109,8 @@ PLAN ──▶ APPLY ──▶ UNIFY
 ### Git State
 Last commit: 7ec1e61 (feat(03): database and Google sign-in complete)
 Branch: arch/axum-tauri (not pushed; DEBT-005 waits on the first green CI run)
-Uncommitted: check1..4.txt (stale 03-02 compile logs, scratch)
+Uncommitted: phase 03 close-out, all of 04-01 (ops/, SOURCE.txt, load_ws.mjs) and all of 04-02
+(CSP, buckets, metrics, ttfc.js, lab.js reconnect, .paul state files); DEBT-024 waits on the owner
 
 ### Blockers/Concerns
 - Design doc Blockers still in the spec: C1, C2, R1 to R7 (see ROADMAP.md gates and
@@ -114,16 +119,23 @@ Uncommitted: check1..4.txt (stale 03-02 compile logs, scratch)
 
 ## Session Continuity
 
-Last session: 2026-11-24 19:30 (+07) (paused by the owner after Phase 03 closed and committed)
-Stopped at: idle - Phase 03 complete and committed (9840fdf, 7ec1e61); the tree is clean except the
-stale `check1..4.txt` scratch logs the owner has not decided on; nothing mid-flight
-DUE (2026-11-23, deferred by owner): /reflect for Phase 02 (reflect: pstack)
-~~DUE NOW (2026-11-23): 01-03 checkpoint:human-verify, owner checks the hub on hub-server (DEBT-002)~~ closed 2026-11-23: verified by agent with Playwright at the owner's request
-~~DUE NOW (2026-11-23): owner types /reflect for the Phase 01 close (reflect: pstack)~~ done 2026-11-23 (6 accepted edits applied, R-6, L-010..L-012)
-Next action: /paul:plan for Phase 04 (public deploy); owner items first: DEBT-013 (Google console redirect URI + an HTTPS origin, gates DEBT-010), DEBT-005 (push, first green CI), DEBT-014 (the missing link token, a design decision)
-Resume file: .paul/HANDOFF-2026-11-24-1930.md
+Last session: 2026-11-25 03:25 (+07) (04-03 unified; phase 04 closed)
+Stopped at: Milestone v0.1's four phases complete. The phase reflect ran (3-lens panel): R-11
+written (the auto-approval boundary), R-9 gained the pages half, the uxui preset gained the
+gate-runner satisfaction note, L-032..036 added, L-031 validated, DEBT-027..029 opened. The
+launch itself waits on owner rows: the commit (024), host (018), drill (019), Q2/Q3/Q9 (020/021),
+the page read (026), first CI (005), load target (022).
+Next action: the owner decides - create the next milestone (v0.2 Accounts everywhere: /paul:plan
+phase 05) or run the ship checklist; the store's waiting rows are that checklist.
+Resume file: .paul/phases/04-deploy/04-03-SUMMARY.md
 Resume context:
-- Phase 03 is closed; nothing is half-done, so resuming means planning Phase 04, not finishing Phase 03.
-- `preferences.session_reset: plan` is now on: the next UNIFY pauses and asks the owner to /clear; the ZCode and Claude Code SessionStart hooks are both registered.
-- `~/.zcode/cli/config.json` was edited to register that hook (backup `config.json.sessreset-bak`); `~/.local/bin/pgsqlite.exe` was replaced by the fork with `--host` (old kept as `.0.0.22.bak`).
-- Render gates cannot measure a JS-injected page from `file://`; use the served page or a generated harness (DEBT-016, L-020).
+- Nothing is LANDED: 03 close-out, 04-01, 04-02 and 04-03 are all uncommitted (DEBT-024, owner
+  commit; check: ops/cloudflared.yml in a commit).
+- R-11 bounds the standing auto-approval: owner-owned rows, owner-judgment checkpoints and
+  irreversible acts still ask; everything else proceeds.
+- Until DEBT-025's CI job lands, any plan touching page scripts runs check-0402.sh with
+  CHECK_0303=1 as an enumerated step (the wiring grep alone is not execution).
+- gate_all.py's receipts cover its birth plan's two pages; hub.html/index.html edits need their
+  pages in --pages (DEBT-029 parameterizes it).
+- AGENTS.md was rewritten this phase (hosted-mode checks section added); the CARL section is
+  untouched.

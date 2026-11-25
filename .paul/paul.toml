@@ -17,8 +17,8 @@ phases = 4
 [phase]
 number = 4
 name = "Public deploy"
-status = "not_started"
-plans_completed = 0
+status = "in_progress"
+plans_completed = 3
 
 [loop]
 position = "IDLE"
@@ -27,6 +27,6 @@ position = "IDLE"
 groom = true
 
 [stats]
-total_plans = 6
+total_plans = 9
 total_phases = 8
-last_activity = "2026-11-24T18:20:00+07:00"
+last_activity = "2026-11-25T02:20:00+07:00"

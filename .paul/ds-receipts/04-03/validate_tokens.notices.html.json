@@ -1,0 +1,16 @@
+{
+ "gate": "validate_tokens",
+ "page": "notices.html",
+ "base": "http://127.0.0.1:8775",
+ "result": "pass",
+ "ts": 1795548690.487913,
+ "counts": {
+  "pass": true,
+  "exit": 0,
+  "tail": [
+   "Parsed 14/14 token files, 455 tokens defined.",
+   "",
+   "OK: all token files valid JSON."
+  ]
+ }
+}

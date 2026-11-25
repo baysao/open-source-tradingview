@@ -109,3 +109,33 @@ with a new entry that names the old id. -->
 - **Decision:** every pool in hub-core and its tests is built from `db::pool_options()`, whose `before_acquire` runs `SELECT 1` and closes any connection that does not answer 1. Inside a transaction, the first error ends the transaction (propagate it; never issue another statement on that transaction).
 - **Why:** on pgsqlite (owner's 0.0.22 and the fork) a statement error leaves the connection's replies one message late: the next re-executed INSERT reported success with 0 rows and wrote nothing, and later statements failed with "expected ParseComplete, got ReadyForQuery". Closing the poisoned connection rolls back its transaction and leaves other connections writable (measured). `SELECT 1` always fails on a poisoned connection (measured). Postgres pays one loopback round trip per acquire. The root fix is being made in `~/project/pgsqlite` (owner's request); the guard stays as defence.
 - **Evidence:** `tests/db_engines.rs::a_failed_statement_does_not_poison_later_writes`; `.paul/phases/03-auth/03-GROUNDING.md` Addendum 2.
+
+## D-022: The TTFC beacon posts with fetch keepalive only, and pages capture no t0
+- **Date:** 2026-11-25  **Plan:** 04-02 tasks 3-4  **Status:** decided (deviation adopted at qualify)
+- **Decision:** `hub/ttfc.js` posts with `fetch(..., {keepalive: true})` as the single path (the plan sketched `sendBeacon || fetch`), and the ms value is `Math.round(performance.now())` read inside ttfc.js at the first live bar; the engine pages capture no `t0`.
+- **Why:** `sendBeacon` sends `text/plain`, which `net::post_guard` answers 415, so the beacon would never be accepted; one fetch path keeps the guard's rules exactly satisfied. `performance.now()` is navigation-start-relative, so measuring inside ttfc.js is equivalent and leaves the hashed inline script blocks smaller (the CSP hashes fewer edited bytes).
+- **Evidence:** `.paul/runs/check-0402-final.log` — every observed beacon was `application/json` and answered 204; the m1 mutation still blocks a rogue inline block.
+
+## D-023: DEBT-015 is discharged by wiring, not by one lucky run
+- **Date:** 2026-11-25  **Plan:** 04-02 task 5  **Status:** decided
+- **Decision:** `check-0303.mjs` runs inside `check-0402.sh` (opt-in `CHECK_0303=1`) against the VTV_TEST_IDP=1 server the harness already starts; the status comes from `PIPESTATUS[0]` so `tee` cannot mask a failure. The CI-headless half stays open, narrowed into DEBT-017's runner work (04-03).
+- **Why:** the old check named a bare `node check-0303.mjs`, which cannot pass from a clean shell (no live server, no kit node_modules) — a check that cannot run is not a check (L-030). This run recorded 66/66 under the CSP this plan shipped.
+- **Evidence:** `.paul/DEBT.toml` DEBT-015 (`status = "done"`, check = `text_present` on `CHECK_0303=1`); `.paul/runs/check-0402-final.log`.
+
+## D-019: The header control is sticky to the bar's right edge
+- **Date:** 2026-11-24  **Plan:** 03-03 (header control, `#authSlot`)  **Status:** decided
+- **Decision:** the sign-in/avatar control sticks to the right edge of the top bar, because the bar itself scrolls sideways at 1280 px.
+- **Why:** a control anchored inside the scrolling content drifts off-screen; sticking it to the bar edge keeps sign-in reachable at every width (checked at 320/768/1280 in the 03-03 browser check).
+- **Evidence:** `hub/hub.html` `#authSlot`; the 03-03 responsive pass.
+
+## D-020: Delete confirmation uses the native `<dialog>` with `showModal()`
+- **Date:** 2026-11-24  **Plan:** 03-03 task (delete dialog)  **Status:** decided
+- **Decision:** the delete-account confirmation is a native `<dialog>` opened with `showModal()`; the browser owns the focus trap and the Escape key.
+- **Why:** the modern-web-guidance dialog rule: the platform's modal already traps focus, closes on Esc, and dims the background, so hand-rolled trap code would be more code for worse behaviour.
+- **Evidence:** `hub/auth.js`; the 03-03 dialog checks (focus starts on Cancel, stays inside, Escape cancels).
+
+## D-021: The test-idp build serves `/__test-idp/*` behind three guards
+- **Date:** 2026-11-24  **Plan:** 03-02/03-03 (test identity provider)  **Status:** decided
+- **Decision:** `VTV_TEST_IDP=1` makes a `--features test-idp` debug build serve the in-process Idp under `/__test-idp/*`; a release build can never reach it.
+- **Why:** the browser check needs a real sign-in flow without touching Google. Three guards: the cargo feature (never in a release build), `cfg!(debug_assertions)` (a release binary refuses even if the feature leaked in), and the env var. CI asserts the feature tree stays out of release (`cargo tree` step).
+- **Evidence:** `crates/hub-core/src/lib.rs` `test_idp_deps()`; the ci.yml "release build excludes test-idp" step.

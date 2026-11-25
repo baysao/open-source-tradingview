@@ -1,0 +1,18 @@
+# Nightly backup schedule. Install with ops/vtv-backup.service:
+#   sudo install -m 644 ops/vtv-backup.timer /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now vtv-backup.timer
+# Persistent=true catches up a missed nightly (host was off) at the next boot.
+
+[Unit]
+Description=Run the vtradingview database backup nightly
+
+[Timer]
+OnCalendar=*-*-* 04:00:00 UTC
+Persistent=true
+RandomizedDelaySec=300
+
+[Timer.Unit]
+Description=Run the vtradingview database backup nightly
+
+[Install]
+WantedBy=timers.target

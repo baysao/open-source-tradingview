@@ -37,8 +37,9 @@ kind = "tech"
 origin = "01-03 browser verification"
 owner = "phase-04"
 trigger = "phase:04"
-status = "open"
-check = { type = "text_present", path = "hub/lab.js", pattern = "onclose" }
+status = "done"
+check = { type = "text_present", path = "hub/lab.js", pattern = "Math.min(1000 * 2 ** attempt, 30000)" }
+note = "The old check was `onclose`, which was already true before the fix, so it could never distinguish done from not-done. It now names the backoff itself (1 s doubling to a 30 s cap) plus `attempt = 0` reset after 60 s of healthy bars. Observed, not just grepped: check-0402 kills the server mid-session and records stats.updates rising 2 -> 3 with the same performance.timeOrigin, so the socket reopened inside the same document rather than the page reloading."
 
 [[debt]]
 id = "DEBT-004"
@@ -161,8 +162,9 @@ kind = "tech"
 origin = "03-03 Task 3 (agent-run check, R-6)"
 owner = "agent"
 trigger = "phase:04"
-status = "open"
-check = { type = "command", run = "node .paul/runs/check-0303.mjs", expect = "66/66 passed" }
+status = "done"
+check = { type = "text_present", path = ".paul/runs/check-0402.sh", pattern = "CHECK_0303=1" }
+note = "Discharged by wiring, not by a lucky run. The old check named `node .paul/runs/check-0303.mjs`, which needs a live VTV_TEST_IDP=1 server on 8771 that nothing in the repo starts, so it could not pass from a clean shell. check-0402.sh now runs it against the server it already starts (opt in with CHECK_0303=1, status taken from PIPESTATUS so tee cannot mask a failure), and the run recorded 66/66 under the CSP this plan shipped. The CI half stays open as the narrowed remainder: DEBT-017's runner is where a headless job lands."
 
 [[debt]]
 id = "DEBT-016"
@@ -171,8 +173,9 @@ kind = "tech"
 origin = "03-03 UNIFY reflect (judgment 1/2, tooling 2/3, divergent 1)"
 owner = "agent"
 trigger = "phase:04"
-status = "open"
-check = { type = "text_present", path = ".paul/phases/04-deploy/04-01-SUMMARY.md", pattern = "render gate measured the served page" }
+status = "done"
+check = { type = "command", run = "python .paul/runs/gate_all.py --check-receipts", expect = "8/8 gates receipted" }
+note = "Discharged by .paul/runs/gate_all.py: the five browser gates are generated harnesses that load the served URL with the kit's Playwright (channel chrome, the pattern check-0303 proves), the three static gates stay file-based. The gate list is eight, not the plan's seven-kit-gates count: design_lint is enumerated with the rest (R-9: the script's list is authoritative), so the check expects 8/8. First run found three real defects on notices.html (axe injection blocked by the page's own CSP in the audit context, a wrapped inline link whose box centre probed the cell, table overflow at 320/768); all fixed, then green."
 
 [[debt]]
 id = "DEBT-017"
@@ -181,5 +184,137 @@ kind = "tech"
 origin = "03-03 UNIFY reflect (divergent 2)"
 owner = "agent"
 trigger = "phase:04"
+status = "done"
+check = { type = "command", run = "test -f .paul/runs/gate_all.py && python .paul/runs/gate_all.py --check-receipts", expect = "8/8 gates receipted" }
+note = "gate_all.py is the single runner: the enumerated gate list, one receipt per gate per page under .paul/ds-receipts/04-03/, and --check-receipts diffing the receipt set against the manifest (mutation m3 proves it can fail: removing a gate's invocation makes its receipt absent). DEBT-015's CI-headless remainder moves to DEBT-025."
+
+[[debt]]
+id = "DEBT-022"
+title = "The 1,000-socket load test (spec item 34, NFR) needs several source IPs or a raised per-IP cap: one machine hits the 24-socket cap in hosted mode, so the 60-connection run proves the script and the feed sharing but not the 1,000 target"
+kind = "tech"
+origin = "04-01 Task 3"
+owner = "agent"
+trigger = "phase:04"
 status = "open"
-check = { type = "command", run = "test -f .paul/runs/gate_all.py && python .paul/runs/gate_all.py --check-receipts", expect = "5/5 gates receipted" }
+check = { type = "command", run = "grep -c 'peak held: 1000/1000' .paul/phases/04-deploy/04-01-SUMMARY.md", expect = "1" }
+note = "The portless short run (60 conns, local mode) passed: 60/60 held, 0 dropped, 46 upstreams for 50 subscribed symbols. The gap is source IPs, not the script."
+
+[[debt]]
+id = "DEBT-023"
+title = "ops/backup.sh and ops/restore_drill.sh have only been rehearsed against a scratch: the real pg_dump to R2 and a full restore need the owner's Postgres and R2 bucket (DEBT-018 provisions both)"
+kind = "uat"
+origin = "04-01 Task 1 (scripts syntax-checked; drill not runnable without Postgres or an R2 remote)"
+owner = "owner"
+trigger = "event:r2-and-postgres-provisioned"
+status = "open"
+check = { type = "text_present", path = ".paul/phases/04-deploy/04-01-SUMMARY.md", pattern = "backup to R2: one object written" }
+
+[[debt]]
+id = "DEBT-018"
+title = "Owner provisions the production host: rent the VPS (non-US region that reaches Binance and Bybit), create the Cloudflare tunnel `vtradingview`, point vtradingview.com DNS at it, and install the ops/ units plus /etc/vtv/env from ops/README.md; then the live tunnel check runs"
+kind = "uat"
+origin = "04-01 Task 4 (Phase 04 accept: live charts through the tunnel, no inbound ports)"
+owner = "owner"
+trigger = "phase:04"
+status = "open"
+check = { type = "text_present", path = ".paul/phases/04-deploy/04-01-SUMMARY.md", pattern = "tunnel live: charts load through vtradingview.com" }
+note = "R-6: once the tunnel is up, the agent runs the browser check against the public origin and records it; the row covers the account-and-domain acts only the owner can do. cloudflared 2026.11.2 is installed locally, so the exec path is proven up to the missing credentials."
+
+[[debt]]
+id = "DEBT-019"
+title = "First real restore drill on the production host after the first nightly backup exists (ops/restore_drill.sh against the real R2 bucket and the production Postgres server, scratch database only)"
+kind = "uat"
+origin = "04-01 Task 4 (Phase 04 accept: restore drill done)"
+owner = "owner"
+trigger = "event:first-nightly-backup"
+status = "open"
+check = { type = "text_present", path = ".paul/phases/04-deploy/04-01-SUMMARY.md", pattern = "restore drill on the host: PASS" }
+note = "DEBT-023 is the scripted rehearsal once Postgres and R2 exist; this row is the drill on the real host, which is what the phase acceptance names."
+
+[[debt]]
+id = "DEBT-024"
+title = "Commit the phase-04 surface on arch/axum-tauri (04-01: ops/ 9 files, hub/SOURCE.txt, scripts/load_ws.mjs, Procfile and dev.sh edits, the static_files .txt change; 04-02: the crates CSP/buckets/metrics changes, hub/ttfc.js, the four page edits, hub/lab.js reconnect; the 04-deploy plans and SUMMARYs; the .paul state files); UNIFIED is not landed until it is committed"
+kind = "artifact"
+origin = "04-01 unify"
+owner = "owner"
+trigger = "event:owner-commit"
+status = "open"
+check = { type = "command", run = "git log --oneline -1 -- ops/cloudflared.yml | grep -c .", expect = "1" }
+note = "The check passes only once a commit contains ops/cloudflared.yml; an empty log means the artifact is still uncommitted. The owner's rule is commit only when asked, so this row is the ask. Widened at 04-02 unify to name the 04-02 surface too; the check is unchanged (it proves a phase-04 commit exists), the title now lists what that commit must carry."
+
+[[debt]]
+id = "DEBT-020"
+title = "Owner sets the privacy contact address and the final page text (Q9): hub/privacy.html ships with a marked placeholder paragraph today"
+kind = "decision"
+origin = "04-03 task 1 (C13/Q9)"
+owner = "owner"
+trigger = "phase:04"
+status = "open"
+check = { type = "text_present", path = ".paul/phases/04-deploy/04-03-SUMMARY.md", pattern = "privacy contact: done" }
+note = "The page must not ship an invented address: the placeholder paragraph and the DEBT-020 HTML comment mark the spot. Discharge by editing the page and recording 'privacy contact: done' with the date in the phase summary."
+
+[[debt]]
+id = "DEBT-021"
+title = "Owner puts the real public repository URL on hub/notices.html (the AGPL source offer names the repo; the placeholder paragraph is marked)"
+kind = "decision"
+origin = "04-03 task 2 (AGPL offer)"
+owner = "owner"
+trigger = "phase:04"
+status = "open"
+check = { type = "text_present", path = ".paul/phases/04-deploy/04-03-SUMMARY.md", pattern = "repo url live: done" }
+note = "AGPL-3.0 section 13: the offer is complete only when the link names the real public repo. /SOURCE.txt already names the exact running commit."
+
+[[debt]]
+id = "DEBT-025"
+title = "CI has no browser-gate job: check-0303.mjs, check-0402.mjs and gate_all.py need Playwright plus a live test-idp server, so none of them runs in CI yet (only the dev box runs them)"
+kind = "tech"
+origin = "04-03 task 4 (the narrowed remainder of DEBT-015)"
+owner = "agent"
+trigger = "phase:05"
+status = "open"
+check = { type = "text_present", path = ".github/workflows/ci.yml", pattern = "check-0402" }
+note = "A CI job that installs the ux-ui kit's node_modules, builds a debug test-idp hub-server, runs check-0402.mjs (or gate_all.py) against it and posts the receipt table. Due when the next phase's plans rely on served-page evidence; until then the dev box runs are the evidence. Phase 04 reflect adds the dev-box window rule: until this row discharges, any plan that touches page scripts runs check-0402.sh with CHECK_0303=1 as an enumerated, default-on step - the wiring's grep alone certifies existence, not execution."
+
+[[debt]]
+id = "DEBT-026"
+title = "Owner reads the shipped hub/privacy.html and hub/notices.html once for honest content (the eye-check a script cannot do): is any promised data practice missing, does the non-affiliation line read right"
+kind = "uat"
+origin = "04-03 checkpoint (agent-run browser pass, R-6 standing delegation)"
+owner = "owner"
+trigger = "phase:04"
+status = "open"
+check = { type = "text_present", path = ".paul/phases/04-deploy/04-03-SUMMARY.md", pattern = "owner read the pages: done" }
+note = "The agent-run pass covered: pages load from the footer links, zero CSP violations, all sections render in the hub theme, SOURCE.txt and every licence link serves 200, the placeholder lines are visibly marked. What only the owner can judge: whether the data list is honest and complete against what they promised users, and the final wording. Discharge by reading both pages and recording 'owner read the pages: done' in the phase summary."
+
+[[debt]]
+id = "DEBT-027"
+title = "Transcribe D-019, D-020 and D-021 from STATE.md's decisions table into DECISIONS.md as full entries (the ids are used; DECISIONS.md jumps D-018 to D-022)"
+kind = "artifact"
+origin = "phase 04 reflect (3-lens panel)"
+owner = "agent"
+trigger = "phase:05"
+status = "open"
+check = { type = "text_present", path = ".paul/DECISIONS.md", pattern = "## D-019" }
+note = "The three rows exist only in STATE's table (phase 03 wrote them there and nowhere else); a decisions table that skips ids turns every contiguity check red. Content source: .paul/STATE.md's Decisions table."
+
+[[debt]]
+id = "DEBT-028"
+title = "Re-create the 33 oracle-relative contract comparison cases against recorded fixtures (orderflow_golden's pattern) and fix the stale ci.yml comment that says the contract job runs them"
+kind = "tech"
+origin = "phase 04 reflect (divergent lens)"
+owner = "agent"
+trigger = "phase:05"
+status = "open"
+check = { type = "text_present", path = "crates/hub-core/tests/contract.rs", pattern = "recorded fixture" }
+note = "The Python retirement left 33 wire-parity comparisons skipping as the expected green (7 passed, 33 skipped, 0 failed), and their only re-creation note is a YAML comment, which cannot fail (R-4). The golden-fixture pattern in orderflow_golden.rs is the in-repo template. ci.yml's intro comment ('the contract job below runs them') is false for the comparisons until this lands."
+
+[[debt]]
+id = "DEBT-029"
+title = "Parameterize gate_all.py: receipts dir and default page list stop being pinned to 04-03, change-set assertions leave the generic gate bodies, and receipt staleness keys on the page's mtime"
+kind = "tech"
+origin = "phase 04 reflect (divergent lens)"
+owner = "agent"
+trigger = "phase:05"
+status = "open"
+check = { type = "command", run = "grep -c 'ds-receipts/04-03' .paul/runs/gate_all.py", expect = "0" }
+note = "The runner stamps 8/8 gates receipted over exactly the two pages its birth plan created, hardcodes the receipt dir, and bakes one plan's change-set assertion (footerLinks >= 1) into a generic gate body; a page edited after the run stays green because staleness compares the manifest only. R-9's pages half rides on this."

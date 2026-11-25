@@ -15,8 +15,8 @@ Rust (Axum) server, Google accounts that sync each user's work, and a Tauri 2 de
 ## Current Milestone
 
 **v0.1 Hosted launch** (v0.1.0)
-Status: In progress
-Phases: 3 of 4 complete
+Status: All phases complete; the public launch itself waits on the owner rows (host DEBT-018, data terms Q2, trademark Q3, privacy contact Q9, first green CI DEBT-005)
+Phases: 4 of 4 complete
 
 ## Milestones
 
@@ -32,7 +32,7 @@ Phases: 3 of 4 complete
 | 01 | Rust workspace and hub-server parity | v0.1 | 3 (01-01, 01-02, 01-03) | Complete | 2026-11-23 |
 | 02 | Order flow in Rust | v0.1 | 3 (02-01, 02-02, 02-03) | Complete (reflect deferred) | 2026-11-23 |
 | 03 | Database and Google sign-in | v0.1 | 3 (03-01, 03-02, 03-03) | Complete | 2026-11-24 |
-| 04 | Public deploy | v0.1 | TBD | Not started | - |
+| 04 | Public deploy | v0.1 | 3 (04-01, 04-02, 04-03) | Complete | 2026-11-25 |
 | 05 | Synced state | v0.2 | TBD | Not started | - |
 | 06 | Tauri desktop | v0.2 | TBD | Not started | - |
 | 07 | Per-user MT5 bridges | v0.2 | TBD | Not started | - |
@@ -96,6 +96,20 @@ dev db now binds loopback (`pgsqlite --host`, DEBT-011 discharged). Still open: 
   Google Fonts, Vela Workers and GIS working, and rate-limit values (R19); feed cap counts symbols and
   reserves the default chart (C14, N2); TTFC defined once and persisted (C16); backup destination (R26).
   Launch blocked on Q2, Q3, Q9.
+- **Plans (2026-11-24):** 04-01 deploy surface (ops/, tunnel line, load test, .txt ext) UNIFIED 2026-11-24;
+  04-02 security + metrics (hashed per-page CSP, four rate buckets, TTFC beacon and admin read,
+  reserved default-chart key, DEBT-003 reconnect) UNIFIED 2026-11-25; 04-03 pages, docs, spec C2,
+  Python retirement UNIFIED 2026-11-25.
+
+**Phase 04 exit (2026-11-25):** all three plans unified. 04-01 the deploy surface; 04-02 the
+hashed per-page CSP, the four rate buckets, the TTFC beacon and the reserved default chart;
+04-03 the public pages, the served gate runner, the docs and spec C2, and the Python retirement
+(CI proves the Rust-only tree). Gates this phase: check-0402 60/60 (reconnect included),
+check-0303 66/66 under the shipped CSP, gate_all 8/8 receipts, m1-m8 and m1-m4 mutations
+red-then-green, fmt/clippy/tests green throughout. Still open for the launch: the owner commit
+(DEBT-024), the host and the real drill (018/019), Q2/Q3/Q9 (plus 020/021/026), the first green
+CI run (005) and the 1,000-socket load target (022).
+  Contract: `.paul/runs/architect-0400/SYNTHESIS.md` (arena of 2, corrections measured in code).
 
 ### Phase 05: Synced state
 - **Build:** `user_state`, `/api/me/state`, sign-in merge, `sync.js`, conflict and backup notices,

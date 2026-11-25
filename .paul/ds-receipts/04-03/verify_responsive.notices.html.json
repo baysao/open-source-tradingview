@@ -1,0 +1,30 @@
+{
+ "gate": "verify_responsive",
+ "page": "notices.html",
+ "base": "http://127.0.0.1:8775",
+ "result": "pass",
+ "ts": 1795548690.487913,
+ "counts": {
+  "pass": true,
+  "widths": [
+   {
+    "width": 320,
+    "overflow": 0,
+    "focusables": 17,
+    "covered": 0
+   },
+   {
+    "width": 768,
+    "overflow": 0,
+    "focusables": 17,
+    "covered": 0
+   },
+   {
+    "width": 1280,
+    "overflow": 0,
+    "focusables": 17,
+    "covered": 0
+   }
+  ]
+ }
+}

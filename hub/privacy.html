@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TradeX - Privacy</title>
+<script src="theme.js"></script>
+<style>
+  html{background:var(--bg)}
+  body{margin:0;background:var(--bg);color:var(--text);font:1rem/1.65 var(--font);padding:3rem max(1rem,6vw)}
+  main{max-width:45rem;margin:0 auto}
+  h1{font-size:1.7rem;margin:0 0 0.25rem}
+  h2{font-size:1.15rem;margin:2.2rem 0 0.4rem}
+  p{margin:0.5rem 0}
+  ul{margin:0.5rem 0;padding-left:1.4rem}
+  li{margin:0.35rem 0}
+  a{color:var(--accent)}
+  .dim{color:var(--dim)}
+  .placeholder{border:0.125rem dashed var(--faint);padding:0.125rem 0.625rem;color:var(--dim);font-style:italic}
+  footer{max-width:45rem;margin:3rem auto 0;border-top:1px solid var(--line);padding-top:1rem;color:var(--dim);font-size:0.9rem}
+</style></head>
+<body>
+<main>
+<h1>Privacy</h1>
+<p class="dim">Last updated 2026-11-25. Plain language, no legalese: what this site holds, for how long, and who else touches it.</p>
+
+<h2>What we hold</h2>
+<p>When you sign in with Google, the site stores the minimum it needs to recognise your account next time:</p>
+<ul>
+  <li>your Google account id, your email address and your display name;</li>
+  <li>sign-in session records (so you stay signed in), including a creation time and an expiry;</li>
+  <li>nothing else about you. There is no analytics profile, no advertising identifier and no tracking.</li>
+</ul>
+<p>The charts' load-time statistic (time to first candle) is stored as a count in fixed buckets with no identity attached to it: no account, no IP address, no session. It cannot be linked back to you.</p>
+<p>While you use the charts, the site talks to the market-data providers below, but it does not send them your account data.</p>
+
+<h2>How long we keep it</h2>
+<ul>
+  <li>Sign-in sessions: 30 days since your last use (a sliding window), then deleted.</li>
+  <li>Saved layouts and settings: backed up daily, each backup kept 30 days.</li>
+  <li>Server backups: kept 14 days, then overwritten.</li>
+</ul>
+
+<h2>Who else touches your data</h2>
+<ul>
+  <li>Google: the sign-in provider. You sign in with your Google account; Google's own privacy policy covers that step.</li>
+  <li>Cloudflare: carries traffic to this site through its tunnel. Cloudflare sees the connection like any network operator.</li>
+  <li>Deriv, Bybit and Binance: the market-data sources. The site requests public chart data from them; your requests go through this server, so they see the server, not you.</li>
+</ul>
+
+<h2>Deleting your account</h2>
+<p>You can delete your account from the account menu in the header, without contacting anyone. Deleting removes your account row, and the database's foreign-key cascade removes everything attached to it in the same step: your Google sign-in link, your sessions, and your saved desktop sign-in codes. After the next backup rotation, the deleted data leaves the backups too.</p>
+
+<h2>Contact</h2>
+<!-- DEBT-020: owner's real contact address and final wording (Q9). The line below must not ship a fake address. -->
+<p class="placeholder">Contact: placeholder. The owner's contact address is added here before public launch.</p>
+
+<h2>Not affiliated</h2>
+<p>TradeX is not affiliated with, endorsed by, or connected to TradingView. The chart engines are separate projects by their own authors, under their own licences; see <a href="notices.html">Notices</a>.</p>
+</main>
+<footer><a href="hub.html">Open the hub</a> | <a href="notices.html">Licence and notices</a></footer>
+</body></html>

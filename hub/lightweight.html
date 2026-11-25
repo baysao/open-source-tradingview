@@ -30,6 +30,7 @@
 <script src="vendor/lightweight-charts-drawing.umd.js"></script>
 <script src="theme.js"></script>
 <script src="lab.js"></script>
+<script src="ttfc.js" data-engine="lightweight"></script>
 <script>
 const LC = LightweightCharts, LD = LightweightChartsDrawing;
 const host = document.getElementById("chart");
@@ -115,6 +116,7 @@ async function load() {
   let lastRepaint = 0;
   stop = LabFeed.live(sym, tf, (b) => {
     if (my !== loadGen) return;
+    HubTTFC.send();        // TTFC: first live bar of this load (self-guarded, one POST)
     const last = bars[bars.length - 1];
     if (last && b.time < last.time) return;
     const isNew = !last || b.time > last.time;

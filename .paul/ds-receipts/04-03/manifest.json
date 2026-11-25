@@ -1,0 +1,18 @@
+{
+ "gates": [
+  "verify_states",
+  "axe_audit",
+  "measure_render",
+  "lint_intent",
+  "verify_responsive",
+  "lint_hardcodes",
+  "validate_tokens",
+  "design_lint"
+ ],
+ "pages": [
+  "privacy.html",
+  "notices.html"
+ ],
+ "base": "http://127.0.0.1:8775",
+ "ts": 1795548690.487913
+}

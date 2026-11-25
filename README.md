@@ -6,9 +6,10 @@ hub, Google sign-in saves each user's work, and a Tauri 2 app shows the same sit
 > Not affiliated with, endorsed by, or connected to TradingView, Inc. "TradingView" is their trademark.
 > This project is an independent open-source tool. It is not financial advice.
 
-> **Status: planning, branch `arch/axum-tauri`.** The running product is still the self-hosted Python
-> version described in the `main` branch README. The design doc has open review findings, including
-> Blockers (see [Review status](#review-status)).
+> **Status: phases 1 to 3 complete on branch `arch/axum-tauri`; phase 4 (public deploy) in flight.**
+> The Python hub is retired on this branch: the Rust server is the only server (see
+> [Deploy](#deploy)). Remaining design-review findings are tracked as launch questions
+> (see [Open Questions](#open-questions)).
 
 *   **Type:** Application
 *   **Stack:** Rust (Axum 0.8, tokio, sqlx with the Postgres driver) + the existing vanilla JS frontend
@@ -16,9 +17,9 @@ hub, Google sign-in saves each user's work, and a Tauri 2 app shows the same sit
     `DATABASE_URL` + Tauri 2 desktop shell + gaffa process supervisor + Cloudflare Tunnel
 *   **Skill Loadout:** PAUL (required), AEGIS (post-build audit), `/seed design` (new screens),
     security-review (auth, SSRF), postgres-pro (pgsqlite parity)
-*   **Quality Gates:** contract tests against the Python reference, order-flow golden parity, CI on
-    pgsqlite and Postgres 17, cross-user authz tests, SSRF suite, design gates on new screens, p75 time
-    to first live candle under 2 s
+*   **Quality Gates:** Rust-only contract suite, order-flow golden parity, CI on pgsqlite and
+    Postgres 17, cross-user authz tests, SSRF suite, design gates through
+    `.paul/runs/gate_all.py`, p75 time to first live candle under 2 s
 *   **Design doc (single source):** [.paul/design/specs/vtradingview.md](.paul/design/specs/vtradingview.md)
 *   **Full plan:** [.paul/PLANNING.md](.paul/PLANNING.md)
 
@@ -75,10 +76,27 @@ sign-in waiting state, and a privacy page. Mockups: `.paul/design/opendesign/vtr
 
 ## Deploy
 
-`Procfile` run by gaffa: `db` (pgsqlite, dropped once on managed Postgres), `hub` (`hub-server`),
-`tunnel` (`cloudflared tunnel run vtradingview`). The host opens no inbound ports. Nightly backups,
-14 days, off-host. CI: fmt, clippy, tests, audit, contract job, both database engines; desktop installers
-on tags.
+One port: HTTP and `/ws` on 8770, loopback only. Run the stack with gaffa on the `Procfile`
+(`bash scripts/dev.sh dev` for a dev stack): `db` (pgsqlite; dropped once on managed Postgres),
+`hub` (`hub-server`), `tunnel` (`cloudflared tunnel run vtradingview`). The host opens no inbound
+ports. Provisioning, service units, backups and the restore drill live in `ops/` (`ops/README.md`).
+
+Rate limits, four buckets keyed on the client IP (the `CF-Connecting-IP` header when the tunnel
+peer is loopback, else the TCP peer):
+
+| Bucket | Paths | Rate | Burst |
+|---|---|---|---|
+| Api | `/api/*` | 20/s | 40 |
+| Auth | `/auth/*` | 5/s | 10 |
+| Admin | `/admin/*` | 5/s | 10 |
+| Ws | `/ws` (hosted mode only) | 10/s | 30 |
+
+Load test: `node scripts/load_ws.mjs` (60 concurrent sockets locally; the 1,000-socket target
+needs several source IPs, tracked as DEBT-022).
+
+Launch requirements: a public repository (the AGPL source offer on `/notices.html` points at it),
+the data-terms review (Q2), the trademark review (Q3), and the privacy contact (Q9). CI: fmt,
+clippy, tests, audit, Rust-only contract job, both database engines; desktop installers on tags.
 
 ## UI/UX
 
@@ -144,7 +162,8 @@ findings open; none were applied. Reports: `.paul/design/reviews/vtradingview/`.
 ## References
 
 *   Design doc: `.paul/design/specs/vtradingview.md`; plan: `.paul/PLANNING.md`
-*   Current server: `hub/server.py`, `hub/orderflow*.py`, `hub/logbus.py`, `bridge/mt5_bridge.py`
+*   Retired with phase 4: the Python hub (the `hub/*.py` server modules and
+    `scripts/capture_orderflow_fixtures.py` were deleted). `bridge/mt5_bridge.py` stays for Phase 7.
 *   Reference template: `rust-full-stack-with-auth-template` (owner's machine)
 *   gaffa: https://github.com/oryon-dominik/interstellar-gaffa; pgsqlite: baysao fork, branch
     `fix/insert-select-returning-timestamptz`

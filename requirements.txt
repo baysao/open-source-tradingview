@@ -1,7 +1,8 @@
-websockets>=12,<18
-# Order flow (delta, footprint, session volume profile):
-numpy>=1.26
-pandas>=2.1
-pyarrow>=15
-# Optional, Windows only, for a MetaTrader 5 terminal on this PC (LOCAL_MT5=1):
-# MetaTrader5
+# No third-party requirements.
+#
+# The Python hub (hub/server.py and the orderflow/logbus/feedlog modules) was retired in Phase 4:
+# the Rust hub-server is the only server. The remaining Python, bridge/mt5_bridge.py, imports only
+# the standard library (calendar, datetime, json, os, threading, time, urllib, http.server), so
+# there is nothing to install for it.
+#
+# This file stays so a stale `pip install -r requirements.txt` in old notes stays harmless.

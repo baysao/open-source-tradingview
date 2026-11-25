@@ -5,6 +5,7 @@
 use super::auth;
 use super::logs;
 use super::me;
+use super::metrics;
 use crate::AppState;
 use axum::http::Method;
 use axum::routing::MethodRouter;
@@ -26,9 +27,13 @@ fn spec(
     (RouteSpec { method, path }, r)
 }
 
-/// Routes in both modes: `/auth/me` (local: `{"auth": false}`).
+/// Routes in both modes: `/auth/me` (local: `{"auth": false}`) and the TTFC beacon, which is
+/// anonymous and sits outside every gate area by design (`gate.rs`), so it guards itself.
 pub(crate) fn shared() -> Vec<(RouteSpec, MethodRouter<AppState>)> {
-    vec![spec(Method::GET, "/auth/me", get(me::me))]
+    vec![
+        spec(Method::GET, "/auth/me", get(me::me)),
+        spec(Method::POST, "/api/metrics/ttfc", post(metrics::ttfc)),
+    ]
 }
 
 /// Local-mode-only routes (Phase 1 parity, D-012): the log endpoints leave with auth on.
@@ -59,6 +64,7 @@ pub(crate) fn hosted() -> Vec<(RouteSpec, MethodRouter<AppState>)> {
         // The Phase 1 handlers mounted directly behind the gate (no pass-through wrapper).
         spec(Method::GET, "/admin/logs", get(logs::logs)),
         spec(Method::POST, "/admin/logs/journal", post(logs::journal)),
+        spec(Method::GET, "/admin/metrics", get(metrics::admin_metrics)),
     ]
 }
 

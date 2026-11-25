@@ -357,17 +357,20 @@ async fn contract() {
     .expect("read requests.toml");
     let cases: Cases = toml::from_str(&raw).expect("parse requests.toml");
     let allowed: BTreeSet<String> = cases.allowed.paths.iter().cloned().collect();
-    let total = cases.case.len() + cases.probe.len();
 
-    let Some(py) = std::env::var("CONTRACT_PY_URL")
+    // The Python oracle retired with phase 04: without CONTRACT_PY_URL the case comparisons skip
+    // with a count and the probes (Rust-only) still run against CONTRACT_RS_URL or the in-process
+    // router, so the suite keeps proving the routes it can prove by itself.
+    let py = std::env::var("CONTRACT_PY_URL")
         .ok()
         .filter(|v| !v.is_empty())
-    else {
-        println!("contract: skipped: CONTRACT_PY_URL unset ({total} cases not run)");
-        println!("contract: 0 passed, {total} skipped, 0 failed");
-        return;
-    };
-    let py = py.trim_end_matches('/').to_string();
+        .map(|v| v.trim_end_matches('/').to_string());
+    if py.is_none() {
+        println!(
+            "contract: skipped: CONTRACT_PY_URL unset ({} comparison cases not run; the Python oracle retired in phase 04)",
+            cases.case.len()
+        );
+    }
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(60))
         .build()
@@ -387,34 +390,46 @@ async fn contract() {
         }
     };
     let (py_ready, rs_ready) = tokio::join!(
-        wait_ready(&client, &py, Duration::from_secs(90)),
+        async {
+            match &py {
+                Some(py) => wait_ready(&client, py, Duration::from_secs(90)).await,
+                None => true,
+            }
+        },
         wait_ready(&client, &rs, Duration::from_secs(90))
     );
-    assert!(
-        py_ready,
-        "Python server at {py} did not report deriv and bybit ok within 90 s"
-    );
+    if let Some(py) = &py {
+        assert!(
+            py_ready,
+            "Python server at {py} did not report deriv and bybit ok within 90 s"
+        );
+    }
     assert!(
         rs_ready,
         "Rust server at {rs} did not report deriv and bybit ok within 90 s"
     );
 
     let (mut passed, mut skipped, mut failed) = (0, 0, 0);
-    for case in &cases.case {
-        match run_case(&client, &py, &rs, case, &allowed).await {
-            Outcome::Passed => {
-                passed += 1;
-                println!("  pass  {}", case.name);
-            }
-            Outcome::Skipped(why) => {
-                skipped += 1;
-                println!("  skip  {} ({why})", case.name);
-            }
-            Outcome::Failed(why) => {
-                failed += 1;
-                println!("  FAIL  {}: {why}", case.name);
+    match &py {
+        Some(py) => {
+            for case in &cases.case {
+                match run_case(&client, py, &rs, case, &allowed).await {
+                    Outcome::Passed => {
+                        passed += 1;
+                        println!("  pass  {}", case.name);
+                    }
+                    Outcome::Skipped(why) => {
+                        skipped += 1;
+                        println!("  skip  {} ({why})", case.name);
+                    }
+                    Outcome::Failed(why) => {
+                        failed += 1;
+                        println!("  FAIL  {}: {why}", case.name);
+                    }
+                }
             }
         }
+        None => skipped += cases.case.len(),
     }
     for probe in &cases.probe {
         let label = format!(

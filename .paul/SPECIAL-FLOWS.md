@@ -20,6 +20,11 @@
 | frontend | /dashboard-design | required | per-task | the admin log panel (data screen): question, numbers, problem rules, known totals | uxui kit preset |
 | frontend | /modern-web-guidance | required | per-task | any task writing HTML, CSS or browser JS | uxui kit preset |
 | frontend | /huashu-design | required | per-task | render-and-look on every screen built or changed: `polish.py shot`, `design_lint.py check` (red fixed), logged in `.paul/design/polish-log.md` | uxui kit preset |
+
+**Gate-runner satisfaction (phase 04 reflect, 2026-11-25):** a per-task uxui row whose surface is covered
+by the current `.paul/runs/gate_all.py` receipt set plus the served-page browser pass is satisfied by that
+run; invoke the skill separately only for surfaces outside the receipt page list. (04-03 satisfied
+design-taste-frontend, huashu and a11y-audit this way; design-gate stays a UNIFY row and runs the receipts.)
 | planning | /architect | required | plan | plan sketch: types, signatures, module boundaries for any plan with code crossing a function boundary | pstack preset |
 | planning | /interrogate | optional | plan | contested design in the plan, pre-ship review | pstack preset |
 | planning | /swarm | optional | plan | research and coverage matrices while planning | pstack preset |
@@ -83,14 +88,21 @@
   failing on the new helper.
 - **R-9: an incomplete gate set is an unrun gate.** Enumerate the project's gates, run all of them, and
   treat a missing receipt as a failure. A gate named in a document but absent from the run is unverified
-  and must not be cited.
+  and must not be cited. The enumeration names the gates **and the pages each gate must cover**: "8/8
+  gates receipted" over a page list that excludes the touched surface is the same failure.
   Rationale: 03-03 cited "CI's `cargo tree` assertion" that `ci.yml` never had, and ran the five-gate
-  design set as four, skipping exactly `lint_hardcodes`/`validate_tokens`.
+  design set as four, skipping exactly `lint_hardcodes`/`validate_tokens`. Phase 04 added the pages half:
+  gate_all stamped 8/8 over only its birth plan's two pages while the hub.html/index.html footer edits
+  got a grep and one browser look.
 - **R-10: editing a checker invalidates its mutation results.** After any edit to a check, a driver or a
   gate, re-run the mutation set before claiming coverage. Tuning a check until green proves agreement,
   not correctness.
   Rationale: 03-03's browser driver was edited twice to green; the four AC-5 mutations were then re-run
   against the final script at UNIFY, which is the only reason the claim holds.
+- **R-11: the owner's standing approval ("auto yes, auto approve, do not ask if not risk", given mid-phase 04) covers routine confirmations only.** It does not reach owner-owned debt rows (a row whose evidence lives in a file the agent writes discharges only on evidence the owner provides), owner-judgment checkpoints (the honest-content eye), or irreversible acts outside an approved plan. When such a case appears, ask; everything else proceeds without asking.
+  Rationale: the directive delegates the asking decision to the agent; without a written boundary the next
+  session either re-asks through every gate or self-discharges the rows meant to catch what a script cannot
+  judge (04 reflect: DEBT-020/021/026 are `text_present` on a SUMMARY the agent authors).
 
 ---
 
@@ -100,4 +112,5 @@
 |------|--------|--------|
 | 2026-11-23 | uxui kit preset written (10 rows), phase overrides 03, 04, 06, 07, Session Rules R-4 and R-5 | /seed launch: design track D3 done for a rendered surface |
 | 2026-11-24 | Session Rules R-7 (probe a runtime Fact), R-8 (bare exit status), R-9 (incomplete gate set), R-10 (re-run mutations after editing a checker) | 03-03 UNIFY reflect: 4 accepted findings, all with direct evidence in the session |
+| 2026-11-25 | R-11 (standing auto-approval boundary), R-9 gains the pages half, uxui gate-runner satisfaction note | phase 04 reflect at 04-03 UNIFY: 3-lens panel + synthesizer, 11 accepted, 5 rejected, 2 backlog |
 | 2026-11-23 | pstack preset written for stage `plan` (architect, interrogate, swarm, technical-writing, paul-security, cstack-reflect, reflect); `poteto-mode` and per-task `architect` not written (stage plan); `show-me-your-work` dropped (not installed); pstack `design-taste-frontend` row dropped (the uxui row already owns it as required) | via /paul-config: mode full |

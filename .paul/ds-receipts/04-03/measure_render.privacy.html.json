@@ -1,0 +1,19 @@
+{
+ "gate": "measure_render",
+ "page": "privacy.html",
+ "base": "http://127.0.0.1:8775",
+ "result": "pass",
+ "ts": 1795548690.487913,
+ "counts": {
+  "pass": true,
+  "h1count": 1,
+  "h1box": {
+   "x": 280,
+   "y": 48,
+   "width": 720,
+   "height": 44.875
+  },
+  "bodyHeight": 1457,
+  "shotBytes": 48639
+ }
+}

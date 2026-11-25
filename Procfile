@@ -7,3 +7,5 @@
 # Windows: gaffa 2026.11.1 then drops the arguments after the script name.
 db: bash scripts/dev.sh _svc db
 hub: bash scripts/dev.sh _svc hub
+# Production only: idles with a message where cloudflared is not installed.
+tunnel: bash scripts/dev.sh _svc tunnel

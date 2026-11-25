@@ -9,6 +9,7 @@ pub mod health;
 pub mod logs;
 pub mod market;
 pub mod me;
+pub mod metrics;
 pub mod orderflow;
 pub mod table;
 pub mod ws;

@@ -1,0 +1,15 @@
+# cloudflared config for the production host (vtradingview).
+# Install: copy to /etc/cloudflared/config.yml on the VPS, then
+#   cloudflared service install <tunnel token>
+# (or `cloudflared tunnel run --config /etc/cloudflared/config.yml vtradingview` by hand once).
+# The tunnel terminates TLS at Cloudflare; the origin sees plain HTTP on loopback only.
+# If the public hostname changes, edit the ingress rule below and nothing else.
+
+tunnel: vtradingview
+# credentials-file: /etc/cloudflared/<tunnel-id>.json   # written by `cloudflared tunnel create`
+
+ingress:
+  - hostname: vtradingview.com
+    service: http://127.0.0.1:8770
+  # Catch-all: everything that is not the hostname above answers 404.
+  - service: http_status:404

@@ -28,6 +28,9 @@ engines!(
             assert_eq!(r.status(), 404, "{path} signed out");
             assert_eq!(body_json(r).await["error"], "not found");
         }
+        // The metrics read is admin-only too (the gate answers before the handler exists).
+        let r = get(&base, &h, "/admin/metrics").await;
+        assert_eq!(r.status(), 404, "/admin/metrics signed out");
 
         // A plain member (email not in ADMIN_EMAILS): 404.
         let token = h.idp.id_token(
@@ -119,6 +122,47 @@ engines!(
             .await
             .unwrap();
         assert_eq!(journal.status(), 200, "admin journal");
+
+        // The TTFC read: the shape the summary documents, with the samples two beacons recorded.
+        for (engine, ms) in [("vela", 700), ("klinechart", 1500)] {
+            let r = h
+                .client
+                .post(format!("{base}/api/metrics/ttfc"))
+                .json(&json!({"ms": ms, "engine": engine}))
+                .send()
+                .await
+                .unwrap();
+            assert_eq!(r.status(), 204, "beacon for {engine}");
+        }
+        let metrics = h
+            .client
+            .get(format!("{base}/admin/metrics"))
+            .header("Cookie", admin_cookie.as_str())
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(metrics.status(), 200, "admin metrics");
+        let body = body_json(metrics).await;
+        let since = body["since"].as_i64().expect("since is a number");
+        // Milliseconds of the boot second, so never a zero or a seconds-shaped number.
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as i64;
+        assert!(since > 1_600_000_000_000, "since is in ms: {since}");
+        assert!(since <= now_ms, "since is not in the future: {since}");
+        let engines = body["engines"].as_object().expect("engines object");
+        assert_eq!(engines.len(), 2, "two sampled engines: {body}");
+        for (engine, expected_p50) in [("vela", 750), ("klinechart", 1500)] {
+            let e = &engines[engine];
+            assert_eq!(e["count"], 1, "{engine} count");
+            assert_eq!(e["p50_ms"], expected_p50, "{engine} p50 is the bucket edge");
+            assert_eq!(e["p95_ms"], expected_p50, "one sample, every percentile");
+        }
+        assert!(
+            !engines.contains_key("lightweight"),
+            "an unsampled engine has no row"
+        );
 
         // An admin behind a foreign Origin on a non-GET: 403 (Origin rule before admin would
         // leak admin status; the gate answers 403 for the bad Origin on the POST).

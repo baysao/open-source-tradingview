@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TradeX - Licence and notices</title>
+<script src="theme.js"></script>
+<style>
+  html{background:var(--bg)}
+  body{margin:0;background:var(--bg);color:var(--text);font:1rem/1.65 var(--font);padding:3rem max(1rem,6vw)}
+  main{max-width:60rem;margin:0 auto}
+  h1{font-size:1.7rem;margin:0 0 0.25rem}
+  h2{font-size:1.15rem;margin:2.2rem 0 0.4rem}
+  p{margin:0.5rem 0}
+  ul{margin:0.5rem 0;padding-left:1.4rem}
+  li{margin:0.35rem 0}
+  a{color:var(--accent)}
+  .dim{color:var(--dim)}
+  .placeholder{border:0.125rem dashed var(--faint);padding:0.125rem 0.625rem;color:var(--dim);font-style:italic}
+  table{border-collapse:collapse;margin:0.75rem 0;font-size:0.9rem}
+  th,td{border:1px solid var(--line);padding:0.375rem 0.625rem;text-align:left;vertical-align:top}
+  th{color:var(--dim);font-weight:600}
+  td a{white-space:nowrap}
+  .twrap{overflow-x:auto}
+  code{font-family:var(--mono);font-size:0.85em}
+  footer{max-width:60rem;margin:3rem auto 0;border-top:1px solid var(--line);padding-top:1rem;color:var(--dim);font-size:0.9rem}
+</style></head>
+<body>
+<main>
+<h1>Licence and notices</h1>
+<p class="dim">Last updated 2026-11-25.</p>
+
+<!-- Source of truth for this table: THIRD_PARTY_NOTICES.md at the repository root. Keep the two in sync. -->
+<h2>Licence</h2>
+<p>TradeX is licensed <strong>AGPL-3.0-only</strong>. This site runs that exact code, so its source is available to you: the running version is published at <a href="/SOURCE.txt">/SOURCE.txt</a>, which names the exact commit the server is serving. The repository:</p>
+<!-- DEBT-018: public repository URL (AGPL offer complete when this names the real repo). -->
+<p class="placeholder">Source repository: placeholder. The public repository URL is added here before public launch.</p>
+<p>The GNU Affero General Public License text is at <a href="https://www.gnu.org/licenses/agpl-3.0.html" target="_blank" rel="noopener">gnu.org/licenses/agpl-3.0.html</a>.</p>
+
+<h2>Bundled components</h2>
+<div class="twrap">
+<table>
+  <tr><th>Component</th><th>Version</th><th>Licence</th><th>Where</th><th>Project</th></tr>
+  <tr><td>Vela (<code>@luxalgo/vela</code>)</td><td>0.9.3</td><td><a href="Apache-2.0.txt">Apache-2.0</a> + <a href="NOTICE-vela.txt">NOTICE</a> (attribution)</td><td><code>hub/vela.bundle.js</code></td><td><a href="https://github.com/luxalgo/vela" target="_blank" rel="noopener">github.com/luxalgo/vela</a></td></tr>
+  <tr><td>Vela-pinets (<code>@luxalgo/vela-pinets</code>)</td><td>0.2.18</td><td>AGPL-3.0-only</td><td><code>hub/vela.bundle.js</code></td><td><a href="https://github.com/LuxAlgo/Vela-pinets" target="_blank" rel="noopener">github.com/LuxAlgo/Vela-pinets</a></td></tr>
+  <tr><td>PineTS (<code>pinets</code>)</td><td>0.12.1</td><td>AGPL-3.0-only</td><td><code>hub/vela.bundle.js</code></td><td><a href="https://github.com/LuxAlgo/PineTS" target="_blank" rel="noopener">github.com/LuxAlgo/PineTS</a></td></tr>
+  <tr><td>Lightweight Charts</td><td>5.2.1</td><td><a href="Apache-2.0.txt">Apache-2.0</a></td><td><code>hub/vendor/</code></td><td><a href="https://github.com/tradingview/lightweight-charts" target="_blank" rel="noopener">github.com/tradingview/lightweight-charts</a></td></tr>
+  <tr><td>lightweight-charts-drawing</td><td>0.6.2</td><td><a href="MIT-lightweight-charts-drawing.txt">MIT</a></td><td><code>hub/vendor/</code></td><td><a href="https://github.com/deepentropy/lightweight-charts-drawing" target="_blank" rel="noopener">github.com/deepentropy/lightweight-charts-drawing</a></td></tr>
+  <tr><td>KLineChart</td><td>9.8.12</td><td><a href="Apache-2.0.txt">Apache-2.0</a></td><td><code>hub/vendor/</code></td><td><a href="https://github.com/klinecharts/KLineChart" target="_blank" rel="noopener">github.com/klinecharts/KLineChart</a></td></tr>
+  <tr><td>KLineChart Pro (<code>@klinecharts/pro</code>)</td><td>0.1.1</td><td><a href="Apache-2.0.txt">Apache-2.0</a></td><td><code>hub/vendor/</code></td><td><a href="https://github.com/klinecharts/pro" target="_blank" rel="noopener">github.com/klinecharts/pro</a></td></tr>
+</table>
+</div>
+<p class="dim">The licence and notice texts linked above are byte-identical copies of the repository's <code>licenses/</code> files, served from this site.</p>
+
+<h2>Attribution requirements</h2>
+<p>Three attributions ship with the bundled components and are kept in the product:</p>
+<ul>
+  <li><strong>Vela:</strong> every screen that shows a Vela chart shows the Vela logomark, drawn on the chart by the library.</li>
+  <li><strong>Lightweight Charts:</strong> "TradingView Lightweight Charts, Copyright (c) 2019 TradingView, Inc., https://www.tradingview.com". A link to tradingview.com is available to users; the chart's <code>attributionLogo</code> option is left on.</li>
+  <li><strong>KLineChart:</strong> "KLineChart, Copyright (c) 2019 lihu."</li>
+</ul>
+</main>
+<footer><a href="hub.html">Open the hub</a> | <a href="privacy.html">Privacy</a></footer>
+</body></html>

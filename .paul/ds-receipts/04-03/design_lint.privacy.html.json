@@ -1,0 +1,16 @@
+{
+ "gate": "design_lint",
+ "page": "privacy.html",
+ "base": "http://127.0.0.1:8775",
+ "result": "pass",
+ "ts": 1795548690.487913,
+ "counts": {
+  "pass": true,
+  "exit": 0,
+  "tail": [
+   "\u25a0 C:\\Users\\Dell\\project\\trade\\open-source-tradingview\\hub\\privacy.html",
+   "  \u6837\u5b50\uff1a\u6df1\u00b7\u8fd1\u9ed1\u5e95 #151412\uff0c\u65e0\u886c\u7ebf\u6807\u9898\uff08Segoe UI Variable Text\uff09\uff0c\u6b63\u6587 Segoe UI Variable Text",
+   "  \u2713 \u6ca1\u6709\u7ea2\u706f\uff0c\u4e5f\u6ca1\u6709\u6a21\u677f\u88c5\u9970"
+  ]
+ }
+}

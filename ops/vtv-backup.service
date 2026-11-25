@@ -1,0 +1,25 @@
+# systemd unit for the nightly database backup.
+# Install with ops/vtv-backup.timer. Runs ops/backup.sh as user vtv.
+
+[Unit]
+Description=vtradingview nightly database backup to Cloudflare R2
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=vtv
+Group=vtv
+EnvironmentFile=/etc/vtv/env
+ExecStart=/opt/vtv/ops/backup.sh
+
+# The backup needs the network and nothing else on disk but its temp file.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+RestrictAddressFamilies=AF_INET AF_INET6
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target

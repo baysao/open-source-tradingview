@@ -1,0 +1,11 @@
+{
+ "gate": "axe_audit",
+ "page": "privacy.html",
+ "base": "http://127.0.0.1:8775",
+ "result": "pass",
+ "ts": 1795548690.487913,
+ "counts": {
+  "pass": true,
+  "violations": []
+ }
+}

@@ -21,6 +21,7 @@
 <script src="vendor/klinecharts-pro.umd.js"></script>
 <script src="theme.js"></script>
 <script src="lab.js"></script>
+<script src="ttfc.js" data-engine="klinechart"></script>
 <script>
 const SYMBOLS = LabSymbols.map((s) => ({ ticker: s.ticker, name: s.name, shortName: s.ticker, exchange: s.source === "arm" ? "Remote MT5" : s.source === "bybit" ? "BYBIT" : s.source === "mt5" ? "MT5" : s.source === "deriv" ? "DERIV" : "BINANCE",
   pricePrecision: s.digits != null ? s.digits : (["XRPUSD", "DOGEUSD", "ADAUSD"].includes(s.ticker) ? 4 : 2), volumePrecision: 2 }));
@@ -47,7 +48,7 @@ const datafeed = {
   subscribe(symbol, period, cb) {
     if (stop) stop();
     LabNotify(symbol.ticker, tfOf(period));
-    stop = LabFeed.live(symbol.ticker, tfOf(period), (b) => cb(toK(b)));
+    stop = LabFeed.live(symbol.ticker, tfOf(period), (b) => { HubTTFC.send(); cb(toK(b)); });  // TTFC: first live bar
   },
   unsubscribe() { if (stop) { stop(); stop = null; } },
 };

@@ -41,27 +41,63 @@ window.LabFeed = (() => {
   }
 
   // Live candle updates. onBar(bar) gets {time(sec),open,high,low,close,volume}.
+  //
+  // A hosted deploy restarts the server, so a closed socket is normal and must not cost the
+  // visitor a page reload: reconnect with exponential backoff (1 s, 2 s, 4 s ... capped at 30 s)
+  // and reset the backoff after 60 s of healthy bars, so a restart costs one short pause
+  // (DEBT-003). The stop() this returns cancels a pending retry, so switching symbol on a dead
+  // feed never leaves a second socket fighting the new one.
   function live(symbol, tf, onBar, source) {
     source = source || window.srcOf(symbol);
-    const ws = new WebSocket(wsUrl());
-    ws.onopen = () => ws.send(JSON.stringify({ source, symbol, tf }));
-    ws.onmessage = (e) => {
-      const m = JSON.parse(e.data);
-      if (m.type === "error") { stats.errors.push(m.msg); hud(`Feed error: ${m.msg}`); return; }
-      if (m.type === "status") { stats.status = m.msg; return; }
-      if (m.lag_ms != null) { stats.srcLag.push(m.lag_ms); if (stats.srcLag.length > 500) stats.srcLag.shift(); }
-      if (m.type !== "bar") return;
-      stats.status = "";  // data flows again: drop any old reconnect message
-      const now = Date.now();
-      stats.updates++; stats.lastAt = now;
-      if (!stats.firstBarAt) stats.firstBarAt = now;
-      stats.delays.push(now - m.sent);
-      if (m.trade_ms) stats.exch.push(now - m.trade_ms);
-      if (stats.delays.length > 500) { stats.delays.shift(); stats.exch.shift(); }
-      onBar(m.bar);
+    let ws = null;
+    let stopped = false;
+    let attempt = 0;      // retries since the last healthy minute
+    let retryTimer = null;
+    let healthyTimer = null;
+    const stopHealthy = () => { if (healthyTimer) { clearTimeout(healthyTimer); healthyTimer = null; } };
+
+    function open() {
+      ws = new WebSocket(wsUrl());
+      ws.onopen = () => ws.send(JSON.stringify({ source, symbol, tf }));
+      ws.onmessage = (e) => {
+        const m = JSON.parse(e.data);
+        if (m.type === "error") { stats.errors.push(m.msg); hud(`Feed error: ${m.msg}`); return; }
+        if (m.type === "status") { stats.status = m.msg; return; }
+        if (m.lag_ms != null) { stats.srcLag.push(m.lag_ms); if (stats.srcLag.length > 500) stats.srcLag.shift(); }
+        if (m.type !== "bar") return;
+        stats.status = "";  // data flows again: drop any old reconnect message
+        // A minute of bars proves the socket is real and the server is back: the next drop
+        // starts its backoff from 1 s again.
+        if (!healthyTimer) healthyTimer = setTimeout(() => { attempt = 0; healthyTimer = null; }, 60000);
+        const now = Date.now();
+        stats.updates++; stats.lastAt = now;
+        if (!stats.firstBarAt) stats.firstBarAt = now;
+        stats.delays.push(now - m.sent);
+        if (m.trade_ms) stats.exch.push(now - m.trade_ms);
+        if (stats.delays.length > 500) { stats.delays.shift(); stats.exch.shift(); }
+        onBar(m.bar);
+      };
+      ws.onerror = () => hud("Feed offline: start server.py");
+      ws.onclose = () => {
+        if (stopped) return;   // the page switched symbol: this close is ours, not the server's
+        stopHealthy();
+        const wait = Math.min(1000 * 2 ** attempt, 30000);
+        attempt += 1;
+        // stats.status is what the 1 s status strip renders, so the countdown survives the
+        // refresh line that overwrites a one-off hud() call. It is cleared by the first bar.
+        stats.status = `feed offline, retrying in ${Math.round(wait / 1000)}s`;
+        hud(`Feed offline, retrying in ${Math.round(wait / 1000)}s`);
+        retryTimer = setTimeout(() => { retryTimer = null; open(); }, wait);
+      };
+    }
+
+    open();
+    return () => {
+      stopped = true;
+      stopHealthy();
+      if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
+      if (ws) { try { ws.close(); } catch (_) {} }
     };
-    ws.onerror = () => hud("Feed offline: start server.py");
-    return () => { try { ws.close(); } catch (_) {} };
   }
 
   const med = (a) => { if (!a.length) return 0; const s = [...a].sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; };

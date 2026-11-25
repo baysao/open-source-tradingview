@@ -29,13 +29,17 @@ pub type Frame = Utf8Bytes;
 /// Frames buffered per series before a slow viewer starts skipping (`Lagged`).
 const SERIES_BUFFER: usize = 256;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct Limits {
     pub max_upstreams: usize,
     pub per_ip: u16,
     pub grace: Duration,
     /// Local mode (auth off): every tab is 127.0.0.1, so loopback is not counted (Q-ARCH-2).
     pub exempt_loopback: bool,
+    /// The one upstream the cap never refuses (C14): the default chart a visitor lands on. It is
+    /// excluded from idle eviction and, at a full cap with nothing idle, may force-evict the
+    /// least-loaded live upstream instead of refusing. `None` in a test that wants the plain cap.
+    pub reserved: Option<UpstreamKey>,
 }
 
 impl Default for Limits {
@@ -45,8 +49,14 @@ impl Default for Limits {
             per_ip: 24,
             grace: Duration::from_secs(60),
             exempt_loopback: true,
+            reserved: None,
         }
     }
+}
+
+/// Whether `key` is the reserved upstream in `reserved`.
+fn is_reserved(reserved: Option<&UpstreamKey>, key: &UpstreamKey) -> bool {
+    reserved.is_some_and(|r| r == key)
 }
 
 /// Distinguishes two lives of the same key, so a leave or ingest from an evicted upstream is a
@@ -175,7 +185,7 @@ impl HubState {
     }
 
     pub fn limits(&self) -> Limits {
-        self.limits
+        self.limits.clone()
     }
 
     pub fn upstream_count(&self) -> usize {
@@ -214,6 +224,10 @@ impl HubState {
     /// Adds one viewer of `(key, tf)`. Creates the upstream when missing (evicting the longest-idle
     /// one at the cap), seeds the series once from `seed`, and subscribes the receiver under the same
     /// lock as the seed so no update falls between them.
+    ///
+    /// The reserved key (C14) is the exception: at a full cap with nothing idle it force-evicts the
+    /// least-loaded live upstream rather than refusing, so the default chart a visitor lands on
+    /// always opens. Every other key still refuses.
     pub fn join(
         &mut self,
         key: &UpstreamKey,
@@ -225,13 +239,11 @@ impl HubState {
         let mut start = None;
         if !self.upstreams.contains_key(key) {
             if self.upstreams.len() >= self.limits.max_upstreams {
-                let idle = self
-                    .upstreams
-                    .iter()
-                    .filter_map(|(k, u)| u.idle_since.map(|t| (t, k.clone())))
-                    .min_by_key(|(t, _)| *t)
-                    .map(|(_, k)| k);
-                match idle {
+                // Idle first, for every key: an upstream nobody views is the cheapest to lose.
+                let victim = self
+                    .evict_candidate()
+                    .or_else(|| self.reserved_force_candidate(key));
+                match victim {
                     Some(k) => self.remove(&k),
                     None => return Err(Refusal::Capacity),
                 }
@@ -392,6 +404,9 @@ impl HubState {
     }
 
     /// Removes upstreams idle for at least `grace`. Returns the removed keys.
+    ///
+    /// The reserved key is not protected here: a reserve nobody views is the cap's most expensive
+    /// idle slot, so grace wins over the reservation.
     pub fn sweep(&mut self, now: Instant) -> Vec<UpstreamKey> {
         let grace = self.limits.grace;
         let expired: Vec<UpstreamKey> = self
@@ -404,6 +419,48 @@ impl HubState {
             self.remove(k);
         }
         expired
+    }
+
+    /// The longest-idle upstream, never the reserved key. `None` when nothing is idle.
+    pub fn evict_candidate(&self) -> Option<UpstreamKey> {
+        let reserved = self.limits.reserved.as_ref();
+        self.upstreams
+            .iter()
+            .filter(|(k, _)| !is_reserved(reserved, k))
+            .filter_map(|(k, u)| u.idle_since.map(|t| (t, k.clone())))
+            .min_by_key(|(t, _)| *t)
+            .map(|(_, k)| k)
+    }
+
+    /// The least-loaded live upstream, never the reserved key and never `joining`. Used only to make
+    /// room for the reserved key itself; `None` when nothing else is open or every other upstream is
+    /// idle (in which case [`Self::evict_candidate`] already had a cheaper victim).
+    ///
+    /// Ties break on the key, so the choice is the same in every run; the map's order is not.
+    pub fn force_candidate(&self, joining: &UpstreamKey) -> Option<UpstreamKey> {
+        let reserved = self.limits.reserved.as_ref();
+        self.upstreams
+            .iter()
+            .filter(|(k, _)| !is_reserved(reserved, k) && *k != joining)
+            .filter(|(_, u)| u.idle_since.is_none())
+            .map(|(k, u)| (Self::viewers_of(u), k))
+            .min_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.cmp(b.1)))
+            .map(|(_, k)| k.clone())
+    }
+
+    /// The victim for a reserved join: idle first, then the least-loaded live upstream. `None` for any
+    /// other key: its cap refusal stands.
+    fn reserved_force_candidate(&self, joining: &UpstreamKey) -> Option<UpstreamKey> {
+        if !is_reserved(self.limits.reserved.as_ref(), joining) {
+            return None;
+        }
+        self.force_candidate(joining)
+    }
+
+    fn viewers_of(u: &Upstream) -> u32 {
+        u.series
+            .values()
+            .fold(0, |a, s| a.saturating_add(s.viewers))
     }
 
     fn remove(&mut self, key: &UpstreamKey) {
@@ -449,7 +506,7 @@ mod tests {
     use super::*;
     use crate::market::candles::Tick;
     use crate::market::Ticker;
-    use crate::sources::binance;
+    use crate::sources::{binance, deriv};
     use std::net::Ipv4Addr;
 
     fn key(sym: &str) -> UpstreamKey {
@@ -476,6 +533,22 @@ mod tests {
             per_ip: 24,
             grace: Duration::from_secs(60),
             exempt_loopback: true,
+            reserved: None,
+        }
+    }
+
+    fn limited_by(max: usize, reserved: UpstreamKey) -> Limits {
+        Limits {
+            reserved: Some(reserved),
+            ..limits(max)
+        }
+    }
+
+    /// A Deriv key, since the reserved one is (the tests otherwise use Binance symbols).
+    fn deriv(sym: &str) -> UpstreamKey {
+        UpstreamKey {
+            source: Source::Deriv,
+            symbol: Ticker::parse(Source::Deriv, sym).unwrap(),
         }
     }
 
@@ -608,6 +681,116 @@ mod tests {
             .is_ok());
         assert!(!s.alive(&a, ja.epoch), "the longest idle (BTC) was evicted");
         assert!(s.alive(&b, jb.epoch));
+    }
+
+    #[test]
+    fn the_reserved_key_is_never_an_idle_victim() {
+        let t0 = Instant::now();
+        let gold = deriv("frxXAUUSD");
+        // Two slots, the reserve plus one: idle the reserve and it still survives a join.
+        let mut s = HubState::new(limited_by(2, gold.clone()));
+        let jg = s
+            .join(&gold, deriv::RULES, Tf::M1, None, t0)
+            .expect("the reserve joins");
+        let b = key("BTCUSD");
+        let jb = s.join(&b, binance::RULES, Tf::M1, None, t0).unwrap();
+        s.leave(&gold, jg.epoch, Tf::M1, t0 + Duration::from_secs(1));
+        s.leave(&b, jb.epoch, Tf::M1, t0 + Duration::from_secs(2));
+        // Both idle: the ordinary path must pass over the reserve and take BTC.
+        assert_eq!(s.evict_candidate(), Some(b.clone()));
+        let c = key("SOLUSD");
+        s.join(
+            &c,
+            binance::RULES,
+            Tf::M1,
+            None,
+            t0 + Duration::from_secs(3),
+        )
+        .expect("an idle victim exists");
+        assert!(s.alive(&gold, jg.epoch), "the reserve was not the victim");
+        assert!(!s.alive(&b, jb.epoch));
+    }
+
+    #[test]
+    fn a_full_cap_refuses_every_key_but_the_reserve() {
+        let t0 = Instant::now();
+        let gold = deriv("frxXAUUSD");
+        let mut s = HubState::new(limited_by(2, gold.clone()));
+        let (a, b) = (key("BTCUSD"), key("ETHUSD"));
+        s.join(&a, binance::RULES, Tf::M1, None, t0).unwrap();
+        s.join(&b, binance::RULES, Tf::M1, None, t0).unwrap();
+        // Nothing idle, and this key is not the reserve: the refusal stands.
+        let c = key("SOLUSD");
+        assert_eq!(
+            s.join(&c, binance::RULES, Tf::M1, None, t0).err(),
+            Some(Refusal::Capacity)
+        );
+        // The reserve is not the joiner either, so it does not rescue a sibling Deriv key.
+        assert_eq!(
+            s.join(&deriv("frxEURUSD"), deriv::RULES, Tf::M1, None, t0)
+                .err(),
+            Some(Refusal::Capacity)
+        );
+    }
+
+    #[test]
+    fn the_reserve_force_evicts_the_least_loaded_live_upstream() {
+        let t0 = Instant::now();
+        let gold = deriv("frxXAUUSD");
+        let mut s = HubState::new(limited_by(2, gold.clone()));
+        // Two live view counts: BTC has two viewers, ETH one, so ETH is the lighter victim.
+        let (a, b) = (key("BTCUSD"), key("ETHUSD"));
+        let ja = s.join(&a, binance::RULES, Tf::M1, None, t0).unwrap();
+        s.join(&a, binance::RULES, Tf::M5, None, t0).unwrap();
+        let jb = s.join(&b, binance::RULES, Tf::M1, None, t0).unwrap();
+        // Nothing is idle: an ordinary key is refused, the reserve makes room.
+        let c = key("SOLUSD");
+        assert_eq!(
+            s.join(&c, binance::RULES, Tf::M1, None, t0).err(),
+            Some(Refusal::Capacity)
+        );
+        let jg = s
+            .join(&gold, deriv::RULES, Tf::M1, None, t0)
+            .expect("the reserve never refuses");
+        assert!(s.alive(&gold, jg.epoch));
+        assert!(!s.alive(&b, jb.epoch), "ETH (one viewer) was the victim");
+        assert!(s.alive(&a, ja.epoch), "BTC (two viewers) survived");
+        assert!(jg.start.is_some(), "the reserve started its own upstream");
+    }
+
+    #[test]
+    fn force_and_evict_candidates_break_ties_by_key() {
+        let t0 = Instant::now();
+        let gold = deriv("frxXAUUSD");
+        let mut s = HubState::new(limited_by(4, gold.clone()));
+        // Two live upstreams with one viewer each, joined in reverse key order.
+        s.join(&key("SOLUSD"), binance::RULES, Tf::M1, None, t0)
+            .unwrap();
+        s.join(&key("BTCUSD"), binance::RULES, Tf::M1, None, t0)
+            .unwrap();
+        // Equal viewer counts: the smaller key wins, every run.
+        let joining = gold.clone();
+        assert_eq!(s.force_candidate(&joining), Some(key("BTCUSD")));
+        // The reserve itself is never a force candidate, even as the least loaded.
+        assert_ne!(s.force_candidate(&joining), Some(gold.clone()));
+        // Nothing idle, so the ordinary path has no victim and refuses to guess.
+        assert_eq!(s.evict_candidate(), None);
+    }
+
+    #[test]
+    fn the_sweeper_reaps_the_reserve_after_grace() {
+        let t0 = Instant::now();
+        let gold = deriv("frxXAUUSD");
+        let mut s = HubState::new(limited_by(2, gold.clone()));
+        let jg = s.join(&gold, deriv::RULES, Tf::M1, None, t0).unwrap();
+        s.leave(&gold, jg.epoch, Tf::M1, t0 + Duration::from_secs(10));
+        assert!(s.sweep(t0 + Duration::from_secs(30)).is_empty(), "in grace");
+        assert_eq!(
+            s.sweep(t0 + Duration::from_secs(71)),
+            vec![gold.clone()],
+            "grace wins over the reservation: an unviewed reserve is reaped"
+        );
+        assert_eq!(s.upstream_count(), 0);
     }
 
     #[test]

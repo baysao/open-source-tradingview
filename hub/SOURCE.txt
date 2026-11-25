@@ -1,0 +1,4 @@
+vtradingview hosted service
+Built from source; the exact running revision is written into this file by ops/deploy.sh at
+deploy time. Licence: AGPL-3.0-only. The repository URL that offers this source is linked from
+hub/notices.html.

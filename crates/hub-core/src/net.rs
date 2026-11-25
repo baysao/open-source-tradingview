@@ -99,8 +99,7 @@ pub fn post_guard(cfg: &Config, headers: &HeaderMap, body_len: usize) -> Result<
     Ok(())
 }
 
-/// A per-client-IP token bucket for `/api/*`, `/auth/*` and `/admin/*`: `rate` tokens per
-/// second, `burst` at most.
+/// A per-client-IP token bucket: `rate` tokens per second, `burst` at most.
 #[derive(Clone)]
 pub struct RateLimiter {
     inner: Arc<Mutex<HashMap<IpAddr, (f64, Instant)>>>,
@@ -136,21 +135,99 @@ impl RateLimiter {
     }
 }
 
-/// The paths the limiter guards. Hosted auth endpoints are as exposed as the API, and the
-/// admin log routes read files, so all three areas share one bucket.
-pub fn is_limited(path: &str) -> bool {
-    ["/api/", "/auth/", "/admin/"]
-        .iter()
-        .any(|p| path.starts_with(p))
+/// The four areas the limiter scopes to. Each has its own bucket, so exhausting one never slows
+/// another: `/ws` upgrades are cheap to open and expensive to hold, and `/auth/*` is the one an
+/// attacker would hammer for credentials.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Bucket {
+    Api,
+    Auth,
+    Admin,
+    Ws,
+}
+
+/// `/api/*`, `/auth/*`, `/admin/*` by prefix and `/ws` exactly (never `/websocket`). `/api/metrics`
+/// is an `Api` call: the beacon is flood-controlled by the same bucket as the API it reports on.
+pub fn bucket(path: &str) -> Option<Bucket> {
+    if path.starts_with("/api/") {
+        return Some(Bucket::Api);
+    }
+    if path.starts_with("/auth/") {
+        return Some(Bucket::Auth);
+    }
+    if path.starts_with("/admin/") {
+        return Some(Bucket::Admin);
+    }
+    if path == "/ws" {
+        return Some(Bucket::Ws);
+    }
+    None
+}
+
+/// The four buckets, sized per area. The values live here and nowhere else: no environment
+/// variable moves them (an operator-tunable limiter is a new invalid-input path for no need).
+#[derive(Clone)]
+pub struct RateLimits {
+    hosted: bool,
+    api: RateLimiter,
+    auth: RateLimiter,
+    admin: RateLimiter,
+    ws: RateLimiter,
+}
+
+/// `/api/*`: one request per 50 ms is a busy chart page (each open chart polls).
+const API_PER_SEC: f64 = 20.0;
+const API_BURST: f64 = 40.0;
+/// `/auth/*` and `/admin/*`: sign-in is a handful of calls; brute force is the threat.
+const AUTH_PER_SEC: f64 = 5.0;
+const AUTH_BURST: f64 = 10.0;
+const ADMIN_PER_SEC: f64 = 5.0;
+const ADMIN_BURST: f64 = 10.0;
+/// `/ws`: a page opens a few sockets; the per-IP cap (`Limits.per_ip`) bounds the rest.
+const WS_PER_SEC: f64 = 10.0;
+const WS_BURST: f64 = 30.0;
+
+impl RateLimits {
+    /// Hosted mode limits `/ws`; local mode does not (every tab is 127.0.0.1, so a page reload
+    /// storm is one IP, and the local contract suite hammers the API).
+    pub fn new(hosted: bool) -> RateLimits {
+        RateLimits {
+            hosted,
+            api: RateLimiter::new(API_PER_SEC, API_BURST),
+            auth: RateLimiter::new(AUTH_PER_SEC, AUTH_BURST),
+            admin: RateLimiter::new(ADMIN_PER_SEC, ADMIN_BURST),
+            ws: RateLimiter::new(WS_PER_SEC, WS_BURST),
+        }
+    }
+
+    /// The bucket guarding `path` in this mode, or `None` when it is not limited.
+    pub fn bucket_for(&self, path: &str) -> Option<Bucket> {
+        let b = bucket(path)?;
+        if b == Bucket::Ws && !self.hosted {
+            return None;
+        }
+        Some(b)
+    }
+
+    /// Takes one token from `b` for `ip`; `Err(seconds)` to wait when empty.
+    pub fn take(&self, b: Bucket, ip: IpAddr, now: Instant) -> Result<(), u64> {
+        let limiter = match b {
+            Bucket::Api => &self.api,
+            Bucket::Auth => &self.auth,
+            Bucket::Admin => &self.admin,
+            Bucket::Ws => &self.ws,
+        };
+        limiter.take(ip, now)
+    }
 }
 
 /// Middleware: 429 with `Retry-After` when a client IP empties its bucket on a guarded path.
 pub async fn rate_limit(
-    axum::extract::State(limiter): axum::extract::State<RateLimiter>,
+    axum::extract::State(rates): axum::extract::State<RateLimits>,
     req: Request<Body>,
     next: Next,
 ) -> Response {
-    if is_limited(req.uri().path()) {
+    if let Some(b) = rates.bucket_for(req.uri().path()) {
         let peer = req
             .extensions()
             .get::<ConnectInfo<SocketAddr>>()
@@ -161,7 +238,7 @@ pub async fn rate_limit(
             .get("cf-connecting-ip")
             .and_then(|v| v.to_str().ok());
         let ip = client_ip(peer, header_ip).ip;
-        if let Err(wait) = limiter.take(ip, Instant::now()) {
+        if let Err(wait) = rates.take(b, ip, Instant::now()) {
             let mut resp = api_error(StatusCode::TOO_MANY_REQUESTS, "too many requests");
             resp.headers_mut()
                 .insert(header::RETRY_AFTER, HeaderValue::from(wait));
@@ -171,9 +248,27 @@ pub async fn rate_limit(
     next.run(req).await
 }
 
-/// Middleware: `X-Content-Type-Options: nosniff` and `Referrer-Policy: same-origin` on every
-/// response. The CSP is set in Phase 4, because the current pages use inline scripts.
-pub async fn security_headers(req: Request<Body>, next: Next) -> Response {
+/// The response headers every request gets, and the policy a response carries when the handler set
+/// none of its own.
+#[derive(Clone)]
+pub struct HeaderPolicy {
+    pub default_csp: HeaderValue,
+}
+
+impl HeaderPolicy {
+    pub fn new(default_csp: HeaderValue) -> HeaderPolicy {
+        HeaderPolicy { default_csp }
+    }
+}
+
+/// Middleware: `X-Content-Type-Options: nosniff`, `Referrer-Policy: same-origin` and a CSP on every
+/// response. The CSP is inserted only when the handler set none: the static route puts a page's own
+/// hashed policy in place, and layers run inside-out on the way back, so that value is visible here.
+pub async fn security_headers(
+    axum::extract::State(policy): axum::extract::State<HeaderPolicy>,
+    req: Request<Body>,
+    next: Next,
+) -> Response {
     let mut resp = next.run(req).await;
     let h = resp.headers_mut();
     h.insert(
@@ -184,12 +279,15 @@ pub async fn security_headers(req: Request<Body>, next: Next) -> Response {
         header::REFERRER_POLICY,
         HeaderValue::from_static("same-origin"),
     );
+    h.entry(header::CONTENT_SECURITY_POLICY)
+        .or_insert(policy.default_csp);
     resp
 }
 
 #[cfg(test)]
 mod guard_tests {
     use super::*;
+    use axum::response::IntoResponse as _;
 
     fn mk(origin: Option<&str>, ctype: &str) -> HeaderMap {
         let mut h = HeaderMap::new();
@@ -233,13 +331,125 @@ mod guard_tests {
     }
 
     #[test]
-    fn limiter_covers_api_auth_and_admin() {
-        for p in ["/api/bars", "/auth/start", "/auth/me", "/admin/logs"] {
-            assert!(is_limited(p), "{p} is limited");
+    fn paths_scope_to_their_bucket() {
+        for p in ["/api/bars", "/api/metrics/ttfc", "/api/me"] {
+            assert_eq!(bucket(p), Some(Bucket::Api), "{p}");
         }
-        for p in ["/", "/hub.html", "/ws", "/logout"] {
-            assert!(!is_limited(p), "{p} is not limited");
+        for p in ["/auth/start", "/auth/me", "/auth/google/onetap"] {
+            assert_eq!(bucket(p), Some(Bucket::Auth), "{p}");
         }
+        assert_eq!(bucket("/admin/logs"), Some(Bucket::Admin));
+        assert_eq!(bucket("/admin/metrics"), Some(Bucket::Admin));
+        assert_eq!(bucket("/ws"), Some(Bucket::Ws), "the upgrade is limited");
+        // Exactly `/ws`: a sibling path must not inherit the bucket.
+        for p in ["/", "/hub.html", "/logout", "/websocket", "/ws/", "/authx"] {
+            assert_eq!(bucket(p), None, "{p} is not limited");
+        }
+    }
+
+    #[test]
+    fn the_ws_bucket_is_hosted_only() {
+        assert_eq!(RateLimits::new(true).bucket_for("/ws"), Some(Bucket::Ws));
+        assert_eq!(RateLimits::new(false).bucket_for("/ws"), None);
+        // The other three are the same in both modes: local mode has no auth or admin route, and
+        // the contract suite relies on the Api values.
+        for hosted in [true, false] {
+            let r = RateLimits::new(hosted);
+            assert_eq!(r.bucket_for("/api/bars"), Some(Bucket::Api));
+            assert_eq!(r.bucket_for("/auth/me"), Some(Bucket::Auth));
+            assert_eq!(r.bucket_for("/admin/logs"), Some(Bucket::Admin));
+        }
+    }
+
+    #[test]
+    fn each_bucket_is_independent() {
+        let r = RateLimits::new(true);
+        let ip: IpAddr = "203.0.113.9".parse().unwrap();
+        let t0 = Instant::now();
+        // Drain Auth (10) and Admin (10) and Ws (30) completely.
+        for _ in 0..10 {
+            assert!(r.take(Bucket::Auth, ip, t0).is_ok());
+            assert!(r.take(Bucket::Admin, ip, t0).is_ok());
+        }
+        for _ in 0..30 {
+            assert!(r.take(Bucket::Ws, ip, t0).is_ok());
+        }
+        assert!(r.take(Bucket::Auth, ip, t0).is_err(), "11th auth call");
+        assert!(r.take(Bucket::Admin, ip, t0).is_err(), "11th admin call");
+        assert!(r.take(Bucket::Ws, ip, t0).is_err(), "31st ws upgrade");
+        // Api is untouched by three exhausted neighbours.
+        for _ in 0..40 {
+            assert!(r.take(Bucket::Api, ip, t0).is_ok());
+        }
+        assert!(r.take(Bucket::Api, ip, t0).is_err(), "41st api call");
+        // The rate is per second: the wait is reported, never a silent pass.
+        assert_eq!(r.take(Bucket::Auth, ip, t0), Err(1));
+    }
+
+    /// The burst proves the cap (`10`); only the refill proves the *rate*, which is the number an
+    /// attacker meets after a one-second pause. Nothing below asserts an absolute wait, so the test
+    /// is independent of `Retry-After` rounding and moves only when a `*_PER_SEC` value moves.
+    #[test]
+    fn each_bucket_refills_at_its_own_rate() {
+        let r = RateLimits::new(true);
+        let ip: IpAddr = "203.0.113.11".parse().unwrap();
+        let t0 = Instant::now();
+        let t1 = t0 + std::time::Duration::from_secs(1);
+
+        // Auth: burst 10, then 5 more in the next second and not one more.
+        for _ in 0..10 {
+            assert!(r.take(Bucket::Auth, ip, t0).is_ok());
+        }
+        assert!(r.take(Bucket::Auth, ip, t0).is_err(), "auth burst spent");
+        for i in 0..5 {
+            assert!(
+                r.take(Bucket::Auth, ip, t1).is_ok(),
+                "auth token {i} at 5/s"
+            );
+        }
+        assert!(
+            r.take(Bucket::Auth, ip, t1).is_err(),
+            "the 6th auth call inside one second waits"
+        );
+
+        // Api refills 20 in that same second, so the two rates are separate values, not one shared.
+        for _ in 0..40 {
+            assert!(r.take(Bucket::Api, ip, t0).is_ok());
+        }
+        assert!(r.take(Bucket::Api, ip, t0).is_err(), "api burst spent");
+        for i in 0..20 {
+            assert!(r.take(Bucket::Api, ip, t1).is_ok(), "api token {i} at 20/s");
+        }
+        assert!(
+            r.take(Bucket::Api, ip, t1).is_err(),
+            "the 21st api call inside one second waits"
+        );
+    }
+
+    #[test]
+    fn the_headers_policy_is_inserted_only_when_absent() {
+        let p = HeaderPolicy::new(HeaderValue::from_static("default-src 'none'"));
+        let mut resp = StatusCode::OK.into_response();
+        resp.headers_mut()
+            .entry(header::CONTENT_SECURITY_POLICY)
+            .or_insert(p.default_csp.clone());
+        assert_eq!(
+            resp.headers().get(header::CONTENT_SECURITY_POLICY).unwrap(),
+            "default-src 'none'"
+        );
+        // A handler-set per-page policy wins.
+        let mut page = StatusCode::OK.into_response();
+        page.headers_mut().insert(
+            header::CONTENT_SECURITY_POLICY,
+            HeaderValue::from_static("script-src 'self'"),
+        );
+        page.headers_mut()
+            .entry(header::CONTENT_SECURITY_POLICY)
+            .or_insert(p.default_csp.clone());
+        assert_eq!(
+            page.headers().get(header::CONTENT_SECURITY_POLICY).unwrap(),
+            "script-src 'self'"
+        );
     }
 
     #[test]

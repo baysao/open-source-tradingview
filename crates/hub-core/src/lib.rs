@@ -102,13 +102,17 @@ pub fn app(state: AppState) -> Router {
             }
         }
     }
+    let headers = net::HeaderPolicy::new(state.csp.default().clone());
     router
         .fallback(fallback)
         .layer(axum::middleware::from_fn_with_state(
-            state.limiter.clone(),
+            state.rates.clone(),
             net::rate_limit,
         ))
-        .layer(axum::middleware::from_fn(net::security_headers))
+        .layer(axum::middleware::from_fn_with_state(
+            headers,
+            net::security_headers,
+        ))
         .with_state(state)
 }
 
@@ -124,7 +128,11 @@ pub struct AppState {
     pub logs: LogBus,
     pub orderflow: orderflow::OrderFlow,
     pub auth: Option<auth::Auth>,
-    limiter: net::RateLimiter,
+    /// The per-page CSP built once at boot, and the default every other response carries.
+    pub csp: Arc<static_files::CspSet>,
+    /// Time to first live candle, in memory for the process lifetime (C16).
+    pub ttfc: routes::metrics::Ttfc,
+    rates: net::RateLimits,
     sources: Arc<Sources>,
 }
 
@@ -281,6 +289,8 @@ impl AppState {
         let limits = Limits {
             max_upstreams: cfg.feed_max_symbols,
             exempt_loopback: cfg.auth.is_local(),
+            // The default chart a visitor lands on: never refused at the cap (C14).
+            reserved: sources::reserved_key(),
             ..Limits::default()
         };
         let feeds = FeedHub::new(
@@ -306,6 +316,16 @@ impl AppState {
             "info",
             format!("Chart server started (pid {})", std::process::id()),
         ));
+        // The pages' inline blocks are hashed once, at boot: editing a page afterwards leaves it
+        // under its boot-time policy, so the drift is a blocked script, never a silent allow.
+        let csp = Arc::new(static_files::CspSet::scan(
+            &cfg.static_dir,
+            cfg.public_origin.starts_with("https://"),
+        ));
+        let rates = net::RateLimits::new(!cfg.auth.is_local());
+        // The TTFC window is the process lifetime, so `since` is the same boot second the log bus
+        // records, in milliseconds as the read documents.
+        let ttfc = routes::metrics::Ttfc::new(boot.saturating_mul(1000));
         AppState {
             cfg: Arc::new(cfg),
             catalog,
@@ -315,7 +335,9 @@ impl AppState {
             logs,
             orderflow,
             auth,
-            limiter: net::RateLimiter::new(20.0, 40.0),
+            csp,
+            ttfc,
+            rates,
             sources,
         }
     }
@@ -383,7 +405,7 @@ async fn fallback(State(st): State<AppState>, req: Request<Body>) -> Response {
     {
         return routes::api_error(StatusCode::NOT_FOUND, "not found");
     }
-    static_files::serve(&st.cfg.static_dir, req).await
+    static_files::serve(&st.cfg.static_dir, &st.csp, req).await
 }
 
 /// Serves [`app`] on `listener` with peer addresses available to handlers.

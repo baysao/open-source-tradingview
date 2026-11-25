@@ -1,0 +1,33 @@
+# systemd unit for hub-server on the production VPS.
+# Install:  sudo install -m 644 ops/vtv.service /etc/systemd/system/
+#           sudo systemctl daemon-reload && sudo systemctl enable --now vtv
+# The env file holds every secret; see ops/README.md for its contract.
+
+[Unit]
+Description=vtradingview hub-server (Axum, loopback only)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=vtv
+Group=vtv
+WorkingDirectory=/opt/vtv
+EnvironmentFile=/etc/vtv/env
+ExecStart=/opt/vtv/hub-server
+Restart=always
+RestartSec=2
+
+# Hardening: the process writes its logs and cache and nothing else.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+ReadWritePaths=/opt/vtv/hub/logs /opt/vtv/hub/.cache/orderflow
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
+MemoryDenyWriteExecute=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

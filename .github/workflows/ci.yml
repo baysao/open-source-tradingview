@@ -86,35 +86,27 @@ jobs:
           echo "release feature tree clean"
 
   contract:
-    # G1: the Python hub (oracle, port 8770) and the built hub-server (port 8771) answer the same
-    # requests with the same JSON shapes. Upstream outages (for example Bybit refusing data-centre
-    # IPs) turn a case into "skip", listed in the job summary.
+    # G1, Rust-only since phase 04 retired the Python hub: the built hub-server answers the
+    # Rust-only contract cases (the probes) on port 8771. The case comparisons that needed the
+    # Python oracle skip with a count (their re-creation against a recorded oracle is future
+    # work), listed in the job summary.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - run: rustup show
       - uses: Swatinem/rust-cache@v2
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - run: pip install -r requirements.txt
       - run: cargo build -p hub-server
-      - name: Start both servers
+      - name: Start the hub-server
         run: |
-          mkdir -p "$RUNNER_TEMP/py" "$RUNNER_TEMP/rs-logs"
-          nohup python hub/server.py > "$RUNNER_TEMP/py/out.log" 2>&1 &
+          mkdir -p "$RUNNER_TEMP/rs-logs"
           HUB_HTTP_PORT=8771 HUB_LOG_DIR="$RUNNER_TEMP/rs-logs" nohup target/debug/hub-server > "$RUNNER_TEMP/rs.log" 2>&1 &
-          for port in 8770 8771; do
-            for i in $(seq 1 60); do
-              curl -fs "http://127.0.0.1:$port/api/status" > /dev/null && break
-              sleep 1
-            done
-            curl -fs "http://127.0.0.1:$port/api/status" || { echo "server on $port did not start"; exit 1; }
-            echo
+          for i in $(seq 1 60); do
+            curl -fs "http://127.0.0.1:8771/api/status" > /dev/null && break
+            sleep 1
           done
+          curl -fs "http://127.0.0.1:8771/api/status" || { echo "server on 8771 did not start"; exit 1; }
       - name: Contract suite
         env:
-          CONTRACT_PY_URL: http://127.0.0.1:8770
           CONTRACT_RS_URL: http://127.0.0.1:8771
         run: |
           set -o pipefail
@@ -127,7 +119,7 @@ jobs:
             grep -E '^contract: [0-9]+ passed' "$RUNNER_TEMP/contract.log" || echo "no result line"
             echo
             echo "### Skipped cases"
-            grep -E '^  skip ' "$RUNNER_TEMP/contract.log" || echo "none"
+            grep -E 'skipped:' "$RUNNER_TEMP/contract.log" || echo "none"
             echo
             echo "### Failed cases"
             grep -E '^  FAIL ' "$RUNNER_TEMP/contract.log" || echo "none"
@@ -135,5 +127,4 @@ jobs:
       - name: Server logs on failure
         if: failure()
         run: |
-          tail -50 "$RUNNER_TEMP/py/out.log" || true
           tail -50 "$RUNNER_TEMP/rs.log" || true

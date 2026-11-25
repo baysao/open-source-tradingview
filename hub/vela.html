@@ -19,6 +19,7 @@
 <script src="vela.bundle.js"></script>
 <script src="theme.js"></script>
 <script src="lab.js"></script>
+<script src="ttfc.js" data-engine="vela"></script>
 <script src="orderflow_delta.js"></script>
 <script src="orderflow_profile.js"></script>
 <script src="orderflow_charttypes.js"></script>
@@ -61,6 +62,7 @@ const provider = {
       onBar(bar);
     };
     return LabFeed.live(ticker, tf, (b) => {
+      HubTTFC.send();  // TTFC: the first live bar of this load (self-guarded, one POST)
       const bar = { ...b, time: b.time * 1000 };
       chain = chain.then(async () => {
         // A live candle far after our last one means candles are missing (laptop slept, feed reconnected, or the

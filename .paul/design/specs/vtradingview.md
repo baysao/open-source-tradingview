@@ -529,6 +529,23 @@ rendered drafts.
 
 --------------------------------------------------------------------------------
 
+## Risks and Mitigations
+
+| Risk | Likelihood | Impact | Mitigation |
+|------|-----------|--------|------------|
+| pgsqlite (experimental) mishandles a query or migration | med | high | CI runs every migration and query on pgsqlite and Postgres 17; pools verify each connection before use (D-018); production switches `DATABASE_URL` to Postgres the day it misbehaves |
+| Upstream feeds throttle or ban the single server IP | med | high | One shared upstream per (source, symbol), the bars cache, four per-IP rate buckets, the admin feed-health view |
+| Binance or Bybit blocks the hosting region | med | high | Choose a non-US region; verify endpoints from the host before Phase 4 sign-off (DEBT-018) |
+| Deriv, Bybit and Binance data redistribution terms forbid public serving (Q2) | med | high | Read each provider's API terms before launch; drop or gate a feed that forbids it |
+| The "vtradingview" name conflicts with the TradingView trademark (Q3) | med | high | Legal review before public launch; the non-affiliation notice ships on `/privacy.html`; an alternate name held in reserve |
+| Google blocks sign-in inside the Tauri webview | high (by policy) | high | The system-browser + deep-link flow is designed in from the start (Phase 6) |
+| Order-flow numbers drift from the Python reference | low (closed in Phase 2) | med | Golden fixtures with an explicit tolerance gate shipped in Phase 2; the Python reference is retired |
+| SSRF through user bridge URLs (Phase 7) | med | high | Resolve-and-pin guard, deny private ranges, no redirects, size and time caps, a dedicated test suite |
+| The Tauri remote page gains IPC access (Phase 6) | low | high | Capabilities grant nothing to the remote origin beyond opener and deep link; audited in Phase 6 |
+| Licence attribution missing on the hosted site | low (shipped in Phase 4) | med | `/notices.html` carries the component table, the served licence texts and the three attribution requirements |
+| The Pine compiler needs `script-src 'unsafe-eval'` | certain (named residual) | med | `vela.bundle.js` compiles Pine through `new Function`; the hash-locked CSP still blocks every rogue inline script. Removing the residual means a Vela change; named here so it stays a decision, not a surprise |
+| One host with nightly backups: up to a day of synced state is lost on host loss | low | med | Backups are nightly and off-host, kept 14 days; the restore drill is rehearsed (`ops/restore_drill.sh`); a shorter window is a config change once state sync has real users |
+
 ## Non-Functional Requirements
 
 *   **Security & Privacy**: as specified in the Technical Plan (sessions, CSRF, Google token checks,
@@ -546,7 +563,7 @@ rendered drafts.
 
 --------------------------------------------------------------------------------
 
-### Additional Resources
+## Additional Resources
 
 *   [.paul/PLANNING.md](../../PLANNING.md): the approved plan (phases, risks, dependencies).
 *   [taste/hub-theme.md](../taste/hub-theme.md): theme variables and measured contrast.
@@ -555,7 +572,7 @@ rendered drafts.
 *   `~/project/pricehub/Procfile`, `~/project/pricehub/scripts/dev.sh`: gaffa and pgsqlite service table.
 *   `~/project/pgsqlite` (baysao fork, branch `fix/insert-select-returning-timestamptz`).
 
-### Future Improvements
+## Future Improvements
 
 *   **Watchlists and alerts**: would add tables keyed by `user_id`; `user_state` is not the place.
 *   **More than one server instance**: FeedHub fan-out moves to a shared bus (Redis or NATS); sessions
@@ -1098,7 +1115,7 @@ Decisions applied: D-001 (local mode, no MT5 ports) and D-002 (protocol kept, up
 *   **Proposed Changes**: running the bridge with a token and publishing it over HTTPS with Cloudflare
     Tunnel or Caddy.
 
-### Verification Plan
+## Verification Plan
 
 *   **Compilation/Build**: `cargo build --workspace --release`; `cargo tauri build` in `crates/desktop`
     (Phase 6).

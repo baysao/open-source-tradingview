@@ -199,3 +199,38 @@ pub fn parse_frame(key: &UpstreamKey, text: &str) -> Parsed {
         Source::Deriv => deriv::parse_frame(text),
     }
 }
+
+/// The default chart every visitor lands on (`hub/hub.html`: deriv `frxXAUUSD`).
+///
+/// The feed cap reserves this key, so the first thing a new visitor sees can never be refused with
+/// "too many markets are open". It is the one key the cap may force-evict a live upstream for, and
+/// it is never chosen as an idle victim.
+///
+/// `None` only if the constant stops parsing, which a unit test pins: a reserve that silently
+/// became `None` would be a cap with no reservation and no failure to notice it.
+pub fn reserved_key() -> Option<UpstreamKey> {
+    Some(UpstreamKey {
+        source: Source::Deriv,
+        symbol: Ticker::parse(Source::Deriv, "frxXAUUSD").ok()?,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_reserved_key_is_the_default_chart() {
+        let k = reserved_key().expect("the default chart parses");
+        assert_eq!(k.source, Source::Deriv);
+        assert_eq!(k.symbol.as_str(), "frxXAUUSD");
+        // A different Deriv ticker is a different key: the reserve is exactly one upstream.
+        assert_ne!(
+            reserved_key(),
+            Some(UpstreamKey {
+                source: Source::Deriv,
+                symbol: Ticker::parse(Source::Deriv, "frxEURUSD").unwrap(),
+            })
+        );
+    }
+}

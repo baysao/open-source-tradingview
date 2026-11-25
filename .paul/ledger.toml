@@ -111,3 +111,73 @@ action = "transition"
 phase = 3
 at = "2026-11-24T18:20:00+07:00"
 result = "Phase 03 complete (3 of 3 plans); milestone v0.1 at 3 of 4 phases; DEBT 0 overdue, 11 waiting/open, 6 done; next: /paul:plan for Phase 04 (public deploy). Phase commit proposed, not made: the project rule is commit only when the owner asks."
+
+[[entry]]
+action = "plan"
+phase = 4
+plan = "04-01"
+at = "2026-11-24T21:05:00+07:00"
+result = "PLAN created: deploy surface (ops/ systemd units + cloudflared config + backup.sh + restore drill + deploy.sh, Procfile/dev.sh tunnel line, load_ws.mjs 1000-socket test, .txt static ext, DEBT-018/019 owner rows)"
+
+[[entry]]
+action = "plan"
+phase = 4
+plan = "04-02"
+at = "2026-11-24T21:05:00+07:00"
+result = "PLAN created: public hardening in one diff (CspSet per-page sha256 hashes at boot, four rate buckets Api20/40 Auth5/10 Admin5/10 Ws10/30 hosted-only, routes/metrics.rs TTFC beacon + admin read with process-lifetime window, reserved deriv frxXAUUSD key force-evicting least-loaded at full cap, hub/ttfc.js + page lines, lab.js reconnect DEBT-003)"
+
+[[entry]]
+action = "plan"
+phase = 4
+plan = "04-03"
+at = "2026-11-24T21:05:00+07:00"
+result = "PLAN created: privacy.html + notices.html (AGPL offer, SOURCE.txt link), footer links, gate_all.py seven-gate runner with receipts (DEBT-016/017), README/AGENTS/SECURITY rewrite, spec C2 Risks section, Python retirement (9 files) + Rust-only contract job, DEBT-020/021 owner rows; ends with a human-verify checkpoint"
+
+[[entry]]
+action = "pause"
+phase = 4
+plan = "04-01"
+at = "2026-11-24T20:19:00+07:00"
+result = "04-01 APPLY in flight: tasks 1-3 done (ops/ 8 files, tunnel line proven both ways with cloudflared 2026.11.2, .txt ext live at /SOURCE.txt, load_ws.mjs fixed after two real bugs and passing 60/60 zero-drop). Tasks 4-5 open. Deferrals DEBT-022 (1000-socket run needs several IPs), DEBT-023 (backup/drill need real Postgres + R2)."
+
+[[entry]]
+action = "apply"
+phase = 4
+plan = "04-01"
+at = "2026-11-24T21:40:00+07:00"
+result = "APPLIED: 5/5 tasks. ops/ 9 files (units, tunnel config, backup to R2, restore drill, deploy, runbook, check.py), tunnel line proven both ways, .txt ext live, load_ws.mjs (2 real bugs fixed by running it) passing 60/60 zero-drop, DEBT-018/019 created. Mutations m1-m5 red-then-green (m4 exposed a self-matching checker, fixed). Gates: fmt, clippy x2, 118 tests, 144 test-idp, all exit 0."
+
+[[entry]]
+action = "unify"
+phase = 4
+plan = "04-01"
+at = "2026-11-24T22:05:00+07:00"
+result = "UNIFIED: 5/5 tasks, AC-1..AC-6 pass (m1-m5 red-then-green; fmt/clippy x2/118 tests/144 test-idp all exit 0). Deviations: ops/check.py and restore_drill.sh --check added because m2/m4 had nothing runnable without systemd/Postgres/R2; m4 exposed a self-matching checker (fixed, full set re-run per R-10). Learnings +2 (L-024, L-025), 3 bumped, L-009 promoted to validated. Debt +5 (018/019/022/023/024), 0 discharged. UNIFIED but NOT LANDED: 04-01 files uncommitted (DEBT-024)."
+
+[[entry]]
+action = "apply"
+phase = 4
+plan = "04-02"
+at = "2026-11-25T02:15:00+07:00"
+result = "APPLIED: 5/5 tasks. Per-page hashed CSP (CspSet::scan), four rate buckets (Api 20/40, Auth 5/10, Admin 5/10, Ws 10/30 hosted-only), TTFC beacon + /admin/metrics read, reserved deriv frxXAUUSD at the feed cap, lab.js reconnect with backoff (DEBT-003 done). check-0402 60/60 incl. kill-restart reconnect in the same document; check-0303 66/66 under the shipped CSP (DEBT-015 discharged by wiring, CHECK_0303=1). Mutations m1-m8 red-then-green (mut-all2.log). Gates: fmt, clippy x2, 139 workspace, 169 test-idp, 133 hub-core, all exit 0. Code found pre-applied from the interrupted prior session; every gate and check re-run fresh this session. SUMMARY written."
+
+[[entry]]
+action = "unify"
+phase = 4
+plan = "04-02"
+at = "2026-11-25T02:20:00+07:00"
+result = "UNIFIED: 5/5 tasks, AC-1..AC-6 pass (check-0402 60/60 incl. kill-restart reconnect in the same document; check-0303 66/66 under the shipped CSP; m1-m8 red-then-green; fmt/clippy x2/139 workspace/169 test-idp/133 hub-core all exit 0). Code found pre-applied from the interrupted prior session; every gate and check re-run fresh (R-10). Deviations: ttfc.js fetch-keepalive only, no t0 capture (D-022), m7/m8 added beyond the plan's m1-m6. DEBT-003/015 discharged (D-023), DEBT-024 widened to the whole phase surface. Learnings +1 (L-031), L-023 bumped to validated at hits 3. Reflect deferred to 04-03 (pstack). UNIFIED but NOT LANDED: uncommitted with the rest of the phase (DEBT-024)."
+
+[[entry]]
+action = "apply"
+phase = 4
+plan = "04-03"
+at = "2026-11-25T03:05:00+07:00"
+result = "APPLIED: 5/5 tasks + agent-run checkpoint. privacy.html (C13 outline, token-only, lint zero), notices.html (AGPL offer, licence texts served flat - the plan's hub/licenses/ path was unservable under resolve's one-segment rule), footer links, gate_all.py (8 gates served, receipts + drift check; first run found 3 real notices.html defects, fixed), README/AGENTS/SECURITY rewritten, spec Risks and Mitigations H2 inserted (C2) + three H2 promotions (C19), nine Python files git rm'd, requirements.txt emptied to comments, ci.yml contract job Rust-only, contract.rs oracle-optional (7 probes pass, 33 comparison cases skip-counted). check-0402 checkpoint agent-run in browser per R-6, owner-eye residual DEBT-026. Gates: fmt, clippy x2, 139 workspace, 169 test-idp, contract 7/33/0, m1-m4 red-then-green (m3 twice per R-10), all exit 0 bare."
+
+[[entry]]
+action = "unify"
+phase = 4
+plan = "04-03"
+at = "2026-11-25T02:57:00+07:00"
+result = "UNIFIED: 5/5 tasks + agent-run checkpoint (owner-eye residual DEBT-026). AC-1..AC-6 pass: lint zero both pages, every link 200, gate_all 8/8 receipts + --check-receipts green, spec Risks H2 (C2) + three H2 promotions (C19), 9 Python files deleted, ci.yml Rust-only, contract Rust-only 7 passed/33 skipped/0 failed, fmt/clippy x2/139 workspace/169 test-idp all exit 0 bare, m1-m4 red-then-green (m3 twice per R-10). PHASE 04 CLOSED at this unify: reflect ran (3-lens panel + synthesizer, digest .paul/runs/reflect-0400-digest.md) - 11 accepted, 5 rejected, 2 backlog; R-11 written (auto-approval boundary), R-9 pages half, uxui gate-runner satisfaction note; L-032..036 added, L-031 validated; DEBT-027/028/029 opened, DEBT-025 note gains the CHECK_0303 window rule. UNIFIED but NOT LANDED: uncommitted with the rest of the phase (DEBT-024). Milestone v0.1: 4 of 4 phases complete; launch waits on owner rows."

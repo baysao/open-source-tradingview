@@ -15,13 +15,15 @@
 # It refuses to start when that port is taken (the Python hub, or another hub-server).
 # db: pgsqlite (PGSQLITE_BIN, default ~/.local/bin/pgsqlite) over data/vtv.db on
 # 127.0.0.1:${PGSQLITE_PORT:-55432}. Only hub-server with AUTH_ENABLED=true uses it (D-011).
+# tunnel: cloudflared with ops/cloudflared.yml (production only; idles with a message when
+# cloudflared is not installed locally).
 
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROCFILE="$ROOT/Procfile"
 LOG_DIR="$ROOT/.dev/logs"
-ALL_SERVICES=(db hub)
+ALL_SERVICES=(db hub tunnel)
 
 case "$(uname -s)" in
   MINGW*|MSYS*|CYGWIN*) EXE=".exe" ;;
@@ -39,7 +41,7 @@ port_busy() {
 }
 
 svc_known() {
-  case "$1" in db|hub) return 0 ;; *) return 1 ;; esac
+  case "$1" in db|hub|tunnel) return 0 ;; *) return 1 ;; esac
 }
 
 svc_port() {
@@ -83,6 +85,15 @@ cmd_svc() {
     hub)
       cargo build -p hub-server
       exec "$ROOT/target/debug/hub-server$EXE"
+      ;;
+    tunnel)
+      # Production only (ops/README.md). A dev machine without cloudflared idles instead of
+      # crash-looping, so running the whole Procfile locally still works.
+      if ! have cloudflared; then
+        err "tunnel: cloudflared not installed; the tunnel runs on the production host (ops/README.md)"
+        sleep infinity
+      fi
+      exec cloudflared tunnel --config "$ROOT/ops/cloudflared.yml" run vtradingview
       ;;
   esac
 }
