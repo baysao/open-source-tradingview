@@ -216,7 +216,7 @@ kind = "uat"
 origin = "04-01 Task 4 (Phase 04 accept: live charts through the tunnel, no inbound ports)"
 owner = "owner"
 trigger = "phase:04"
-status = "open"
+status = "done"
 check = { type = "text_present", path = ".paul/phases/04-deploy/04-01-SUMMARY.md", pattern = "tunnel live: charts load through vtradingview.com" }
 note = "R-6: once the tunnel is up, the agent runs the browser check against the public origin and records it; the row covers the account-and-domain acts only the owner can do. cloudflared 2026.11.2 is installed locally, so the exec path is proven up to the missing credentials."
 
@@ -340,3 +340,14 @@ trigger = "phase:05"
 status = "open"
 check = { type = "command", run = "bash scripts/dev.sh _svc db", expect = "listening on 55432" }
 note = "Pre-existing, not caused by the mise change: the file predates the current migration set. The fix is either a fresh dev db (mv data/vtv.db data/vtv.db.2026-11-24 && mise run dev:db, which re-migrates) or a schema-migration decision recorded as a D-row. Until then dev auth work needs a clean db; the local-mode chart work is unaffected."
+
+[[debt]]
+id = "DEBT-032"
+title = "ops/deploy.sh writes hub/SOURCE.txt only inside the repo working tree, so a git checkout -f (what a redeploy does) overwrites the AGPL offer with the repo placeholder; the live SOURCE.txt was hand-written on 2026-11-25 and a plain redeploy would revert it"
+kind = "tech"
+origin = "DEBT-018 provisioning, live deploy"
+owner = "agent"
+trigger = "phase:05"
+status = "open"
+check = { type = "command", run = "grep -c 'commit: ' /app/vtradingview/repo/hub/SOURCE.txt", expect = "1" }
+note = "Seen live: after checkout -f v0.1.2 the served SOURCE.txt was the placeholder again. Fix options: ops/deploy.sh writes it after the checkout and before the restart (it already does, but 'git checkout -f' in a later deploy wipes it), or the file moves outside the git tree and the static route serves it from there. The check above passes today because the file was written by hand; it fails again after the next checkout -f."
