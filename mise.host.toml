@@ -19,5 +19,6 @@
 [tools."http:vtv"]
 version = "0.1.0"
 url = "https://github.com/baysao/open-source-tradingview/releases/download/v{{ version }}/vtv-v{{ version }}-linux-{{ arch() }}.tar.gz"
-# One binary in the archive: `bin` names it, so mise installs it executable at the root.
-bin = "hub-server"
+# The archive holds one file, `hub-server`; `bin` is the NAME it is installed AS, so the tool
+# answers `mise which vtv` (and the service ExecStart) rather than `mise which hub-server`.
+bin = "vtv"
