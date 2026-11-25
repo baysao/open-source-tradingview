@@ -21,4 +21,4 @@ version = "0.1.0"
 url = "https://github.com/baysao/open-source-tradingview/releases/download/v{{ version }}/vtv-v{{ version }}-linux-{{ arch() }}.tar.gz"
 # The archive holds one file, `hub-server`; `bin` is the NAME it is installed AS, so the tool
 # answers `mise which vtv` (and the service ExecStart) rather than `mise which hub-server`.
-bin = "vtv"
+rename_exe = "vtv"
