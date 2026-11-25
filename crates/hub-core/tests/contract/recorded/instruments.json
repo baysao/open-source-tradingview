@@ -1,4 +1,4 @@
 {
   "status": 200,
-  "shape": "{brokers:[{id:string,name:string}],instruments:[{brokers:{binance:[{label:string,ticker:string}],bybit:[{label:string,ticker:string}],deriv:[{label:string,ticker:string}]},group:string,key:string,name:string}|{brokers:{binance:[{label:string,ticker:string}],bybit:[{label:string,ticker:string}]},group:string,key:string,name:string}|{brokers:{bybit:[{label:string,ticker:string}],deriv:[{label:string,ticker:string}]},group:string,key:string,name:string}|{brokers:{bybit:[{label:string,ticker:string}]},group:string,key:string,name:string}|{brokers:{deriv:[{label:string,ticker:string}]},group:string,key:string,name:string}]}"
+  "shape": null
 }

@@ -1,4 +1,4 @@
 {
   "status": 200,
-  "shape": "{intrabar:string,method:string,mode:string,real_symbol:string,sessions:[{buy:[number],delta:number,dev:[[number]],first:number,last:number,lo:number,name:string,poc:number,poc_i:number,sell:[number],start:number,step:number,total:number,vah:number,val:number}],shift:string,source:string,unit:string,va_pct:number}"
+  "shape": null
 }

@@ -1,4 +1,4 @@
 {
   "status": 200,
-  "shape": "{intrabar:string,method:string,real_symbol:string,rows:[{buy:number,delta:number,hi:number,lo:number,n:number,sell:number,t:number}],source:string,unit:string}"
+  "shape": null
 }

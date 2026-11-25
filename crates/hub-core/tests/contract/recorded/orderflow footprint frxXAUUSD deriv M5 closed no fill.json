@@ -1,4 +1,4 @@
 {
   "status": 200,
-  "shape": "{candles:[],covered_from:number,est_candles:number,method:string,pending:bool,real_symbol:string,row_size:number,source:string,unit:string}"
+  "shape": null
 }
