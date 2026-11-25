@@ -17,7 +17,7 @@
 # Docs: https://mise.jdx.dev/dev-tools/backends/http.html
 
 [tools."http:vtv"]
-version = "0.1.0"
+version = "0.1.1"
 url = "https://github.com/baysao/open-source-tradingview/releases/download/v{{ version }}/vtv-v{{ version }}-linux-{{ arch() }}.tar.gz"
 # The archive holds one file, `hub-server`; `bin` is the NAME it is installed AS, so the tool
 # answers `mise which vtv` (and the service ExecStart) rather than `mise which hub-server`.
