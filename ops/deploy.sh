@@ -1,28 +1,53 @@
 #!/usr/bin/env bash
-# Deploy on the production VPS: fetch the pushed commit, build the release binary, keep the
-# previous one for rollback, write hub/SOURCE.txt (the AGPL source offer), restart the service,
-# smoke the public origin. Runs ON the host; it never pushes.
+# Deploy on the production VPS.
 #
-#   bash ops/deploy.sh [commit]      # default: origin/<current branch>
+#   bash ops/deploy.sh                   # build from the pushed commit (rustup on the host)
+#   bash ops/deploy.sh --from-mise 0.1.0 # install the prebuilt release asset instead (no build)
+#   bash ops/deploy.sh [commit]          # build a specific commit/tag
 #
-# Prints the rollback command at the end; keep it.
-
+# Both modes keep the previous binary for rollback, write hub/SOURCE.txt (the AGPL source offer),
+# restart the service and smoke the public origin. Never pushes.
 set -euo pipefail
+
+MODE="build"
+if [ "${1:-}" = "--from-mise" ]; then
+  MODE="mise"
+  shift
+  VERSION="${1:-}"
+  [ -n "$VERSION" ] || { echo "usage: bash ops/deploy.sh --from-mise <version>" >&2; exit 2; }
+  shift || true
+fi
 
 cd /opt/vtv/repo
 COMMIT="${1:-$(git rev-parse --abbrev-ref HEAD)}"
-git fetch origin
+git fetch origin --tags
 git checkout --detach "origin/${COMMIT#origin/}" 2>/dev/null || git checkout --detach "$COMMIT"
 REV="$(git rev-parse HEAD)"
 
-echo "==> cargo build --release ($REV)"
-cargo build --release -p hub-server
+if [ "$MODE" = "mise" ]; then
+  # The binary comes from the release asset (mise.toml [tools."http:vtv"]): the host needs no
+  # rust toolchain and no build time. `mise use` pins the version in mise.toml; `mise install`
+  # fetches it; `mise which` names the installed path.
+  echo "==> mise: installing vtv@$VERSION (prebuilt release asset)"
+  if grep -q '^\[tools\."http:vtv"\]' mise.toml; then
+    mise use "vtv@$VERSION" >/dev/null
+  else
+    mise install "http:vtv@$VERSION" >/dev/null
+  fi
+  BUILT="$(mise which vtv)"
+  [ -x "$BUILT" ] || { echo "mise did not install an executable for vtv@$VERSION ($BUILT)" >&2; exit 1; }
+  echo "    $BUILT"
+else
+  echo "==> cargo build --release ($REV)"
+  cargo build --release -p hub-server
+  BUILT="target/release/hub-server"
+fi
 
 echo "==> swapping binaries (old kept for rollback)"
 if [ -f /opt/vtv/hub-server ]; then
   cp /opt/vtv/hub-server /opt/vtv/hub-server.old
 fi
-install -m 755 target/release/hub-server /opt/vtv/hub-server
+install -m 755 "$BUILT" /opt/vtv/hub-server
 
 echo "==> writing hub/SOURCE.txt (the AGPL offer: this exact commit is the served source)"
 REPO_URL="$(git remote get-url origin | sed -e 's#git@github.com:#https://github.com/#' -e 's#\.git$##')"

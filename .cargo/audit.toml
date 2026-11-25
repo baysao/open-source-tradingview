@@ -1,0 +1,37 @@
+# cargo audit: justified ignores, each with the evidence that makes it not reachable here.
+#
+# Every entry below is an advisory with NO in-range fix at the pinned versions (D-005: newer
+# majors only in a plan that passes the gates). Re-check this list on every dependency bump;
+# remove an entry the moment a fix lands in range.
+
+[advisories]
+ignore = [
+  # rsa 0.9.10 — Marvin attack (timing side channel on RSA decryption). No patched release
+  # exists upstream. Reached only through the test-idp feature: the in-process IdP that mints
+  # tokens for the browser check. A release build excludes it (ci.yml asserts the feature tree),
+  # and the production Google flow verifies JWTs with ring/aws-lc, never RSA decryption.
+  "RUSTSEC-2023-0071",
+
+  # libsqlite3-sys 0.30.1 / C SQLite CVE-2026-119375 — via pgsqlite (the dev/fallback engine).
+  # No in-range release (0.30.x is the max the sqlite driver allows here). Production runs
+  # Postgres 17 (DATABASE_URL); the risk window is a dev box running pgsqlite over a local file
+  # only, with no untrusted SQL.
+  "RUSTSEC-2026-0459",
+
+  # zip 2.6.1 — six advisories (extraction/symlink/permission handling, ZipStreamReader, AES
+  # early-end). All of them are in extract()/ZipStreamReader::extract() paths that write files
+  # to disk. This crate uses ONLY ZipArchive::new + by_index(0).read_to_string on
+  # Binance's own public archive bytes (crates/hub-core/src/orderflow/trades.rs:413-415): no
+  # extract, no symlinks, no AES. Verified by grep for extract( in crates/ (none).
+  "RUSTSEC-2026-0367",
+  "RUSTSEC-2026-0368",
+  "RUSTSEC-2026-0369",
+  "RUSTSEC-2026-0429",
+  "RUSTSEC-2026-0543",
+  "RUSTSEC-2026-0545",
+  "RUSTSEC-2026-0548",
+]
+
+[warnings]
+# chrono unmaintained and lru unsound are warnings, not vulnerabilities; both are transitive
+# (chrono via sqlx, lru via tower/ratelimit deps). Tracked: DEBT-031.

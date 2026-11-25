@@ -14,7 +14,7 @@ hub, Google sign-in saves each user's work, and a Tauri 2 app shows the same sit
 *   **Type:** Application
 *   **Stack:** Rust (Axum 0.8, tokio, sqlx with the Postgres driver) + the existing vanilla JS frontend
     (Vela, Lightweight Charts, KLineChart) + pgsqlite over a SQLite file by default, real Postgres by
-    `DATABASE_URL` + Tauri 2 desktop shell + gaffa process supervisor + Cloudflare Tunnel
+    `DATABASE_URL` + Tauri 2 desktop shell + mise tasks (dev) and systemd (prod) + Cloudflare Tunnel
 *   **Skill Loadout:** PAUL (required), AEGIS (post-build audit), `/seed design` (new screens),
     security-review (auth, SSRF), postgres-pro (pgsqlite parity)
 *   **Quality Gates:** Rust-only contract suite, order-flow golden parity, CI on pgsqlite and
@@ -37,7 +37,7 @@ sign-in waiting state, and a privacy page. Mockups: `.paul/design/opendesign/vtr
 ## Architecture
 
 ```text
- browser / Tauri window                    vtradingview host (Linux, gaffa)
+ browser / Tauri window                    vtradingview host (Linux, systemd)
  hub.html + sync.js + auth.js   HTTPS/WSS  cloudflared  ->  127.0.0.1:8770
  iframe: Vela / lw / kline   <-Cloudflare-> hub-server (Axum, one port)
                                             static allow-list | /api/* | /ws | /auth/* | /api/me/* | /admin/*
@@ -76,10 +76,15 @@ sign-in waiting state, and a privacy page. Mockups: `.paul/design/opendesign/vtr
 
 ## Deploy
 
-One port: HTTP and `/ws` on 8770, loopback only. Run the stack with gaffa on the `Procfile`
-(`bash scripts/dev.sh dev` for a dev stack): `db` (pgsqlite; dropped once on managed Postgres),
-`hub` (`hub-server`), `tunnel` (`cloudflared tunnel run vtradingview`). The host opens no inbound
-ports. Provisioning, service units, backups and the restore drill live in `ops/` (`ops/README.md`).
+One port: HTTP and `/ws` on 8770, loopback only. Dev stack: `mise run dev` (or `dev:db`,
+`dev:hub`, `dev:tunnel`; each calls `scripts/dev.sh _svc <name>`), so no supervisor daemon is
+needed. Production: systemd units in `ops/`. The host opens no inbound ports. Provisioning,
+service units, backups and the restore drill live in `ops/` (`ops/README.md`).
+
+Deploys install a prebuilt release asset instead of building on the host: tagging `vX.Y.Z`
+runs `.github/workflows/release.yml`, which publishes `vtv-vX.Y.Z-linux-{x64,arm64}.tar.gz`, and
+`mise.toml`'s `[tools."http:vtv"]` tells mise how to fetch it. On the host:
+`bash ops/deploy.sh --from-mise <version>` (the build-from-source path stays as a fallback).
 
 Rate limits, four buckets keyed on the client IP (the `CF-Connecting-IP` header when the tunnel
 peer is loopback, else the TCP peer):
@@ -119,7 +124,7 @@ hints. Design record: `.paul/design/taste/hub-theme.md`, `.paul/design/polish-lo
 9.  Key-value `user_state` with versions; a stale save returns 409.
 10. MT5 through per-user HTTPS bridge URLs behind an SSRF guard; the bridge stays Python.
 11. Logs and restart are admin-only.
-12. gaffa plus a new Cloudflare Tunnel.
+12. mise tasks for the dev stack, systemd on the host, plus a new Cloudflare Tunnel.
 13. Public deploy (Phase 4) before sync, desktop and MT5.
 14. Primary metric: p75 time to first live candle under 2 s; guardrail: zero cross-user data exposure.
 15. New screens in the existing hub theme (`hub-native`), text one step above the chart chrome.
@@ -165,7 +170,7 @@ findings open; none were applied. Reports: `.paul/design/reviews/vtradingview/`.
 *   Retired with phase 4: the Python hub (the `hub/*.py` server modules and
     `scripts/capture_orderflow_fixtures.py` were deleted). `bridge/mt5_bridge.py` stays for Phase 7.
 *   Reference template: `rust-full-stack-with-auth-template` (owner's machine)
-*   gaffa: https://github.com/oryon-dominik/interstellar-gaffa; pgsqlite: baysao fork, branch
+*   mise (tools, tasks, prebuilt binaries): https://mise.jdx.dev; pgsqlite: baysao fork, branch
     `fix/insert-select-returning-timestamptz`
 
 ## Licence

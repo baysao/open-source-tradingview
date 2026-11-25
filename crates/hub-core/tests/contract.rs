@@ -219,8 +219,22 @@ async fn send(req: reqwest::RequestBuilder) -> Result<(u16, Value), String> {
     Ok((status, json))
 }
 
+/// Two readiness facts, not one: the server must answer (else the run is pointless and the
+/// caller's assert fires), and the upstream feeds must be ok (else every live-data case will
+/// 502-skip). A data-centre runner's IP is routinely refused by Bybit and Binance (the roadmap's
+/// upstream risk), so feeds-not-ok degrades the run to its upstream-independent cases instead of
+/// failing it: the suite stays green on CI and full on a network the providers serve.
 async fn wait_ready(client: &reqwest::Client, base: &str, deadline: Duration) -> bool {
     let start = Instant::now();
+    let server = loop {
+        if start.elapsed() >= deadline {
+            return false;
+        }
+        if let Ok((200, _)) = fetch(client, base, "/api/status").await {
+            break true;
+        }
+        tokio::time::sleep(Duration::from_millis(500)).await;
+    };
     while start.elapsed() < deadline {
         if let Ok((200, v)) = fetch(client, base, "/api/status").await {
             if v["deriv"]["ok"] == Value::Bool(true) && v["bybit"]["ok"] == Value::Bool(true) {
@@ -229,7 +243,10 @@ async fn wait_ready(client: &reqwest::Client, base: &str, deadline: Duration) ->
         }
         tokio::time::sleep(Duration::from_millis(500)).await;
     }
-    false
+    println!(
+        "contract: upstream feeds not ok from this network within {deadline:?}; live-data cases will skip"
+    );
+    server
 }
 
 fn repo_root() -> PathBuf {

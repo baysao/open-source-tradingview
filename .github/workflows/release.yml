@@ -1,0 +1,53 @@
+# Publish the production binary as a release asset, so a deploy installs a prebuilt artefact
+# instead of building on the VPS (mise.toml [tools."http:vtv"] fetches these URLs).
+#
+# Trigger: a vX.Y.Z tag. Assets per tag, named exactly as mise.toml expects:
+#   vtv-vX.Y.Z-linux-x64.tar.gz    x86_64-unknown-linux-gnu
+#   vtv-vX.Y.Z-linux-arm64.tar.gz  aarch64-unknown-linux-gnu
+# Each tarball holds the `hub-server` binary at its root.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            arch: x64
+          - target: aarch64-unknown-linux-gnu
+            arch: arm64
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup show
+      - run: rustup target add ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+      - name: Build the release binary
+        run: cargo build --release -p hub-server --target ${{ matrix.target }}
+      - name: Package
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          NAME="vtv-v${VERSION}-linux-${{ matrix.arch }}"
+          mkdir -p "dist/${NAME}"
+          cp "target/${{ matrix.target }}/release/hub-server" "dist/${NAME}/"
+          tar -C dist -czf "dist/${NAME}.tar.gz" "${NAME}"
+          sha256sum "dist/${NAME}.tar.gz" > "dist/${NAME}.tar.gz.sha256"
+          cat "dist/${NAME}.tar.gz.sha256"
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          NAME="vtv-v${VERSION}-linux-${{ matrix.arch }}"
+          # Create the release on the first matrix leg, attach on both.
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes "vtradingview $GITHUB_REF_NAME"
+          gh release upload "$GITHUB_REF_NAME" "dist/${NAME}.tar.gz" "dist/${NAME}.tar.gz.sha256" --clobber

@@ -329,3 +329,14 @@ trigger = "phase:05"
 status = "open"
 check = { type = "command", run = "python .paul/runs/gate_all.py --base http://127.0.0.1:8770 --pages hub.html,index.html --check-receipts", expect = "8/8 gates receipted" }
 note = "The pages half of R-9 exposed it on the first wider run: the failing receipts for hub.html are kept in .paul/ds-receipts/current/ as the evidence. hub.html is a legacy surface that predates the token discipline; the work is bringing it to tokens and landmarks without changing what it does. Until then the shipped-gate claim covers the new pages (privacy, notices) only."
+
+[[debt]]
+id = "DEBT-031"
+title = "data/vtv.db (the dev database, 2026-11-24) fails pgsqlite's schema-drift check on start: sessions.checksum missing from metadata, sessions.id_hash is TEXT where the schema expects BLOB; `mise run dev` therefore brings up only the hub"
+kind = "tech"
+origin = "mise dev-stack verification 2026-11-25"
+owner = "agent"
+trigger = "phase:05"
+status = "open"
+check = { type = "command", run = "bash scripts/dev.sh _svc db", expect = "listening on 55432" }
+note = "Pre-existing, not caused by the mise change: the file predates the current migration set. The fix is either a fresh dev db (mv data/vtv.db data/vtv.db.2026-11-24 && mise run dev:db, which re-migrates) or a schema-migration decision recorded as a D-row. Until then dev auth work needs a clean db; the local-mode chart work is unaffected."

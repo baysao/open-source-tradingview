@@ -1,0 +1,23 @@
+# Host-only mise config (the VPS): installs the PRODUCTION BINARY as a prebuilt release asset,
+# so a deploy needs no rust toolchain and no build time.
+#
+#   MISE_ENV=host mise install            # fetch the pinned vtv version
+#   MISE_ENV=host mise which vtv           # the installed binary path
+#   bash ops/deploy.sh --from-mise 0.1.0   # pin + install + swap in one step
+#
+# The release workflow (.github/workflows/release.yml), triggered by a vX.Y.Z tag, publishes:
+#   vtv-vX.Y.Z-linux-x64.tar.gz    (x86_64-unknown-linux-gnu)
+#   vtv-vX.Y.Z-linux-arm64.tar.gz  (aarch64-unknown-linux-gnu)
+# Each tarball holds the `hub-server` binary at its root.
+#
+# Why a separate file: a dev box must not try to install a release asset that only exists after a
+# tag is published (mise installs every [tools] entry before a task runs, so a 404 there would
+# block `mise run dev`). Load this file only on the host, with MISE_ENV=host.
+#
+# Docs: https://mise.jdx.dev/dev-tools/backends/http.html
+
+[tools."http:vtv"]
+version = "0.1.0"
+url = "https://github.com/baysao/open-source-tradingview/releases/download/v{{ version }}/vtv-v{{ version }}-linux-{{ arch() }}.tar.gz"
+# One binary in the archive: `bin` names it, so mise installs it executable at the root.
+bin = "hub-server"

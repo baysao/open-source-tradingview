@@ -1,14 +1,13 @@
 #!/usr/bin/env bash
 # TradeX dev runner.
 #
-# `dev [svc...]` starts gaffa (https://github.com/oryon-dominik/interstellar-gaffa), the Procfile
-# supervisor, on the repo Procfile. Each Procfile line calls `scripts/dev.sh _svc <name>`, which
-# builds and runs that one service in the foreground, so gaffa prefixes, logs and stops it.
-# Do not pass `gaffa --shell bash` on Windows: gaffa 2026.11.1 then drops the arguments after the
-# script name. The Procfile lines start with plain `bash`; `dev` puts this bash first on PATH.
+# `dev [svc...]` runs the Procfile's services one after another in this shell (mise run dev uses
+# it). Each Procfile line calls `scripts/dev.sh _svc <name>`, which builds and runs that one
+# service in the foreground. The Procfile lines start with plain `bash`; `dev` puts this bash
+# first on PATH.
 #
 #   bash scripts/dev.sh dev          # every service in the Procfile (db, hub)
-#   bash scripts/dev.sh run hub      # one service without gaffa
+#   bash scripts/dev.sh run hub      # one service in the foreground (no group)
 #   bash scripts/dev.sh _svc hub     # what the Procfile calls
 #
 # hub: `cargo build -p hub-server`, then target/debug/hub-server on 127.0.0.1:${HUB_HTTP_PORT:-8770}.
@@ -98,8 +97,9 @@ cmd_svc() {
   esac
 }
 
+# Run the named services side by side in this shell: no supervisor daemon, one background child
+# per service and their logs on disk. Ctrl+C (or a service exiting non-zero) stops the group.
 cmd_dev() {
-  have gaffa || die "gaffa not found: cargo binstall gaffa (or cargo install gaffa)"
   [ -f "$PROCFILE" ] || die "no Procfile at $PROCFILE"
   local names=("$@")
   [ "${#names[@]}" -gt 0 ] || names=("${ALL_SERVICES[@]}")
@@ -109,11 +109,33 @@ cmd_dev() {
   # Procfile lines start with `bash`: make it this bash, not WSL's or another one.
   PATH="$(dirname "$BASH"):$PATH"
   export PATH
-  step "gaffa: ${names[*]}. Ctrl+C stops all. Log: .dev/logs/gaffa-<date>_NNN.log"
-  local rc=0
-  trap ':' INT   # a handler, not an ignore: gaffa must still receive Ctrl+C
-  (cd "$ROOT" && gaffa run "${names[@]}" --procfile "$PROCFILE" --log-file "$LOG_DIR/gaffa.log") || rc=$?
-  trap - INT
+  step "${names[*]}. Ctrl+C stops all. Logs: $LOG_DIR/<svc>.log"
+
+  local pids=() rc=0
+  cleanup() {
+    trap - INT TERM EXIT
+    local pid
+    for pid in "${pids[@]}"; do kill "$pid" 2>/dev/null || true; done
+    wait 2>/dev/null || true
+    if [ "$EXE" = ".exe" ]; then
+      # MSYS kill does not always reach a native exe; take any survivor down by PID.
+      for pid in "${pids[@]}"; do taskkill //F //PID "$pid" >/dev/null 2>&1 || true; done
+    fi
+  }
+  trap 'rc=130; cleanup; exit 130' INT
+  trap 'cleanup' TERM EXIT
+
+  for n in "${names[@]}"; do
+    ( bash "$ROOT/scripts/dev.sh" _svc "$n" > "$LOG_DIR/$n.log" 2>&1 ) &
+    pids+=("$!")
+  done
+  # Wait for the whole group; any child exiting non-zero stops the rest so a broken db does not
+  # leave a hub retrying against nothing.
+  local pid
+  for pid in "${pids[@]}"; do
+    wait "$pid" || { rc=$?; [ "$rc" -eq 0 ] || break; }
+  done
+  cleanup
   return "$rc"
 }
 

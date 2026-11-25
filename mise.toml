@@ -1,0 +1,83 @@
+# mise: tool versions and tasks (the dev stack, replacing gaffa).
+#
+# The PRODUCTION BINARY tool is not here: it lives in mise.host.toml, loaded with MISE_ENV=host on
+# the VPS only. Pinning it here would make every `mise run` on a dev box try to install a release
+# asset that only exists once a vX.Y.Z tag has been published.
+#
+# Docs: https://mise.jdx.dev/tools/ and https://mise.jdx.dev/tasks/
+
+# ---------------------------------------------------------------- toolchain
+#
+# No versions pinned on purpose: a pin here makes every `mise run` install (or downgrade) a
+# toolchain before the task, and the box/CI already have one. `mise run gates` uses whatever
+# cargo is on PATH, which is what CI's rustup shows and what the gates were measured with.
+
+[tools]
+
+# ---------------------------------------------------------------- environment
+
+[env]
+# .env is loaded when present (it is git-ignored) so the operator keeps ports and hosted-mode
+# secrets in one place; the dev tasks below still force local mode explicitly.
+_.file = [".env"]
+
+# ---------------------------------------------------------------- dev stack (replaces gaffa)
+
+# `mise run dev` = db + hub. `mise run dev:hub` for one. Ctrl-C stops the group.
+[tasks.dev]
+description = "Start the dev stack (db + hub) in the foreground"
+run = [
+  { tasks = ["dev:db"], },
+  { tasks = ["dev:hub"], },
+]
+
+[tasks."dev:db"]
+description = "pgsqlite over data/vtv.db on 127.0.0.1:${PGSQLITE_PORT:-55432}"
+run = "bash scripts/dev.sh _svc db"
+
+[tasks."dev:hub"]
+description = "hub-server (debug build) on 127.0.0.1:${HUB_HTTP_PORT:-8770}, local mode"
+# Local mode by definition: a .env or shell that carries hosted-mode switches would otherwise
+# start a hosted server that rejects the loopback PUBLIC_ORIGIN.
+env = { AUTH_ENABLED = "false", PUBLIC_ORIGIN = false, DATABASE_URL = false }
+run = "bash scripts/dev.sh _svc hub"
+
+[tasks."dev:tunnel"]
+description = "cloudflared with the production config (idles when cloudflared is absent)"
+run = "bash scripts/dev.sh _svc tunnel"
+
+# ---------------------------------------------------------------- gates
+
+[tasks.fmt]
+description = "cargo fmt --check (bare exit status)"
+run = "cargo fmt --all --check"
+
+[tasks.clippy]
+description = "clippy, both feature ways, warnings denied"
+run = [
+  "cargo clippy -p hub-core --all-targets -- -D warnings",
+  "cargo clippy -p hub-core --all-targets --features test-idp -- -D warnings",
+]
+
+[tasks.test]
+description = "workspace tests and the test-idp suite"
+run = [
+  "cargo test --workspace",
+  "cargo test -p hub-core --features test-idp",
+]
+
+[tasks.audit]
+description = "cargo audit with the justified ignore list (see .cargo/audit.toml)"
+run = "cargo audit"
+
+[tasks.gates]
+description = "Every Rust gate in one run (fmt, clippy, test, audit)"
+depends = ["fmt", "clippy", "test", "audit"]
+
+[tasks."design"]
+description = "The eight design gates against the served pages (needs a running hub; --pages required)"
+run = "python .paul/runs/gate_all.py --base http://127.0.0.1:${HUB_HTTP_PORT:-8770} --pages privacy.html,notices.html"
+
+[tasks."deploy"]
+description = "On the VPS: install the pinned prebuilt release and swap it in (no build)"
+run = "bash ops/deploy.sh --from-mise vtv@${1}"

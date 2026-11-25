@@ -24,8 +24,10 @@ sudo apt update && sudo apt install -y postgresql-client-17 curl
 # cloudflared and rclone from their own install docs; verify:
 cloudflared --version && rclone --version
 
-# rustup (build only; builds happen on the host in ops/deploy.sh)
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+# rustup is only for the build fallback (ops/deploy.sh without --from-mise); the prebuilt
+# release route installs the binary with mise and needs no toolchain
+# curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+curl https://mise.run | sh   # the binary installer: mise install, mise which vtv
 
 # service user: no login shell, no sudo
 sudo useradd -r -m -d /opt/vtv -s /usr/sbin/nologin vtv
@@ -112,9 +114,28 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now vtv.service vtv-backup.timer
 ```
 
-Build and deploy: `bash /opt/vtv/repo/ops/deploy.sh` (fetches, builds, writes
-`hub/SOURCE.txt`, restarts, smokes `/api/health`, prints the rollback command). Run it after
-every push you want live. Verify afterwards:
+Deploy, two modes (both write `hub/SOURCE.txt`, restart, smoke `/api/health`, print the rollback
+command):
+
+```sh
+# preferred: install the prebuilt release asset, no build and no rust toolchain on the host
+bash /opt/vtv/repo/ops/deploy.sh --from-mise 0.1.0
+# fallback: build from the pushed commit on the host (needs rustup, ~5 min)
+bash /opt/vtv/repo/ops/deploy.sh
+```
+
+The prebuilt route uses `mise.toml`'s `[tools."http:vtv"]`: the release workflow
+(`.github/workflows/release.yml`, triggered by a `vX.Y.Z` tag) publishes
+`vtv-vX.Y.Z-linux-{x64,arm64}.tar.gz` from `baysao/open-source-tradingview`, and mise installs
+that asset under `~/.local/share/mise/installs/http-vtv/<version>/`. `--from-mise` pins the
+version with `mise use` and swaps in `mise which vtv`, so a rollback is the same one-liner as
+before. A deploy is then: tag → CI publishes → `ops/deploy.sh --from-mise <version>`.
+
+The dev stack no longer needs gaffa: `mise run dev` (or `mise run dev:db`, `dev:hub`,
+`dev:tunnel`). `mise run gates` runs the Rust gate set; `mise run design` runs the served-page
+design gates.
+
+Verify afterwards:
 
 ```sh
 systemctl is-active vtv

@@ -1,0 +1,21 @@
+# pgsqlite: the owner's fork, installed as a prebuilt release asset instead of a cargo build.
+#
+# The assets come from .github/workflows/pgsqlite.yml, tagged `pgsqlite-<rev short>` in this repo
+# (the workflow builds baysao/pgsqlite at that rev). `mise install` puts the binary under
+# ~/.local/share/mise/installs/http-pgsqlite/<rev>/ and `mise which pgsqlite` prints the path that
+# scripts/dev.sh expects as PGSQLITE_BIN.
+#
+#   mise install pgsqlite              # the pinned rev below
+#   PGSQLITE_BIN="$(mise which pgsqlite)" bash scripts/dev.sh dev
+#
+# Why the host file: only the VPS and the dev box need pgsqlite; CI builds from the pinned rev in
+# ci.yml (the cache key is the rev) so it never depends on a published asset.
+#
+# Bump the rev = publish a new pgsqlite workflow run, then update `version` to the new short rev.
+# Docs: https://mise.jdx.dev/dev-tools/backends/http.html
+
+[tools."http:pgsqlite"]
+version = "5e34b2d"
+url = "https://github.com/baysao/open-source-tradingview/releases/download/pgsqlite-{{ version }}/pgsqlite-{{ version }}-linux-{{ arch() }}.tar.gz"
+# One binary in the archive: name it so mise installs it executable at the root.
+bin = "pgsqlite"

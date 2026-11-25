@@ -1,0 +1,82 @@
+# Publish pgsqlite (the owner's fork) as release assets, so CI, the dev box and the VPS install a
+# prebuilt binary instead of compiling it (the `cargo install --git` route in ci.yml costs ~8 min
+# per cold cache and needs a C toolchain).
+#
+# Source: github.com/baysao/pgsqlite (the fork at ~/project/pgsqlite locally). This workflow lives
+# in THIS repo but builds the fork's code at a pinned rev: the rev is what a deploy or CI run
+# pins, so bumping it is the pgsqlite update.
+#
+# Trigger: manual dispatch (choose the rev) or a push that changes PGSQLITE_REV in this file.
+# Assets per run, named so mise.toml can fetch them:
+#   pgsqlite-<rev short>-linux-x64.tar.gz
+#   pgsqlite-<rev short>-linux-arm64.tar.gz
+# Tagged as `pgsqlite-<rev short>`, which is the version mise pins.
+name: pgsqlite
+
+on:
+  workflow_dispatch:
+    inputs:
+      rev:
+        description: "Full commit SHA in baysao/pgsqlite to build"
+        required: true
+        default: "5e34b2d2a3e6ca2e9a74a15f723cc942a9a739fc"
+  push:
+    paths: [".github/workflows/pgsqlite.yml"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            arch: x64
+          - target: aarch64-unknown-linux-gnu
+            arch: arm64
+    steps:
+      - name: Resolve the rev
+        id: rev
+        run: |
+          REV="${{ github.event.inputs.rev || '5e34b2d2a3e6ca2e9a74a15f723cc942a9a739fc' }}"
+          echo "full=$REV" >> "$GITHUB_OUTPUT"
+          echo "short=${REV:0:7}" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          repository: baysao/pgsqlite
+          ref: ${{ steps.rev.outputs.full }}
+          path: pgsqlite
+      - name: Install the Rust toolchain for cross builds
+        run: |
+          rustup target add ${{ matrix.target }}
+          if [ "${{ matrix.arch }}" = "arm64" ]; then
+            sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
+          fi
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: pgsqlite
+          key: pgsqlite-${{ matrix.target }}
+      - name: Build the release binary
+        working-directory: pgsqlite
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+        run: cargo build --release -p pgsqlite --target ${{ matrix.target }}
+      - name: Package
+        run: |
+          SHORT="${{ steps.rev.outputs.short }}"
+          NAME="pgsqlite-${SHORT}-linux-${{ matrix.arch }}"
+          mkdir -p "dist/${NAME}"
+          cp "pgsqlite/target/${{ matrix.target }}/release/pgsqlite" "dist/${NAME}/"
+          tar -C dist -czf "dist/${NAME}.tar.gz" "${NAME}"
+          sha256sum "dist/${NAME}.tar.gz" > "dist/${NAME}.tar.gz.sha256"
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="pgsqlite-${{ steps.rev.outputs.short }}"
+          NAME="pgsqlite-${{ steps.rev.outputs.short }}-linux-${{ matrix.arch }}"
+          gh release view "$TAG" >/dev/null 2>&1 \
+            || gh release create "$TAG" --title "$TAG" --notes "pgsqlite built from baysao/pgsqlite@${{ steps.rev.outputs.full }}"
+          gh release upload "$TAG" "dist/${NAME}.tar.gz" "dist/${NAME}.tar.gz.sha256" --clobber
