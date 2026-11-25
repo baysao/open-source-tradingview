@@ -26,12 +26,20 @@ pub struct Migration {
 }
 
 /// Every migration this binary knows, in version order.
-pub const MIGRATIONS: &[Migration] = &[Migration {
-    version: 1,
-    name: "users",
-    up: include_str!("../migrations/0001_users.up.sql"),
-    down: include_str!("../migrations/0001_users.down.sql"),
-}];
+pub const MIGRATIONS: &[Migration] = &[
+    Migration {
+        version: 1,
+        name: "users",
+        up: include_str!("../migrations/0001_users.up.sql"),
+        down: include_str!("../migrations/0001_users.down.sql"),
+    },
+    Migration {
+        version: 2,
+        name: "user_state",
+        up: include_str!("../migrations/0002_user_state.up.sql"),
+        down: include_str!("../migrations/0002_user_state.down.sql"),
+    },
+];
 
 /// M1: created only after M2 failed with a missing table.
 const M1: &str = "CREATE TABLE schema_migrations (version bigint PRIMARY KEY, name text NOT NULL, checksum bytea NOT NULL, applied_at timestamptz NOT NULL)";

@@ -1,16 +1,14 @@
 {
  "gate": "design_lint",
  "page": "hub.html",
- "base": "http://127.0.0.1:8775",
- "result": "fail",
- "ts": 1795566882.743467,
+ "base": "http://127.0.0.1:8770",
+ "result": "pass",
+ "ts": 1795589929.626925,
  "counts": {
-  "pass": false,
-  "exit": 1,
+  "pass": true,
+  "exit": 0,
   "tail": [
-   "",
-   "\ud83d\udfe1 \u6a21\u677f\u88c5\u9970\u662f\u987a\u624b\u7684\u5c0f\u52a8\u4f5c\uff1abrief \u8981\u8fd9\u6837\u5c31\u7167\u505a\uff0c\u5426\u5219\u5220\u6389\u90a3\u4e2a\u7ed3\u6784\uff08\u6bd4\u5982\u6574\u884c\u5c0f\u6807\u7b7e\uff09\uff0c\u6362\u4e2a\u7b26\u53f7\u8eb2\u8fc7\u68c0\u6d4b\u4e0d\u7b97\u6539\u3002",
-   "\u2139\ufe0f  \u5916\u89c2\u5bb6\u65cf\u4e0d\u7528\u6539\uff0c\u5b83\u53ea\u5728 compare / ledger check \u91cc\u6709\u610f\u4e49\u3002"
+   "\ud83d\udfe1 \u6a21\u677f\u88c5\u9970\uff1a\u7b49\u5bbd\u5c0f\u5b57\u6807\u7b7e 11 \u5904"
   ]
  }
 }

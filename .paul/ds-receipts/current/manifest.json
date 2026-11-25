@@ -10,9 +10,9 @@
   "design_lint"
  ],
  "pages": [
-  "privacy.html",
-  "notices.html"
+  "hub.html",
+  "index.html"
  ],
- "base": "http://127.0.0.1:8775",
- "ts": 1795567069.9880488
+ "base": "http://127.0.0.1:8770",
+ "ts": 1795589929.626925
 }

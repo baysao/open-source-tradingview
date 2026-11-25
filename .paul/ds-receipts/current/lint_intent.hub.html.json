@@ -1,16 +1,16 @@
 {
  "gate": "lint_intent",
  "page": "hub.html",
- "base": "http://127.0.0.1:8775",
- "result": "fail",
- "ts": 1795566882.743467,
+ "base": "http://127.0.0.1:8770",
+ "result": "pass",
+ "ts": 1795589929.626925,
  "counts": {
-  "pass": false,
-  "h1": 0,
+  "pass": true,
+  "h1": 1,
   "skips": 0,
   "badBlank": 0,
   "imgsNoAlt": 0,
-  "hasMain": false,
+  "hasMain": true,
   "hasFooter": true
  }
 }

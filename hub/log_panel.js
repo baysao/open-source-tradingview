@@ -51,7 +51,7 @@
     started = true;
     base = admin ? "/admin/logs" : "/api/logs";
     railBtn = document.createElement("button");
-    railBtn.dataset.panel = "logs"; railBtn.title = "Backend log: everything the backend is doing, live";
+    railBtn.dataset.panel = "logs"; railBtn.title = "Backend log: everything the backend is doing, live"; railBtn.setAttribute("aria-label", "Backend log");
     railBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M12.5 15H17"/></svg>';
     railBtn.onclick = () => openPanelByName(openPanel === "logs" ? null : "logs");
     rail.insertBefore(railBtn, rail.querySelector('[data-panel="settings"]'));

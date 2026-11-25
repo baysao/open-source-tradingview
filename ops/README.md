@@ -131,6 +131,16 @@ that asset under `~/.local/share/mise/installs/http-vtv/<version>/`. `--from-mis
 version with `mise use` and swaps in `mise which vtv`, so a rollback is the same one-liner as
 before. A deploy is then: tag → CI publishes → `ops/deploy.sh --from-mise <version>`.
 
+**Any redeploy that runs `git checkout` by hand must end with the source write** (DEBT-032:
+a bare checkout reverts `hub/SOURCE.txt`, the AGPL offer, to the repo placeholder):
+
+```sh
+sudo -u vtv git -C /opt/vtv/repo checkout -f <tag>
+sudo -u vtv env HOME=/opt/vtv MISE_ENV=host /usr/local/bin/mise install
+bash /opt/vtv/repo/ops/write_source.sh   # rewrite the AGPL offer for the checked-out tree
+sudo systemctl restart vtv
+```
+
 The dev stack no longer needs gaffa: `mise run dev` (or `mise run dev:db`, `dev:hub`,
 `dev:tunnel`). `mise run gates` runs the Rust gate set; `mise run design` runs the served-page
 design gates.

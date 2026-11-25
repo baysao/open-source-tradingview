@@ -12,29 +12,32 @@ See: .paul/PROJECT.md (updated 2026-11-23)
 
 **Core value:** Free multi-feed TradingView-style charts in a browser or desktop app, with each user's
 layouts and scripts kept in their Google account.
-**Current focus:** Milestone v0.1: all 4 phases complete; the public launch waits on owner rows
-(DEBT-018 host, DEBT-024 commit, Q2/Q3/Q9, DEBT-005 CI)
+**Current focus:** Milestone v0.1 shipped its four phases; the public launch still waits on owner rows
+(DEBT-018 host, DEBT-013 OAuth URI, Q2/Q3/Q9, DEBT-005 CI). Milestone v0.2 phase 05 is now planned and
+awaiting approval.
 
 ## Current Position
 
-Milestone: v0.1 Hosted launch
-Phase: 04 of 07 (Public deploy) - Complete 2026-11-25
-Plan: 04-03 UNIFIED (3 of 3 plans)
-Status: Phase closed, reflect run; next = new milestone (v0.2) or ship prep - the owner decides
-Last activity: 2026-11-25 03:25 (+07) - 04-03 UNIFIED + phase 04 reflect: R-11, R-9 pages half, uxui runner note, L-032..036 + L-031 validated, DEBT-027..029 opened
+Milestone: v0.2 Accounts everywhere
+Phase: 05 of 07 (Synced state) - Applying, paused 2026-11-25
+Plan: 05-01 COMPLETE (uncommitted); 05-04 Tasks 1-2 COMPLETE (uncommitted); Task 3 next
+Status: Apply paused mid-wave; resume at 05-04 Task 3 per the handoff
+Last activity: 2026-11-25 - 05-01 storage layer done (8 tests both engines, mutation proven);
+hub.html + index.html 8/8 gates receipted served; dev db + SOURCE.txt debt discharged locally
 
 Progress:
 - Phase 01: complete 2026-11-23 (milestone v0.1: 1 of 4 phases)
 - Phase 02: complete 2026-11-23 (reflect deferred: owner has not run /reflect)
 - Phase 03: complete 2026-11-24 (3 of 3 plans unified; reflect + RSI done at 03-03)
 - Phase 04: complete 2026-11-25 (3 of 3 plans unified; phase reflect run)
+- Phase 05: planned 2026-11-25 (4 plans drafted, awaiting approval)
 
 ## Loop Position
 
 Current loop state:
 ```
 PLAN ──▶ APPLY ──▶ UNIFY
-  ✓        ✓        ✓     [04-03 UNIFIED - phase 04 closed]
+  ✓        ●        ○     [APPLY: 05-01 done; 05-04 at Task 3 - paused]
 ```
 
 ## Accumulated Context
@@ -118,23 +121,25 @@ Uncommitted: check the tree; the phase surface landed in f744f09 (DEBT-024 done 
 
 ## Session Continuity
 
-Last session: 2026-11-25 03:25 (+07) (04-03 unified; phase 04 closed)
-Stopped at: Milestone v0.1's four phases complete. The phase reflect ran (3-lens panel): R-11
-written (the auto-approval boundary), R-9 gained the pages half, the uxui preset gained the
-gate-runner satisfaction note, L-032..036 added, L-031 validated, DEBT-027..029 opened. The
-launch itself waits on owner rows: the commit (024), host (018), drill (019), Q2/Q3/Q9 (020/021),
-the page read (026), first CI (005), load target (022).
-Next action: the owner decides - create the next milestone (v0.2 Accounts everywhere: /paul:plan
-phase 05) or run the ship checklist; the store's waiting rows are that checklist.
-Resume file: .paul/phases/04-deploy/04-03-SUMMARY.md
+Last session: 2026-11-25 (mid-apply pause)
+Stopped at: Phase 05 apply, wave 1 of 3 done. 05-01 (storage: migration 0002, S15..S21,
+Auth::state_*) is complete and tested green on both engines with a proven mutation; 05-04
+Tasks 1-2 are complete (hub.html + index.html 8/8 gates receipted served; dev db rebuilt;
+SOURCE.txt write proven). 05-04 Task 3 (store writeback + decisions check) is the next unit.
+All of it is uncommitted.
+Next action: /paul:apply continues at 05-04 Task 3, then 05-01-SUMMARY.md + 05-04-SUMMARY.md,
+then 05-02 (HTTP), then 05-03 (client).
+Resume file: .paul/HANDOFF-2026-11-25-2.md
 Resume context:
-- Nothing is LANDED: 03 close-out, 04-01, 04-02 and 04-03 are all uncommitted (DEBT-024, owner
-  commit; check: ops/cloudflared.yml in a commit).
-- R-11 bounds the standing auto-approval: owner-owned rows, owner-judgment checkpoints and
-  irreversible acts still ask; everything else proceeds.
-- Until DEBT-025's CI job lands, any plan touching page scripts runs check-0402.sh with
-  CHECK_0303=1 as an enumerated step (the wiring grep alone is not execution).
-- gate_all.py's receipts cover its birth plan's two pages; hub.html/index.html edits need their
-  pages in --pages (DEBT-029 parameterizes it).
-- AGENTS.md was rewritten this phase (hosted-mode checks section added); the CARL section is
-  untouched.
+- 05-02 depends on 05-01's statements; 05-03 depends on 05-02's contract table. Do not reorder.
+- Mutation facts for 05-01-SUMMARY: m1 (SQL predicate weakened) changed nothing - the Rust guard
+  rejects first; m1b (Rust check weakened to >) failed 2 tests, restored green. version is INT4
+  (i32); db_engines.rs was updated for the two-migration world.
+- gate_all.py changed this session: design_lint is measured served (imports design_lint's
+  COLLECT_JS/judge), --min-label 11 (spec: "the existing chart UI keeps its sizes"). It is a
+  checker - R-10 says re-run its mutation set if it is edited again.
+- DEBT-032's fix is landed and locally proven; the row stays open (host-only check).
+- D-024 (256 KiB value cap) and D-025 (sync.js not on index.html) are recorded in DECISIONS.md;
+  D-019..D-021 were transcribed by the crashed 04-03 session (L-031 pattern).
+- CARL GLOBAL rules now require: justrust for cargo, ygrep/agentgrep first for searches,
+  obscura first for browser checks. The bili/headroom MCP work is unrelated to phase 05.

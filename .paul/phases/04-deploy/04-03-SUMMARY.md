@@ -117,6 +117,19 @@ R-6 standing delegation:
   04-02's surface, explicitly out of this plan's boundaries, and the AC's grep does not cover
   hub/. Left untouched, named here for the next plan that touches lab.js.
 
+## Live deploy (2026-11-25, after this plan closed)
+
+- Site live at https://vtradingview.com (DEBT-018 done). Publisher verified: hub.html, privacy.html,
+  notices.html and SOURCE.txt answer 200; `/.env` and `/admin/logs` answer 404 to anon; the CSP,
+  nosniff and referrer-policy headers are present; the app listens on 127.0.0.1:8770 only.
+- **repo url live: done** - notices.html links github.com/baysao/open-source-tradingview (public,
+  answers 200), and /SOURCE.txt names commit ee3e1fe, the build actually running. DEBT-021's
+  remaining half is discharged by that; its check passes against this line.
+- The A record that sent vtradingview.com to the other project's gateway on port 80 was replaced
+  by a tunnel CNAME (owner approved). The gateway keeps 80/443 for its own hostnames.
+- New risk DEBT-032: a redeploy's `git checkout -f` reverts the hand-written SOURCE.txt to the
+  repo placeholder, silently weakening the AGPL offer until ops/deploy.sh writes it after checkout.
+
 ## Deferred rows (view of the store)
 
 - DEBT-016, DEBT-017: **done** (gate_all.py is the diff; checks expect 8/8 receipted).

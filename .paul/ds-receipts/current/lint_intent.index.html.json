@@ -1,0 +1,16 @@
+{
+ "gate": "lint_intent",
+ "page": "index.html",
+ "base": "http://127.0.0.1:8770",
+ "result": "pass",
+ "ts": 1795589929.626925,
+ "counts": {
+  "pass": true,
+  "h1": 1,
+  "skips": 0,
+  "badBlank": 0,
+  "imgsNoAlt": 0,
+  "hasMain": true,
+  "hasFooter": true
+ }
+}

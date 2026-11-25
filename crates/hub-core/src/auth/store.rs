@@ -39,11 +39,32 @@ const S12: &str = "SELECT desktop_key_hash, session_id_hash, expires_at FROM des
 const S13: &str = "DELETE FROM desktop_auth_codes WHERE code_hash = $1";
 /// S14.
 const S14: &str = "DELETE FROM sessions WHERE expires_at < $1";
+/// S15: every key of one user, in key order (`state_all`; the HTTP index and the cap count).
+const S15: &str =
+    "SELECT key, value, version, updated_at FROM user_state WHERE user_id = $1 ORDER BY key";
+/// S16: one row's value and version (`state_put`'s read, and the conflict body's source).
+const S16: &str = "SELECT value, version FROM user_state WHERE user_id = $1 AND key = $2";
+/// S17: insert; `ON CONFLICT DO NOTHING` makes the insert path race-safe (`rows_affected` 0 = a
+/// racer inserted first).
+const S17: &str = "INSERT INTO user_state (user_id, key, value, version, updated_at) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (user_id, key) DO NOTHING";
+/// S18: compare-and-swap update. Placeholders ascend in textual order (DEBT-012); `rows_affected`
+/// is not trusted (pgsqlite reports 0 for an unchanged row) — the caller re-reads S16.
+const S18: &str = "UPDATE user_state SET value = $1, version = $2, updated_at = $3 WHERE user_id = $4 AND key = $5 AND version = $6";
+/// S19: delete one key (`state_delete`; idempotent — a missing row is success).
+const S19: &str = "DELETE FROM user_state WHERE user_id = $1 AND key = $2";
+/// S20: delete one key at a bound version — the 256-key cap's undo, bounded to the row this call
+/// wrote so a concurrent pair can never remove a legitimate row.
+const S20: &str = "DELETE FROM user_state WHERE user_id = $1 AND key = $2 AND version = $3";
+/// S21: expire backups older than the cutoff. A two-bound range over `key` (`'backup:'` to
+/// `'backup;'`, the byte after `:`) selects exactly the `backup:*` namespace with no function and
+/// one table (D-014; `LIKE` would also pass the shape check, the range avoids pattern escaping).
+const S21: &str = "DELETE FROM user_state WHERE updated_at < $1 AND key >= $2 AND key < $3";
 
 /// Every statement this file issues, for the shape test.
 #[cfg(test)]
-pub(crate) const STATEMENTS: &[&str] =
-    &[S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14];
+pub(crate) const STATEMENTS: &[&str] = &[
+    S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15, S16, S17, S18, S19, S20, S21,
+];
 
 /// A user row as S7 reads it.
 pub(crate) struct UserRow {
@@ -309,6 +330,140 @@ pub(crate) async fn sweep_expired(
         .map(|r| r.rows_affected())
 }
 
+/// S15's row.
+pub struct StateRow {
+    pub key: String,
+    pub value: String,
+    /// The `integer` column, widened at the boundary (`i64` misdecodes: INT8 vs INT4).
+    pub version: i32,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
+}
+
+pub(crate) async fn state_all(
+    pool: &PgPool,
+    user_id: uuid::Uuid,
+) -> Result<Vec<StateRow>, sqlx::Error> {
+    sqlx::query_as::<_, (String, String, i32, chrono::DateTime<chrono::Utc>)>(S15)
+        .bind(user_id)
+        .fetch_all(pool)
+        .await
+        .map(|rows| {
+            rows.into_iter()
+                .map(|(key, value, version, updated_at)| StateRow {
+                    key,
+                    value,
+                    version,
+                    updated_at,
+                })
+                .collect()
+        })
+}
+
+/// S16's row (value and version only; the caller already knows the key).
+pub(crate) struct StateValue {
+    pub(crate) value: String,
+    pub(crate) version: i32,
+}
+
+pub(crate) async fn state_get(
+    pool: &PgPool,
+    user_id: uuid::Uuid,
+    key: &str,
+) -> Result<Option<StateValue>, sqlx::Error> {
+    sqlx::query_as::<_, (String, i32)>(S16)
+        .bind(user_id)
+        .bind(key)
+        .fetch_optional(pool)
+        .await
+        .map(|r| r.map(|(value, version)| StateValue { value, version }))
+}
+
+/// `Ok(true)` = this insert won (`rows_affected == 1`); `Ok(false)` = a racer inserted first.
+pub(crate) async fn state_insert(
+    pool: &PgPool,
+    user_id: uuid::Uuid,
+    key: &str,
+    value: &str,
+    now: chrono::DateTime<chrono::Utc>,
+) -> Result<bool, sqlx::Error> {
+    sqlx::query(S17)
+        .bind(user_id)
+        .bind(key)
+        .bind(value)
+        .bind(1_i32)
+        .bind(now)
+        .execute(pool)
+        .await
+        .map(|r| r.rows_affected() > 0)
+}
+
+/// The compare-and-swap update. `rows_affected` is not a reliable signal on pgsqlite (0 also
+/// means "unchanged row"): the caller re-reads S16 and decides from the version.
+pub(crate) async fn state_update(
+    pool: &PgPool,
+    user_id: uuid::Uuid,
+    key: &str,
+    value: &str,
+    version: i32,
+    now: chrono::DateTime<chrono::Utc>,
+) -> Result<(), sqlx::Error> {
+    // Sequential placeholders in text order (DEBT-012; see the S18 comment).
+    sqlx::query(S18)
+        .bind(value)
+        .bind(version)
+        .bind(now)
+        .bind(user_id)
+        .bind(key)
+        .bind(version - 1)
+        .execute(pool)
+        .await
+        .map(|_| ())
+}
+
+pub(crate) async fn state_delete(
+    pool: &PgPool,
+    user_id: uuid::Uuid,
+    key: &str,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(S19)
+        .bind(user_id)
+        .bind(key)
+        .execute(pool)
+        .await
+        .map(|_| ())
+}
+
+/// The cap's undo: removes only the row at exactly `version`, so a concurrent writer's row is
+/// untouchable by this call.
+pub(crate) async fn state_delete_at(
+    pool: &PgPool,
+    user_id: uuid::Uuid,
+    key: &str,
+    version: i32,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(S20)
+        .bind(user_id)
+        .bind(key)
+        .bind(version)
+        .execute(pool)
+        .await
+        .map(|_| ())
+}
+
+/// Backups older than `cutoff` (`key` in `['backup:', 'backup:')`).
+pub(crate) async fn expire_backups(
+    pool: &PgPool,
+    cutoff: chrono::DateTime<chrono::Utc>,
+) -> Result<u64, sqlx::Error> {
+    sqlx::query(S21)
+        .bind(cutoff)
+        .bind("backup:")
+        .bind("backup;")
+        .execute(pool)
+        .await
+        .map(|r| r.rows_affected())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -316,7 +471,7 @@ mod tests {
 
     #[test]
     fn every_store_statement_is_single_table() {
-        assert_eq!(STATEMENTS.len(), 14);
+        assert_eq!(STATEMENTS.len(), 21);
         for s in STATEMENTS {
             let v = sql_shape_violations(s);
             assert!(v.is_empty(), "{s}\n  -> {v:?}");

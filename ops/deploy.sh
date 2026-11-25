@@ -50,15 +50,10 @@ fi
 install -m 755 "$BUILT" /opt/vtv/hub-server
 
 echo "==> writing hub/SOURCE.txt (the AGPL offer: this exact commit is the served source)"
-REPO_URL="$(git remote get-url origin | sed -e 's#git@github.com:#https://github.com/#' -e 's#\.git$##')"
-cat > /opt/vtv/repo/hub/SOURCE.txt <<EOF
-vtradingview hosted service
-commit: $REV
-built:  $(date -u +%Y-%m-%dT%H:%M:%SZ)
-source: $REPO_URL
-Licence: AGPL-3.0-only. This file names the exact revision the service runs; the full source
-of that revision lives at the URL above.
-EOF
+# One writer for both deploy paths (DEBT-032): the manual redeploy sequence in ops/README.md
+# runs this same script after its `git checkout -f`, so the offer never reverts to the
+# placeholder between deploys.
+bash "$(dirname "$0")/write_source.sh"
 
 echo "==> restarting vtv.service"
 systemctl restart vtv

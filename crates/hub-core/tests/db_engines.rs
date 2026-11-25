@@ -31,7 +31,8 @@ static EDITED: [Migration; 1] = [Migration {
 
 static NONE: [Migration; 0] = [];
 
-static FAILING_SECOND: [Migration; 2] = [
+/// A file beyond the applied set: versions 1 and 2 applied, then a different version 3.
+static FAILING_THIRD: [Migration; 3] = [
     Migration {
         version: 1,
         name: "users",
@@ -40,8 +41,14 @@ static FAILING_SECOND: [Migration; 2] = [
     },
     Migration {
         version: 2,
+        name: "user_state",
+        up: include_str!("../migrations/0002_user_state.up.sql"),
+        down: include_str!("../migrations/0002_user_state.down.sql"),
+    },
+    Migration {
+        version: 3,
         name: "broken",
-        // The first statement succeeds, the second fails: nothing of version 2 may remain.
+        // The first statement succeeds, the second fails: nothing of version 3 may remain.
         up: "CREATE TABLE t_partial (x bigint PRIMARY KEY);\nCREATE TABLE t_partial (x bigint PRIMARY KEY);",
         down: "DROP TABLE t_partial;",
     },
@@ -51,17 +58,19 @@ engines!(
     fn up_up_down_up(db) {
         let url = db.secret();
         Db::open(&url).await.expect("first open");
-        assert_eq!(versions(db).await, vec![1], "{}: first open", db.engine.name());
+        // Both embedded migrations apply on the first open (0002 joined in 05-01).
+        assert_eq!(versions(db).await, vec![1, 2], "{}: first open", db.engine.name());
         let second = Db::open(&url).await.expect("second open applies nothing");
-        assert_eq!(versions(db).await, vec![1], "{}: second open", db.engine.name());
+        assert_eq!(versions(db).await, vec![1, 2], "{}: second open", db.engine.name());
         second.migrate_down_all().await.expect("down all");
         assert_eq!(db.count("schema_migrations").await, Ok(0));
-        for t in ["users", "identities", "sessions", "desktop_auth_codes"] {
+        for t in ["users", "identities", "sessions", "desktop_auth_codes", "user_state"] {
             assert!(db.count(t).await.is_err(), "{}: {t} still there after down", db.engine.name());
         }
         Db::open(&url).await.expect("up again");
-        assert_eq!(versions(db).await, vec![1], "{}: up again", db.engine.name());
+        assert_eq!(versions(db).await, vec![1, 2], "{}: up again", db.engine.name());
         assert_eq!(db.count("users").await, Ok(0));
+        assert_eq!(db.count("user_state").await, Ok(0));
     }
 );
 
@@ -77,11 +86,11 @@ engines!(
             Db::open_with(&url, &NONE).await,
             Err(DbError::UnknownApplied { version: 1 })
         ));
-        match Db::open_with(&url, &FAILING_SECOND).await {
-            Err(DbError::Migration { version: 2, .. }) => {}
-            other => panic!("{}: expected Migration {{ version: 2 }}, got {:?}", db.engine.name(), other.err()),
+        match Db::open_with(&url, &FAILING_THIRD).await {
+            Err(DbError::Migration { version: 3, .. }) => {}
+            other => panic!("{}: expected Migration {{ version: 3 }}, got {:?}", db.engine.name(), other.err()),
         }
-        assert_eq!(versions(db).await, vec![1], "{}: no row for the failed file", db.engine.name());
+        assert_eq!(versions(db).await, vec![1, 2], "{}: no row for the failed file", db.engine.name());
         assert!(
             db.count("t_partial").await.is_err(),
             "{}: the first statement of the failed file was kept",

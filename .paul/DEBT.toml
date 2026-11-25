@@ -260,7 +260,7 @@ kind = "decision"
 origin = "04-03 task 2 (AGPL offer)"
 owner = "owner"
 trigger = "phase:04"
-status = "open"
+status = "done"
 check = { type = "text_present", path = ".paul/phases/04-deploy/04-03-SUMMARY.md", pattern = "repo url live: done" }
 note = "AGPL-3.0 section 13: the offer is complete only when the link names the real public repo. /SOURCE.txt already names the exact running commit."
 

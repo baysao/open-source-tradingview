@@ -1,14 +1,19 @@
 {
  "gate": "measure_render",
  "page": "hub.html",
- "base": "http://127.0.0.1:8775",
- "result": "fail",
- "ts": 1795566882.743467,
+ "base": "http://127.0.0.1:8770",
+ "result": "pass",
+ "ts": 1795589929.626925,
  "counts": {
-  "pass": false,
-  "h1count": 0,
-  "h1box": null,
+  "pass": true,
+  "h1count": 1,
+  "h1box": {
+   "x": 8,
+   "y": 11.5,
+   "width": 46.515625,
+   "height": 14
+  },
   "bodyHeight": 720,
-  "shotBytes": 52668
+  "shotBytes": 37189
  }
 }

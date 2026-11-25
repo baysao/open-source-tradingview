@@ -139,3 +139,15 @@ with a new entry that names the old id. -->
 - **Decision:** `VTV_TEST_IDP=1` makes a `--features test-idp` debug build serve the in-process Idp under `/__test-idp/*`; a release build can never reach it.
 - **Why:** the browser check needs a real sign-in flow without touching Google. Three guards: the cargo feature (never in a release build), `cfg!(debug_assertions)` (a release binary refuses even if the feature leaked in), and the env var. CI asserts the feature tree stays out of release (`cargo tree` step).
 - **Evidence:** `crates/hub-core/src/lib.rs` `test_idp_deps()`; the ci.yml "release build excludes test-idp" step.
+
+## D-024: The per-value sync cap is 256 KiB, named for the measured ceiling
+- **Date:** 2026-11-25  **Plan:** 05-01  **Status:** decided (owner approved the phase 05 plan set, 2026-11-25)
+- **Decision:** `VALUE_MAX = 262_144` bytes (256 KiB) per synced value, not the spec's 1 MB. The constant is named for the number that actually binds.
+- **Why:** the gate (`routes/gate.rs`) refuses any request that declares a body over 300,000 bytes before a handler runs, so a 1 MB value was unreachable as specified; and JSON escaping can grow a value further. A per-route gate exemption would be the restructuring phase 05 is forbidden from doing. The spec's "1 MB" was a hypothesis; the gate is the measurement.
+- **Evidence:** `crates/hub-core/src/routes/gate.rs:120-133` (the 300,000-byte refusal); both 05-01 architect candidates found it independently; `.paul/phases/05-sync/05-ARCHITECTURE.md` decision 1.
+
+## D-025: sync.js is not added to hub/index.html
+- **Date:** 2026-11-25  **Plan:** 05-03  **Status:** decided (owner approved the phase 05 plan set, 2026-11-25)
+- **Decision:** spec item 41's page list is amended: `hub/index.html` gets no `sync.js`. It is a 10-line redirect stub with no chart, no writers and a `meta refresh` to `hub.html`; a wrapper there would sync nothing and cost a request on the redirect.
+- **Why:** the sync layer's job is intercepting writes; a page with no writers gains nothing. The measured key table shows every allow-listed key is written from `hub.html` or one of the three engine pages.
+- **Evidence:** `hub/index.html` (10 lines, meta refresh, zero `localStorage` use); `.paul/phases/05-sync/05-03-PLAN.md` Facts; `.paul/phases/05-sync/05-ARCHITECTURE.md` decision 9.

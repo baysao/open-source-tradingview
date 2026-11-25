@@ -14,9 +14,9 @@ Rust (Axum) server, Google accounts that sync each user's work, and a Tauri 2 de
 
 ## Current Milestone
 
-**v0.1 Hosted launch** (v0.1.0)
-Status: All phases complete; the public launch itself waits on the owner rows (host DEBT-018, data terms Q2, trademark Q3, privacy contact Q9, first green CI DEBT-005)
-Phases: 4 of 4 complete
+**v0.2 Accounts everywhere** (v0.2.0)
+Status: Phase 05 planned 2026-11-25 (4 plans drafted, awaiting approval); phases 06 and 07 not started
+Phases: 0 of 3 complete
 
 ## Milestones
 
@@ -24,6 +24,10 @@ Phases: 4 of 4 complete
 |-----------|--------|------|
 | v0.1 Hosted launch | 01 to 04 | the public site with live charts and Google sign-in |
 | v0.2 Accounts everywhere | 05 to 07 | synced state, desktop app, per-user MT5 |
+
+**v0.1 note:** all four phases are complete and their gates passed; the public launch itself still waits
+on the owner rows (host DEBT-018, OAuth URI DEBT-013, data terms Q2, trademark Q3, privacy text Q9, first
+green CI DEBT-005).
 
 ## Phases
 
@@ -33,7 +37,7 @@ Phases: 4 of 4 complete
 | 02 | Order flow in Rust | v0.1 | 3 (02-01, 02-02, 02-03) | Complete (reflect deferred) | 2026-11-23 |
 | 03 | Database and Google sign-in | v0.1 | 3 (03-01, 03-02, 03-03) | Complete | 2026-11-24 |
 | 04 | Public deploy | v0.1 | 3 (04-01, 04-02, 04-03) | Complete | 2026-11-25 |
-| 05 | Synced state | v0.2 | TBD | Not started | - |
+| 05 | Synced state | v0.2 | 4 (05-01..05-04) | Planned | - |
 | 06 | Tauri desktop | v0.2 | TBD | Not started | - |
 | 07 | Per-user MT5 bridges | v0.2 | TBD | Not started | - |
 
@@ -112,12 +116,29 @@ CI run (005) and the 1,000-socket load target (022).
   Contract: `.paul/runs/architect-0400/SYNTHESIS.md` (arena of 2, corrections measured in code).
 
 ### Phase 05: Synced state
-- **Build:** `user_state`, `/api/me/state`, sign-in merge, `sync.js`, conflict and backup notices,
-  header sign-in UI per the D4 mockups.
-- **Accept:** a layout drawn signed-out appears after sign-in in a second browser; cross-user tests pass.
+- **Build:** migration 0002 `user_state`; `/api/me/state` reads and a versioned `PUT` with `If-Match`
+  (409 carries the current value); a daily job expiring 30-day-old backups; `hub/sync.js` with the storage
+  wrappers, the iframe channel, per-key debounce and conflict states; the sign-in merge (server wins, the
+  local value kept as a restorable backup); the Q5 key inventory.
+- **Accept:** a layout drawn signed-out appears after sign-in in a second browser; a concurrent edit is
+  refused with 409 and nothing is overwritten silently; clashing keys produce a backup and Restore works;
+  cross-user reads and writes are impossible.
 - **Gate:** Vela key inventory first (Q5); merge finishes before the iframe loads, merge writes excluded
   from upload (N3); per-tab versions (N7); `tradexDrawFavs` and `tradexFavBar` decision (R16); delete,
   key-limit, backup-collision and offline cases (R23); copy deck and states (C7, C13).
+- **Gate status (planning, 2026-11-25):** Q5 **cleared by measurement** — `hub/vela.html:148` passes
+  `persist: false`, so no Vela workspace key is written; `vela:` stays as a placeholder prefix and
+  `docs/vela-storage-keys.md` records the absence. N3/N7 decided in `05-ARCHITECTURE.md` (one writer per
+  tab; versions cached at `vtv:ver:<key>`, never uploaded). R16 cleared: both `tradex*` keys are
+  allow-listed exactly, no wildcard. R23's edge cases are 05-01 AC-7 (key limit), 05-03 AC-8 and AC-10
+  (backup collision, offline) and 05-02 AC-7 (delete). C7/C13 states are 05-03 AC-4..AC-11. One spec fact
+  was found wrong and is carried as **D-024**: the 1 MB value is unreachable behind the gate's
+  300,000-byte body cap, so the limit is 256 KiB.
+- **Plans (2026-11-25):** 05-01 storage (migration, S15..S21, `Auth::state_*`); 05-02 HTTP
+  (`/api/me/state`, the contract table, the prune job, the gate-test fix for templated paths); 05-03 client
+  (`sync.js`, the channel, the merge, the notices, the harness); 05-04 the phase's debt (hub.html under the
+  gate set, the dev db, SOURCE.txt, the store writeback). 05-04 is wave 1 because 05-03's gate evidence over
+  `hub.html` is impossible until that page passes.
 
 ### Phase 06: Tauri desktop
 - **Build:** `crates/desktop`, deep-link sign-in handoff, tray, capability lock-down, installers.

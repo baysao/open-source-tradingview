@@ -84,6 +84,28 @@ pub enum Viewer {
     Member(Member),
 }
 
+/// One saved-state row, as `state_all` returns it (05-01). `value` is the page's string,
+/// verbatim — never parsed or re-serialised by the server.
+pub use store::StateRow;
+
+/// The outcome of `state_put`. `Conflict.version == 0` means "the key does not exist": the
+/// caller's cache named a version for a key the server never had.
+#[derive(Debug, PartialEq)]
+pub enum PutOutcome {
+    Stored { version: i32 },
+    Conflict { version: i32, value: String },
+    TooLarge,
+    TooManyKeys,
+}
+
+/// The per-value sync ceiling: 256 KiB (D-024). The gate refuses any declared body over
+/// 300,000 bytes before a handler runs, so the spec's 1 MB is unreachable; the constant names
+/// the number that actually binds.
+pub const VALUE_MAX: usize = 262_144;
+
+/// Keys per user, backups included (the spec's 256; Q7's total-byte cap stays open).
+pub const KEY_MAX: usize = 256;
+
 impl Viewer {
     pub fn member(&self) -> Option<&Member> {
         match self {
@@ -999,6 +1021,139 @@ impl Auth {
     /// S14: expired sessions go (their codes die by cascade). Returns rows removed.
     pub async fn sweep_expired(&self) -> Result<u64, AuthError> {
         store::sweep_expired(self.0.db.pool(), self.now())
+            .await
+            .map_err(db_unavailable)
+    }
+
+    /// S15: every saved-state key of one user, in key order (05-01; D-024 caps the value).
+    pub async fn state_all(&self, m: &Member) -> Result<Vec<StateRow>, AuthError> {
+        store::state_all(self.0.db.pool(), m.user.id)
+            .await
+            .map_err(db_unavailable)
+    }
+
+    /// S16..S20 with the optimistic-concurrency rule (05-ARCHITECTURE): a write carries the
+    /// version it last saw (`expected`; 0 = the key must not exist yet), and a stale write is a
+    /// [`PutOutcome::Conflict`] carrying the current value. Limits are refused before or right
+    /// after the write: `TooLarge` before any statement, `TooManyKeys` by undoing the row this
+    /// call just wrote (S20 at the written version — a concurrent writer's row is untouchable).
+    ///
+    /// `rows_affected` is never trusted (pgsqlite reports 0 for an unchanged row, 03-02's S4/S8
+    /// finding): the update path re-reads S16 and decides from the version it sees.
+    pub async fn state_put(
+        &self,
+        m: &Member,
+        key: &str,
+        value: &str,
+        expected: i32,
+    ) -> Result<PutOutcome, AuthError> {
+        if value.len() > VALUE_MAX {
+            return Ok(PutOutcome::TooLarge);
+        }
+        let pool = self.0.db.pool();
+        let now = self.now();
+        match store::state_get(pool, m.user.id, key)
+            .await
+            .map_err(db_unavailable)?
+        {
+            None => {
+                if expected != 0 {
+                    // The client's cache claims a version for a key the server never had.
+                    return Ok(PutOutcome::Conflict {
+                        version: 0,
+                        value: String::new(),
+                    });
+                }
+                if !store::state_insert(pool, m.user.id, key, value, now)
+                    .await
+                    .map_err(db_unavailable)?
+                {
+                    // A racer inserted first: show them.
+                    return self.state_conflict(m, key).await;
+                }
+                self.state_cap_check(m, key, 1).await
+            }
+            Some(row) => {
+                if expected != row.version {
+                    return Ok(PutOutcome::Conflict {
+                        version: row.version,
+                        value: row.value,
+                    });
+                }
+                let new_version = row.version + 1;
+                store::state_update(pool, m.user.id, key, value, new_version, now)
+                    .await
+                    .map_err(db_unavailable)?;
+                // The write landed only if the version advanced; 0 rows is ambiguous on
+                // pgsqlite (an unchanged row also reports 0), so read.
+                match store::state_get(pool, m.user.id, key)
+                    .await
+                    .map_err(db_unavailable)?
+                {
+                    Some(after) if after.version == new_version && after.value == value => {
+                        self.state_cap_check(m, key, new_version).await
+                    }
+                    Some(after) => Ok(PutOutcome::Conflict {
+                        version: after.version,
+                        value: after.value,
+                    }),
+                    None => Err(AuthError::Unavailable("state row vanished mid-put".into())),
+                }
+            }
+        }
+    }
+
+    /// The conflict half of `state_put`, after a lost insert race.
+    async fn state_conflict(&self, m: &Member, key: &str) -> Result<PutOutcome, AuthError> {
+        match store::state_get(self.0.db.pool(), m.user.id, key)
+            .await
+            .map_err(db_unavailable)?
+        {
+            Some(row) => Ok(PutOutcome::Conflict {
+                version: row.version,
+                value: row.value,
+            }),
+            None => Err(AuthError::Unavailable("state row vanished mid-put".into())),
+        }
+    }
+
+    /// The 256-key cap, corrective not preventive (05-ARCHITECTURE decision 4): only the paths
+    /// that actually inserted a new key call this. Over the cap, the row this call wrote is
+    /// undone at exactly the version it wrote, so it can never remove anyone else's row.
+    async fn state_cap_check(
+        &self,
+        m: &Member,
+        key: &str,
+        written_version: i32,
+    ) -> Result<PutOutcome, AuthError> {
+        let pool = self.0.db.pool();
+        let count = store::state_all(pool, m.user.id)
+            .await
+            .map_err(db_unavailable)?
+            .len();
+        if count > KEY_MAX {
+            store::state_delete_at(pool, m.user.id, key, written_version)
+                .await
+                .map_err(db_unavailable)?;
+            return Ok(PutOutcome::TooManyKeys);
+        }
+        Ok(PutOutcome::Stored {
+            version: written_version,
+        })
+    }
+
+    /// S19: one key goes. A missing key is success, not an error: `removeItem` is not a failure
+    /// condition, and CUJ 4 must not wedge on it.
+    pub async fn state_delete(&self, m: &Member, key: &str) -> Result<(), AuthError> {
+        store::state_delete(self.0.db.pool(), m.user.id, key)
+            .await
+            .map_err(db_unavailable)
+    }
+
+    /// S21: backups older than `cutoff` go. Returns rows removed; the daily prune calls this
+    /// with `now - 30 days`.
+    pub async fn expire_backups(&self, cutoff: DateTime<Utc>) -> Result<u64, AuthError> {
+        store::expire_backups(self.0.db.pool(), cutoff)
             .await
             .map_err(db_unavailable)
     }
