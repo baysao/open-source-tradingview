@@ -58,7 +58,7 @@ kind = "uat"
 origin = "01-03 AC-6"
 owner = "owner"
 trigger = "event:first-push"
-status = "open"
+status = "done"
 check = { type = "command", run = "gh run list --branch arch/axum-tauri --workflow ci.yml --limit 1 --json conclusion -q .[0].conclusion", expect = "success" }
 
 [[debt]]
@@ -271,7 +271,7 @@ kind = "tech"
 origin = "04-03 task 4 (the narrowed remainder of DEBT-015)"
 owner = "agent"
 trigger = "phase:05"
-status = "open"
+status = "done"
 check = { type = "text_present", path = ".github/workflows/ci.yml", pattern = "check-0402" }
 note = "A CI job that installs the ux-ui kit's node_modules, builds a debug test-idp hub-server, runs check-0402.mjs (or gate_all.py) against it and posts the receipt table. Due when the next phase's plans rely on served-page evidence; until then the dev box runs are the evidence. Phase 04 reflect adds the dev-box window rule: until this row discharges, any plan that touches page scripts runs check-0402.sh with CHECK_0303=1 as an enumerated, default-on step - the wiring's grep alone certifies existence, not execution."
 
