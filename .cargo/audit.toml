@@ -32,6 +32,8 @@ ignore = [
   "RUSTSEC-2026-0548",
 ]
 
-[warnings]
-# chrono unmaintained and lru unsound are warnings, not vulnerabilities; both are transitive
-# (chrono via sqlx, lru via tower/ratelimit deps). Tracked: DEBT-031.
+# Note: chrono (unmaintained) and lru (unsound) are audit WARNINGS, not vulnerabilities: they do
+# not fail the run, and cargo-audit's config has no section for them (the `[warnings]` table is
+# rejected: "unknown field `warnings`, expected one of `advisories`, `database`, `output`,
+# `target`, `yanked`"). Both are transitive (chrono via sqlx, lru via the limiter tree) and move
+# when those crates do.
