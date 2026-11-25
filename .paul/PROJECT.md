@@ -27,7 +27,7 @@ scripts kept in their Google account.
 | Type | Application (complex) |
 | Version | 0.0.0 |
 | Status | Initializing |
-| Last Updated | 2026-11-24 |
+| Last Updated | 2026-11-26 |
 
 ## Requirements
 
@@ -55,6 +55,11 @@ scripts kept in their Google account.
   silently (G4) - Phase 05 — a signed-out layout appears in a second browser after sign-in; a
   concurrent edit 409s with both values recoverable; clashing keys back up and Restore works
   (harness CUJ3/4/5, AC-8; check-0503 22/22, harness 19/19)
+- ✓ Desktop shell: the installed app signs in through the system browser (the `vtradingview://`
+  hand-off) and shows the same synced layout - Phase 06 — the remote origin holds ONE permission
+  (`start_sign_in`), the nav guard refuses off-origin, tray Show/Quit; checkpoint approved
+  2026-11-25 (owner looked at the window); 31 crate tests + 5 phase mutations red-then-green,
+  gate receipts 8/8
 
 ### Planned (Next)
 - v0.1 Hosted launch: Rust parity, order flow in Rust, database and Google sign-in, public deploy
@@ -107,6 +112,7 @@ scripts kept in their Google account.
 | Sign-in control sticky-free: scrollable bar content plus an outside account slot | a sticky overlay covered the bar's own buttons at three widths (WCAG 2.4.11) | 2026-11-24 | Active |
 | Delete confirmation uses the native `<dialog>` modal | the browser owns the focus trap, Esc and top layer; the modern-web-guidance rule for destructive actions | 2026-11-24 | Active |
 | The test-IdP router needs feature, debug profile and `VTV_TEST_IDP=1` | it mints a token for any `sub`; a release build must refuse it, verified 404 | 2026-11-24 | Active |
+| Desktop grants the remote page one permission; the deep link arrives by a Rust-side eval (D-029/D-030) | every granted permission is attack surface on an untrusted page; the crate stays its own workspace so the root test job stays tauri-free | 2026-11-25 | Active |
 
 ## Success Metrics
 
@@ -140,4 +146,4 @@ See `.paul/config.md` and `.paul/SPECIAL-FLOWS.md`.
 
 ---
 *Created: 2026-11-23 (imported from .paul/PLANNING.md and .paul/design/specs/vtradingview.md)*
-*Last updated: 2026-11-25 after Phase 05*
+*Last updated: 2026-11-26 after Phase 06*

@@ -85,3 +85,14 @@ Worst three found and fixed by the gates and the browser check:
 Lint: axe 0 violations both themes; verify_states 36/36 AA both themes; measure_render 30/30 text AA;
 verify_responsive clean 280..951 px; lint_intent OK. design_lint on hub.html: red 0 apart from its own file:// fetch errors.
 Status: done, red 0. Not visually inspected by the agent (no image input this session); owner look is DEBT-010.
+
+## 2026-11-25 hub.html desktop sign-in overlay (06-03)
+
+Satisfied via the gate-runner note (surface in the receipt set): gate_all 8/8 on hub.html,index.html
+(auth-off base) plus a served browser pass with screenshots instead of polish.py shot. The pass found
+two real defects the state checks missed: (1) `.desk-card .steps` kept `display:grid` over the UA
+`[hidden]` rule and rendered inside the waiting card - fixed with
+`.desk-card .steps[hidden] { display:none }`; (2) the failed card's heading was an h3 under the page's
+only h1 (axe heading-order) - demoted to h2. `deskHide`'s flag param also shadowed `render()` (Cancel
+left the busy button) - renamed `rerender`. Lint: axe 0 violations waiting + failed (driver case 12);
+verify_states/verify_responsive green on the auth-off base. Status: done, red 0.

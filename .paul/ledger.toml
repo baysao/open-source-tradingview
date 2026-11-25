@@ -240,3 +240,26 @@ at = "2026-11-25T19:50:00+07:00"
 action = "transition"
 phase = 5
 at = "2026-11-25T20:15:00+07:00"
+
+[[entry]]
+action = "apply"
+phase = 6
+plan = "06-03"
+at = "2026-11-25T23:10:00+07:00"
+
+[[entry]]
+action = "apply"
+phase = 6
+plan = "06-04"
+at = "2026-11-25T23:28:00+07:00"
+
+[[entry]]
+action = "unify"
+phase = 6
+plan = "06-04"
+at = "2026-11-26T00:05:00+07:00"
+
+[[entry]]
+action = "transition"
+phase = 6
+at = "2026-11-26T00:15:00+07:00"

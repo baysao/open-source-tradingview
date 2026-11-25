@@ -1,0 +1,32 @@
+[package]
+name = "desktop"
+version = "0.1.0"
+edition = "2021"
+description = "TradeX desktop shell (Tauri 2): the hosted hub in a native window"
+license = "AGPL-3.0-only"
+publish = false
+
+# Its own workspace, deliberately not a member of the root one (D-030). A second workspace cannot
+# path-depend on a crate that uses `edition.workspace = true` (crates/hub-types/Cargo.toml:3), and
+# keeping tauri out of the root workspace keeps `cargo test --workspace` and the gnu-pinned host
+# toolchain untouched. The cost is that this crate needs its own CI job (06-04).
+[workspace]
+
+[build-dependencies]
+tauri-build = { version = "2.7", features = [] }
+
+[dependencies]
+tauri = { version = "2.12", features = ["tray-icon"] }
+tauri-plugin-single-instance = "2.5"
+tauri-plugin-deep-link = "2.6"
+tauri-plugin-opener = "2.7"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+url = "2.5"
+getrandom = "0.2"
+base64 = "0.22"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
+
+[dev-dependencies]
+serde_json = "1"

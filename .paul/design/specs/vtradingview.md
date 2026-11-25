@@ -390,8 +390,9 @@ database answers. Backups: a nightly SQLite online backup of `data/vtv.db` (pgsq
 ### Desktop shell
 
 `desktop/tauri.conf.json` opens one window at `https://vtradingview.com/hub.html`. Capabilities: the
-remote origin gets exactly two permissions, the custom command `start_sign_in` (opens the system browser
-at the fixed start URL with the in-memory `desktop_key`) and the deep-link event. No file system, shell,
+remote origin gets exactly one permission, the custom command `start_sign_in` (opens the system browser
+at the fixed start URL with the in-memory `desktop_key`); the deep-link event arrives by a Rust-side
+`eval` of a `CustomEvent`, needing no permission (amended in Phase 06, D-029/D-030). No file system, shell,
 HTTP or other plugin permission is granted to the remote page. The `vtradingview://` scheme is registered
 for the installed app. A tray icon offers Show and Quit. Navigation in the window is limited to
 `https://vtradingview.com/*`; any other link, Google's sign-in included, opens in the system browser.
@@ -1072,8 +1073,9 @@ Decisions applied: D-001 (local mode, no MT5 ports) and D-002 (protocol kept, up
 
 #### 46. `hub/auth.js` (M)
 *   **Type / Scope**: frontend.
-*   **Proposed Changes**: when `window.__TAURI__` is present, the sign-in button calls `start_sign_in`
-    and shows the waiting overlay; on the deep-link event it POSTs to `/auth/desktop/exchange`.
+*   **Proposed Changes**: when `window.vtvDesktop` is present, the sign-in button calls `start_sign_in`
+    and shows the waiting overlay; on the deep-link event it POSTs to `/auth/desktop/exchange`
+    (amended in Phase 06, D-029/D-030: the flag is `window.vtvDesktop`, not `window.__TAURI__`).
 
 #### 47. `.github/workflows/desktop.yml` (C)
 *   **Type / Scope**: CI.

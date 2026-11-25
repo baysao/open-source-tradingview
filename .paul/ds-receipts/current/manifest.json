@@ -10,8 +10,9 @@
   "design_lint"
  ],
  "pages": [
-  "hub.html"
+  "hub.html",
+  "index.html"
  ],
- "base": "http://127.0.0.1:8770",
- "ts": 1795609400.573935
+ "base": "http://127.0.0.1:8775",
+ "ts": 1795622046.9093156
 }

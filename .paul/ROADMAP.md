@@ -15,8 +15,8 @@ Rust (Axum) server, Google accounts that sync each user's work, and a Tauri 2 de
 ## Current Milestone
 
 **v0.2 Accounts everywhere** (v0.2.0)
-Status: Phase 05 complete 2026-11-25 (4 of 4 plans unified); phase 06 next, 07 not started
-Phases: 1 of 3 complete
+Status: Phase 06 complete 2026-11-26 (4 of 4 plans unified; phase reflect + rsi run); 07 not started
+Phases: 2 of 3 complete
 
 ## Milestones
 
@@ -26,8 +26,8 @@ Phases: 1 of 3 complete
 | v0.2 Accounts everywhere | 05 to 07 | synced state, desktop app, per-user MT5 |
 
 **v0.1 note:** all four phases are complete and their gates passed; the public launch itself still waits
-on the owner rows (host DEBT-018, OAuth URI DEBT-013, data terms Q2, trademark Q3, privacy text Q9, first
-green CI DEBT-005).
+on the owner rows (OAuth URI DEBT-013, data terms Q2, trademark Q3, privacy text Q9). DEBT-018 (host) and
+DEBT-005 (first green CI) are discharged.
 
 ## Phases
 
@@ -37,8 +37,8 @@ green CI DEBT-005).
 | 02 | Order flow in Rust | v0.1 | 3 (02-01, 02-02, 02-03) | Complete (reflect deferred) | 2026-11-23 |
 | 03 | Database and Google sign-in | v0.1 | 3 (03-01, 03-02, 03-03) | Complete | 2026-11-24 |
 | 04 | Public deploy | v0.1 | 3 (04-01, 04-02, 04-03) | Complete | 2026-11-25 |
-| 05 | Synced state | v0.2 | 4 (05-01..05-04) | Planned | - |
-| 06 | Tauri desktop | v0.2 | TBD | Not started | - |
+| 05 | Synced state | v0.2 | 4 (05-01..05-04) | Complete | 2026-11-25 |
+| 06 | Tauri desktop | v0.2 | 4 (06-01..06-04) | Complete | 2026-11-26 |
 | 07 | Per-user MT5 bridges | v0.2 | TBD | Not started | - |
 
 ## Phase Details
@@ -152,6 +152,29 @@ CI run (005) and the 1,000-socket load target (022).
 - **Build:** `crates/desktop`, deep-link sign-in handoff, tray, capability lock-down, installers.
 - **Accept:** the installed app signs in through the system browser and shows the same synced layout.
 - **Gate:** how the page gets or avoids `desktop_key` (K4, N6, R25); webkit2gtk in CI (R27); signing (Q4).
+- **Planned 2026-11-25** (4 plans, `06-ARCHITECTURE.md` is the contract). The gate is answered:
+  **N6 chosen by the owner** — `start_sign_in` returns the in-memory `desktop_key` to the page and the page
+  POSTs the existing `/auth/desktop/exchange`, so the server surface is unchanged; K4 (Rust navigating the
+  webview to a new GET route) was rejected because a navigation reloads the page and destroys the key the
+  one-time code is bound to. R25 (capabilities) resolved to **one** permission for the remote origin
+  (D-029): the deep link is delivered by a Rust-side `eval`, which needs no ACL entry, so the spec's "two
+  permissions" shrinks by one. R27 (webkit2gtk) is confined to a dedicated Linux CI job because the crate
+  is its own workspace (D-030). Q4 (signing) stays open by design: the installer job ships unsigned betas
+  and the new debt row is its trigger.
+  Plans: 06-01 shell + capability + guard + tray · 06-02 deep-link handoff (warm, queued, cold start) ·
+  06-03 `hub/auth.js` desktop branch + the four-state overlay + driver · 06-04 CI, installers, `docs/api.md`
+  and `docs/desktop.md`, and the phase-06 debt writeback (including repairing DEBT-033's vacuous check).
+
+**Phase 06 exit (2026-11-26):** all four plans unified. 06-01 the shell + capability + guard + tray
+(16 tests, 2 mutations, live CDP pass — three live-only defects found and fixed); 06-02 the
+`vtradingview://` hand-off (31 tests; m4 exposed a vacuous test then bit; warm, queued and cold
+paths proven over the real OS protocol); 06-03 `hub/auth.js` desktop branch + the four-state
+overlay (33 driver assertions over 12 served cases, 3 mutations red-then-green, gate receipts 8/8);
+06-04 CI (`desktop.yml`, `ci.yml` fmt covers the crate) + unsigned tag installers + `docs/api.md` +
+`docs/desktop.md` + the debt writeback (DEBT-033's vacuous check repaired with a negative control;
+034/037 discharged; 036 Q4 and 038 first-push proof open). Checkpoint approved 2026-11-25: owner
+looked at the window. Still open after the phase: DEBT-036 (Q4 signing, owner), DEBT-038 (first CI
+push, agent), and the launch-waiting owner rows.
 
 ### Phase 07: Per-user MT5 bridges
 - **Build:** bridge token and HTTPS mode, `mt5_bridges`, SSRF guard, bridge routes, settings screen.

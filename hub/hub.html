@@ -250,6 +250,21 @@
   dialog#authDel .err { margin:var(--sp-3) 0 0; padding:var(--sp-2) var(--sp-3); border:var(--hair) solid var(--bad); border-radius:var(--r-sm);
     background:var(--bg); color:var(--text); line-height:1.45 }
   dialog#authDel .acts { display:flex; flex-wrap:wrap-reverse; justify-content:flex-end; gap:var(--sp-2); margin-top:var(--sp-5) }
+  /* Desktop sign-in overlay (mockup 06): one fixed card over the app, charts visible behind it.
+     Values map to the mock's .over/.card; the card width uses the small-dialog token. */
+  .desk-over { position:fixed; inset:0; z-index:61; display:grid; place-items:center; padding:var(--sp-4);
+    background:color-mix(in srgb, var(--bg) 86%, transparent) }
+  .desk-card { width:100%; max-width:var(--dlg-w); background:var(--panel); border:var(--hair) solid var(--line);
+    border-radius:var(--r-lg); padding:var(--sp-5) }
+  .desk-card .head { display:flex; gap:var(--sp-3); align-items:flex-start }
+  .desk-card .head > .spin, .desk-card .head > svg { width:var(--icon-lg); height:var(--icon-lg); margin-top:var(--badge-ps); flex:none }
+  .desk-card .head > svg { color:var(--bad) }
+  .desk-card h2 { font-size:var(--fs-xl); font-weight:600; line-height:1.25; margin:0 }
+  .desk-card h2:focus { outline:none }
+  .desk-card p { color:var(--dim); font-size:var(--fs-md); margin:var(--sp-1) 0 0 }
+  .desk-card .steps { margin:var(--sp-3) 0 0; padding-left:var(--sp-5); color:var(--text); display:grid; gap:var(--sp-1); font-size:var(--fs-md) }
+  .desk-card .steps[hidden] { display:none }
+  .desk-card .acts { display:flex; flex-wrap:wrap; gap:var(--sp-2); margin-top:var(--sp-4) }
 </style></head><body>
 <div id="app">
 <div id="syncNotices" role="region" aria-label="Sync notices"></div>

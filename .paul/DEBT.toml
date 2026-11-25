@@ -141,9 +141,9 @@ kind = "decision"
 origin = "03-02 task 3 (hosted start proven live up to the redirect; the cookie flags and the console allow-list stop the round trip)"
 owner = "owner"
 trigger = "phase:04"
-status = "open"
+status = "done"
 check = { type = "text_present", path = ".paul/phases/03-auth/03-03-SUMMARY.md", pattern = "Google redirect URI registered: done" }
-note = "DEBT-010 is the owner's look at the finished sign-in; this row is the prerequisite that blocks it. Verified live 2026-11-24: /auth/google/start redirected to accounts.google.com with PKCE S256 and the sealed ticket, against the owner's real client id."
+note = "DEBT-010 is the owner's look at the finished sign-in; this row is the prerequisite that blocks it. Verified live 2026-11-24: /auth/google/start redirected to accounts.google.com with PKCE S256 and the sealed ticket, against the owner's real client id. **Discharged 2026-11-25 in phase 06:** the owner registered https://vtradingview.com/auth/google/callback in the console, proven without credentials by following the live 302 from /auth/google/start?client=desktop&dk=... — it lands on Google's real sign-in page ('Sign in to continue to vtradingview.com') where it had returned 'Error 400: redirect_uri_mismatch'. The loopback half of the title is obsolete: the desktop flow uses the same https callback, not a 127.0.0.1 one. The text_present check above is not what proved it; the live probe is, recorded in .paul/phases/06-desktop/06-02-SUMMARY.md."
 
 [[debt]]
 id = "DEBT-014"
@@ -359,9 +359,9 @@ kind = "decision"
 origin = "05-02 security review"
 owner = "agent"
 trigger = "phase:06"
-status = "open"
-check = { type = "command", run = "grep -c 'D-026' .paul/DECISIONS.md", expect = "1" }
-note = "Bounded by the per-IP Api bucket (20/s, burst 40) and by single-user scope, so it is not a quota bypass an attacker can hold; it is a window, not a leak. The preventive form would be a count inside the insert's WHERE (a subquery the single-table SQL discipline allows only as a scalar subquery) or an ON CONFLICT-style guard — 05-ARCHITECTURE decision 4 chose corrective deliberately. This row exists so the choice is revisited with Q7 (the per-user byte quota) rather than forgotten. The check is deliberately NOT a grep of `if count > KEY_MAX`: that text is already in auth/mod.rs, so it would pass on day one and report the decision as taken when nothing was decided. D-026 is the id reserved for the revisit; until the row is written in DECISIONS.md this row stays due."
+status = "done"
+check = { type = "command", run = "grep -c 'D-031' .paul/DECISIONS.md", expect = "1" }
+note = "Bounded by the per-IP Api bucket (20/s, burst 40) and by single-user scope, so it is not a quota bypass an attacker can hold; it is a window, not a leak. The preventive form would be a count inside the insert's WHERE (a subquery the single-table SQL discipline allows only as a scalar subquery) or an ON CONFLICT-style guard — 05-ARCHITECTURE decision 4 chose corrective deliberately. This row exists so the choice is revisited with Q7 (the per-user byte quota) rather than forgotten. The check is deliberately NOT a grep of `if count > KEY_MAX`: that text is already in auth/mod.rs, so it would pass on day one and report the decision as taken when nothing was decided. D-026 is the id reserved for the revisit; until the row is written in DECISIONS.md this row stays due. 2026-11-25 repaired and discharged (06-04 task 4): the original check was vacuous — D-026 already existed as the unrelated phase-05 'no IndexedDB mirror' decision, so the grep returned 1 on day one and the row could never fail; the negative control confirmed the pass without the new decision. The check now reads D-031, the id genuinely reserved for the state-cap decision."
 
 [[debt]]
 id = "DEBT-034"
@@ -370,7 +370,49 @@ kind = "artifact"
 origin = "05-02 boundaries (docs deliberately deferred to 05-03)"
 owner = "agent"
 trigger = "phase:06"
-status = "open"
+status = "done"
 check = { type = "text_present", path = "docs/api.md", pattern = "/api/me/state" }
-note = "05-02's SCOPE LIMITS say 05-03 writes the docs entry when it consumes the contract. If 05-03 lands and this is still open, the deferral slipped. The check names docs/api.md because that is the file the repo's other endpoint docs live in (or would); if the page lands under a different name, update the path rather than dropping the row."
+note = "05-02's SCOPE LIMITS say 05-03 writes the docs entry when it consumes the contract. If 05-03 lands and this is still open, the deferral slipped. The check names docs/api.md because that is the file the repo's other endpoint docs live in (or would); if the page lands under a different name, update the path rather than dropping the row. 2026-11-25 discharged: docs/api.md written from crates/hub-core/src/routes/state.rs's module doc (the code is the source), 06-04 task 2; every error string cross-checked against the handlers."
 
+
+[[debt]]
+id = "DEBT-035"
+title = "The design-gate receipts only go green against an auth-off base: with AUTH_ENABLED=true the D-019 sticky auth slot hit-tests as covering the bar content that scrolls under it (hub.html: 1/4/1 covered focusables at 320/768/1280 px), so a gate run against a live-like server reports reds that are the sticky design, not page defects; gate_all.py must name its auth-off base requirement"
+kind = "tech"
+origin = "06-03 task 4"
+owner = "agent"
+trigger = "phase:06"
+check = { type = "command", run = "grep -c 'auth-off' .paul/runs/gate_all.py", expect = "1" }
+note = "Found while refreshing the hub.html receipts in 06-03: the auth-on base (8773) failed verify_states and verify_responsive on covered focusables; the identical run auth-off (8775) is 8/8 green. The discharge is a base note in gate_all.py's usage header, not a harness change."
+
+[[debt]]
+id = "DEBT-036"
+title = "Q4 code signing: no Windows EV/OV certificate and no Apple Developer ID, so desktop installers ship unsigned beta; discharge = certificates bought and wired (secrets-only), docs/desktop.md's posture flips"
+kind = "decision"
+origin = "06-04 (the phase's signing posture)"
+owner = "owner"
+trigger = "phase:06"
+status = "waiting"
+check = { type = "text_present", path = "docs/desktop.md", pattern = "Signed installers" }
+note = "The env names (WINDOWS_CERTIFICATE, WINDOWS_CERTIFICATE_PASSWORD) are already wired in desktop.yml with env-guarded steps, so wiring a certificate is a secrets-only change. The check reads docs/desktop.md because the doc states the posture; the discharge is the doc changing from unsigned to signed. While Q4 is open the doc must NOT contain the checked phrase — a check that passes on the unsigned doc is the DEBT-033 trap again."
+
+[[debt]]
+id = "DEBT-037"
+title = "The native window's look and feel — tray behaviour, title bar, window sizing, the overlay's feel inside the webview — which no script on this box can judge (obscura drives browsers, not native windows)"
+kind = "uat"
+origin = "06-04 task 4 (R-6)"
+owner = "owner"
+trigger = "phase:06"
+status = "done"
+check = { type = "command", run = "grep -c 'owner looked at the window: done' .paul/phases/06-desktop/06-04-SUMMARY.md", expect = "1" }
+note = "Everything scriptable about the desktop phase is proven (crate tests, mutations, the 12-case page driver, gate receipts 8/8); what remains needs a human eye on a native window. The check fails until this SUMMARY records 'owner looked at the window: done'. 2026-11-25 discharged: the 06-04 closing checkpoint (the seven-step window pass) was answered 'approved' by the owner; the SUMMARY records 'owner looked at the window: done'."
+
+[[debt]]
+id = "DEBT-038"
+title = "desktop.yml has never run: AC-1/AC-3's CI halves are unproven (no push was possible with the uncommitted tree) — observe check-windows and check-linux green and the root test job's log free of tauri/webkit on the first push after the phase commit"
+kind = "artifact"
+origin = "06-04 unify"
+owner = "agent"
+trigger = "event:first-push"
+check = { type = "text_present", path = ".paul/STATE.md", pattern = "desktop.yml run observed green" }
+note = "The workflow files land with the phase commit; the proof is the first push of arch/axum-tauri after it. Discharge = the run list shows check-windows and check-linux green, and the line 'desktop.yml run observed green (check-windows, check-linux; root test job tauri/webkit-free)' is recorded in STATE.md's Session Continuity. A secrets-absent installers skip is not a red run."

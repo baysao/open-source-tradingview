@@ -58,15 +58,182 @@
     b.type = "button";
     b.className = "auth-btn";
     b.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg>Sign in with Google`;
-    b.onclick = () => {
-      // Mockup 01 "signing in": the spinner carries the state, the label stays legible.
-      b.innerHTML = `<span class="spin" aria-hidden="true"></span>Signing in`;
-      b.setAttribute("aria-busy", "true");
-      b.setAttribute("aria-disabled", "true");
-      location.href = "/auth/google/start?client=web";
-    };
+    b.onclick = () => (isDesktop() ? beginDesktopSignIn(b) : beginWebSignIn(b));
     slot.appendChild(b);
-    loadGis(s.client_id);
+    // One Tap is a browser flow. The desktop window runs beginDesktopSignIn instead, and Google's
+    // page must never render inside the app window (spec risk table), so no GIS there, on purpose.
+    if (!isDesktop()) loadGis(s.client_id);
+  }
+
+  const isDesktop = () => typeof window.vtvDesktop?.startSignIn === "function";
+  let desktopKey = "";                    // startSignIn's key; memory only, never stored or logged
+
+  function beginWebSignIn(btn) {
+    // Mockup 01 "signing in": the spinner carries the state, the label stays legible.
+    btn.innerHTML = `<span class="spin" aria-hidden="true"></span>Signing in`;
+    btn.setAttribute("aria-busy", "true");
+    btn.setAttribute("aria-disabled", "true");
+    location.href = "/auth/google/start?client=web";
+  }
+
+  async function beginDesktopSignIn(btn) {
+    if (deskBusy) return;                  // AC-2: exactly one flow; a second click is ignored
+    deskBusy = true;
+    deskBtn = btn;
+    btn.innerHTML = `<span class="spin" aria-hidden="true"></span>Signing in`;
+    btn.setAttribute("aria-busy", "true");
+    btn.setAttribute("aria-disabled", "true");
+    try {
+      desktopKey = await window.vtvDesktop.startSignIn();
+    } catch (_) {
+      desktopKey = "";
+      deskFail("app");                     // the shell could not open a browser
+      return;
+    }
+    if (!desktopKey) { deskFail("app"); return; }
+    deskWait();
+  }
+
+  // ---------- desktop sign-in overlay (mockup 06) ----------
+  // The four states swap inside one persistent card, so the live region is changed, never
+  // re-shown: waiting is role="status" (polite), failed switches to role="alert" (assertive).
+  const DESK_FAIL = {
+    expired: "Error: the link from the browser expired or was already used. Choose Try again and finish signing in once.",
+    bad: "Error: the app sent a malformed request. Choose Try again.",
+    unavail: "Error: the server is not available right now. Your charts are unchanged.",
+    conn: "Error: the server did not answer. Check your connection, then choose Try again.",
+    app: "Error: the app could not open your browser. Nothing was signed in. Choose Try again, or restart the app.",
+  };
+  const DESK_STEPS = [
+    "Click Try again to start a new sign-in.",
+    "Complete it in the browser that opens.",
+    "When the browser asks to open TradeX, choose Open.",
+  ];
+  let deskBusy = false;                    // one desktop flow at a time (AC-2's double-click guard)
+  let deskTimer = 0;                       // the 60 s code-life timer
+  let deskBtn = null;                      // the signed-out button the flow started from
+
+  function deskBuild() {
+    const over = document.createElement("div");
+    over.className = "desk-over";
+    over.id = "deskOver";
+    const card = document.createElement("div");
+    card.className = "desk-card";
+    const head = document.createElement("div");
+    head.className = "head";
+    const icon = document.createElement("span");
+    icon.className = "desk-i";
+    const box = document.createElement("div");
+    const hd = document.createElement("h2");
+    hd.tabIndex = -1;
+    const p = document.createElement("p");
+    box.append(hd, p);
+    head.append(icon, box);
+    const steps = document.createElement("ol");
+    steps.className = "steps";
+    steps.hidden = true;
+    DESK_STEPS.forEach((s) => { const li = document.createElement("li"); li.textContent = s; steps.appendChild(li); });
+    const acts = document.createElement("div");
+    acts.className = "acts";
+    const again = document.createElement("button");
+    again.type = "button";
+    again.className = "auth-btn";
+    again.dataset.again = "";
+    again.textContent = "Try again";
+    const cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.className = "auth-btn plain";
+    cancel.dataset.cancel = "";
+    cancel.textContent = "Cancel";
+    acts.append(again, cancel);
+    card.append(head, steps, acts);
+    over.appendChild(card);
+    again.onclick = () => {
+      deskBusy = false;                    // the failed flow ends; a new one starts
+      beginDesktopSignIn(deskBtn);         // a fresh key: 06-01 rotates the key after a delivery
+    };
+    cancel.onclick = () => deskHide(true);
+    document.body.appendChild(over);
+    return over;
+  }
+
+  function deskPaint(kind) {
+    const over = document.getElementById("deskOver") || deskBuild();
+    over.hidden = false;
+    const card = over.querySelector(".desk-card");
+    const icon = over.querySelector(".desk-i");
+    const hd = over.querySelector("h2");
+    const p = over.querySelector("p");
+    const steps = over.querySelector(".steps");
+    const again = over.querySelector("[data-again]");
+    if (kind === "wait") {
+      card.setAttribute("role", "status");
+      card.setAttribute("aria-live", "polite");
+      card.setAttribute("aria-busy", "true");
+      icon.innerHTML = `<span class="spin" aria-hidden="true"></span>`;
+      hd.textContent = "Finish signing in in your browser";
+      p.textContent = "We opened accounts.google.com in your default browser. When Google is done, the browser asks to open TradeX: choose Open.";
+      steps.hidden = true;
+      clearTimeout(deskTimer);
+      deskTimer = setTimeout(() => deskFail("expired"), 60000);   // the code's server-side life
+      hd.focus();
+    } else {
+      card.setAttribute("role", "alert");  // implicit aria-live: assertive
+      card.removeAttribute("aria-live");
+      card.removeAttribute("aria-busy");
+      icon.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>`;
+      hd.textContent = "Error: sign-in did not finish";
+      p.textContent = DESK_FAIL[kind] || DESK_FAIL.conn;
+      steps.hidden = false;
+      again.focus();
+    }
+  }
+  function deskWait() { deskPaint("wait"); }
+  function deskFail(kind) { clearTimeout(deskTimer); deskTimer = 0; deskPaint(kind); }
+
+  function deskHide(rerender) {
+    clearTimeout(deskTimer);
+    deskTimer = 0;
+    deskBusy = false;
+    desktopKey = "";                       // abandoned or spent either way; it expires server-side
+    const over = document.getElementById("deskOver");
+    if (over) over.remove();               // remove, not hide: nothing stale stays in the a11y tree
+    if (rerender) {
+      render();
+      const b = slot.querySelector("button");
+      if (b) b.focus();
+    }
+  }
+
+  // The code hand-back: one listener at module scope, so re-renders never stack listeners.
+  window.addEventListener("vtv:desktop-code", (e) => {
+    const code = e.detail && e.detail.code;
+    if (!code || !desktopKey) return;      // a code with no key is unusable; let the timer expire
+    exchange(code);
+  });
+
+  async function exchange(code) {
+    let r = null;
+    try {
+      r = await fetch("/auth/desktop/exchange", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, desktop_key: desktopKey }),
+      });
+    } catch (_) {
+      desktopKey = "";
+      deskFail("conn");
+      return;
+    }
+    desktopKey = "";                       // spent either way; a stale key must not be reused
+    if (r.status === 200) {
+      deskHide(false);
+      await reload();
+      const b = slot.querySelector("button");
+      if (b) b.focus();
+      return;
+    }
+    deskFail(r.status === 401 ? "expired" : r.status === 400 ? "bad" : "unavail");
   }
 
   function renderSignedIn(s) {

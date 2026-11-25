@@ -1,0 +1,11 @@
+{
+  "$schema": "../gen/schemas/remote-schema.json",
+  "identifier": "hub",
+  "description": "The hosted hub page. One command and nothing else: it may start a sign-in, and may never touch the filesystem, the shell, the clipboard, the opener, or any event bus (D-029).",
+  "windows": ["main"],
+  "remote": {
+    "urls": ["https://vtradingview.com/*"]
+  },
+  "local": false,
+  "permissions": ["allow-start-sign-in"]
+}

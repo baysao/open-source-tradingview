@@ -13,39 +13,42 @@ See: .paul/PROJECT.md (updated 2026-11-23)
 **Core value:** Free multi-feed TradingView-style charts in a browser or desktop app, with each user's
 layouts and scripts kept in their Google account.
 **Current focus:** Milestone v0.1 shipped its four phases; the public launch still waits on owner rows
-(DEBT-018 host, DEBT-013 OAuth URI, Q2/Q3/Q9, DEBT-005 CI). Milestone v0.2: phase 05 complete and
-unified 2026-11-25; phase 06 (Tauri desktop) is next to plan.
+(DEBT-013 OAuth URI, Q2/Q3/Q9; DEBT-018 and DEBT-005 are done). Milestone v0.2: phase 05 complete and
+unified 2026-11-25; phase 06 (Tauri desktop) planned 2026-11-25 in four plans, awaiting APPLY.
 
 ## Current Position
 
 Milestone: v0.2 Accounts everywhere
-Phase: 06 of 07 (Tauri desktop) - Not started
+Phase: 07 of 07 (Per-user MT5 bridges) - Not started
 Plan: Not started
 Status: Ready to plan
-Last activity: 2026-11-25 - Phase 05 complete and unified (4/4 plans). Close-out: reflect panel 20
-accepted (3 code fixes A15-A17 with harness cases, D-026/D-027/D-028, L-037 validated by experiment
-.paul/experiments/L-037.md, 5 new candidate rows, L-003/L-007/L-029 bumps); rsi run. Final
-verification: check-0503 22/22, harness 19/19, gate_all 8/8 + receipts, check-0402 56/56,
-CHECK_0303=1 → 66/66, workspace 139 passed, fmt+clippy clean, phase-05 debt gate clear.
+Last activity: 2026-11-26 - Phase 06 complete and transitioned: 4/4 plans unified (06-04 unified
+2026-11-26: desktop.yml CI + unsigned tag installers, docs/api.md + docs/desktop.md, D-029/030/031,
+DEBT-033's vacuous check repaired + 034/037 discharged, DEBT-036 Q4 + 038 first-push open,
+checkpoint approved); reflect panel 6 accepted (L-007 validated, L-043/L-044 new), rsi no candidate.
 
 Progress:
 - Phase 01: complete 2026-11-23 (milestone v0.1: 1 of 4 phases)
 - Phase 02: complete 2026-11-23 (reflect deferred: owner has not run /reflect)
 - Phase 03: complete 2026-11-24 (3 of 3 plans unified; reflect + RSI done at 03-03)
 - Phase 04: complete 2026-11-25 (3 of 3 plans unified; phase reflect run)
-- Phase 05: complete 2026-11-25 (4 of 4 plans unified; phase reflect + rsi run)
+- Phase 05: complete 2026-11-25 (4 of 4 plans unified; phase reflect + rsi run)- Phase 06: complete 2026-11-26 (4 of 4 plans unified; phase reflect + rsi run at 06-04; the
+  per-plan evidence lives in 06-01..06-04-SUMMARY.md)
 
 ## Loop Position
 
 Current loop state:
 ```
 PLAN ──▶ APPLY ──▶ UNIFY
-  ○        ○        ○     [Phase 05 complete; phase 06 not started]
+  ✓        ✓        ✓     [06-04 loop complete; phase 06 ready to close]
 ```
 
 ## Accumulated Context
 
 ### Decisions
+| D-029 | The deep link reaches the hosted page by a Rust-side `eval` of a `CustomEvent`, so the remote origin gets ONE permission, not the spec's two | Phase 06 | `core:event:default` is four permissions plus a cross-webview bus to an untrusted page; a fragment navigation reloads and kills the in-memory `desktop_key`. Written at 06-04 APPLY. |
+| D-030 | `crates/desktop` is its own Cargo workspace, not a root member; it gets its own CI job | Phase 06 | a second workspace cannot path-depend on a crate using `edition.workspace = true`; the root `cargo test --workspace` and gnu host pin must stay untouched. Written at 06-04 APPLY. |
+| D-031 | The 256-key cap stays corrective; this is the decision DEBT-033 reserved | Phase 06 | bounded by the per-IP bucket and single-user scope; preventive form needs a subquery D-014 disallows. Written at 06-04 APPLY. |
 | 2026-11-25: A signed-out caller gets 401 before any key check on all four `/api/me/state` routes (security-review ordering fix; AC-6) | Phase 05 | 05-03's client can read 401 as "sign in again", never a disguised 404/204 |
 | D-019 | The header control is sticky to the bar's right edge (the bar scrolls sideways at 1280 px) | Phase 03 | #authSlot |
 | D-020 | Delete confirmation uses native `<dialog>` + showModal(); the browser owns the focus trap and Esc (modern-web-guidance "dialog" Rule 1) | Phase 03 | auth.js |
@@ -94,7 +97,17 @@ PLAN ──▶ APPLY ──▶ UNIFY
   preventive; revisit with Q7 under D-026.
 - DEBT-034 open (agent, phase:06): the `/api/me/state` contract lives only in 05-02's plan table
   and SUMMARY; `docs/` has no page.
-- DEBT-013 open (owner, phase:04): register the loopback Google redirect URI and serve hosted mode over HTTPS; the prerequisite for DEBT-010.
+- DEBT-013 done 2026-11-25 (the https callback registered in the console; proven by the live 302
+  probe recorded in 06-02's SUMMARY).
+- DEBT-033 done 2026-11-25 (check re-pointed at D-031 and discharged; the old check was vacuous —
+  it read a pre-existing D-026 and passed on day one).
+- DEBT-034 done 2026-11-25 (docs/api.md written from state.rs's module doc).
+- DEBT-036 open (owner, phase:06): Q4 code signing — a Windows EV/OV certificate and an Apple
+  Developer ID are missing; installers stay unsigned beta until wired (secrets-only change).
+- DEBT-037 done 2026-11-25 (the 06-04 closing checkpoint was approved — owner looked at the window).
+- DEBT-038 open (agent, phase:06): the desktop CI workflow has never run; observe check-windows and
+  check-linux green plus the root test job's tauri/webkit-free log on the first push after the phase
+  commit (AC-1/AC-3's unproven halves).
 
 ### Skill Audit (Phase 03, plan 02)
 | Expected | Invoked | Notes |
@@ -118,9 +131,14 @@ PLAN ──▶ APPLY ──▶ UNIFY
 | /rsi | yes | no candidate; DEBT-016/017 carry the two that need building |
 
 ### Git State
-Last commit: d235b03 feat(05): synced state (the phase commit; 48 files)
-Branch: arch/axum-tauri (not pushed; DEBT-005 was discharged 2026-11-25 by the first green CI run)
-Uncommitted: check the tree
+Last commit: 8fdda40 chore(paul): record the phase-05 commit in STATE.md git state
+Branch: arch/axum-tauri (not pushed since the phase-05 commits; DEBT-005 was discharged 2026-11-25 by
+the first green CI run)
+Uncommitted: 06-03's hub/auth.js + hub/hub.html, the phase-06 plan set + the 06-01/06-02 crate
+(crates/desktop/), .gitignore, STATE/ROADMAP/paul.toml/DEBT.toml/DECISIONS.md/ledger.toml, the
+archived handoffs, 06-04's .github/workflows/desktop.yml + ci.yml fmt line + docs/api.md +
+docs/desktop.md + the two spec amendments (check-0603.mjs/.sh live in gitignored .paul/runs/, like
+the other drivers)
 
 ### Blockers/Concerns
 - Design doc Blockers still in the spec: C1, C2, R1 to R7 (see ROADMAP.md gates and
@@ -129,23 +147,34 @@ Uncommitted: check the tree
 
 ## Session Continuity
 
-Last session: 2026-11-25 (phase 05 UNIFY + transition)
-Stopped at: Phase 05 complete, ready to plan Phase 06
-Next action: /paul:plan for Phase 06 (Tauri desktop)
+Last session: 2026-11-26 (phase 06 complete, transitioned to phase 07)
+Stopped at: phase 06 closed (4/4 unified, reflect + rsi run, the feat(06) commit); phase 07 not started
+Next action: /paul:plan for Phase 07 (per-user MT5 bridges) — in the resumed fresh session
+  (config session_reset: phase; DEBT pile-up 14 waiting exceeds the budget 12, so the 07 plan must
+  schedule at least one discharge)
 Resume file: .paul/ROADMAP.md
-Session rule: after each plan's APPLY, /paul:pause, owner clears, next plan via /paul:resume in a
-new session (CARL GLOBAL rule 2; config session_reset: plan).
+Resume file: .paul/phases/06-desktop/06-04-SUMMARY.md
 Resume context:
-- Phase 05's surface is uncommitted until the phase commit (which the transition performs next):
-  crates state routes + migrations, hub/sync.js + page wiring, docs/vela-storage-keys.md, the two
-  test drivers, all .paul state files.
-- Reflect panel close-out applied: 3 code fixes (A15 unbacked-merge adoption, A16 per-key conflict
-  notices, A17 raced keep-mine) each with a harness case; D-026/D-027/D-028 recorded; L-037
-  validated by .paul/experiments/L-037.md; L-003→8, L-007→2, L-029→2; new candidates L-038..L-042.
-- The harness count is L-026-enforced: sync_harness.js CASES_EXPECTED=19, asserted in the run body.
-- Both test servers for 05-03 were throwaway (pgsqlite /tmp scratch on 55495, test-idp hub on 8771,
-  local on 8770); nothing in the repo points at them.
-- Playwright authenticated reads go through in-page fetch (L-037), never ctx.request (Secure cookie).
-- test-IdP accounts key on sub, not email; shared-dev-DB drivers scope entities per run (L-038).
-- CARL GLOBAL rules: justrust for cargo, ygrep/agentgrep first for searches, obscura first for
-  browser checks.
+- **06-04 shipped**: `.github/workflows/desktop.yml` (check-windows test+clippy, check-linux with
+  the four Tauri v2 packages, tag-only unsigned installers with "unsigned beta" release notes,
+  WINDOWS_CERTIFICATE/WINDOWS_CERTIFICATE_PASSWORD wired + env-guarded signing steps), one ci.yml
+  fmt line (`cargo fmt --manifest-path crates/desktop/Cargo.toml --check`), `docs/api.md` (the
+  /api/me/state contract from state.rs's module doc; all 7 error strings cross-checked),
+  `docs/desktop.md` (flow, capability posture, MSVC build), two spec amendments (one permission,
+  `window.vtvDesktop`), DECISIONS.md D-029/030/031.
+- **Verification**: js-yaml both workflows exit 0; `debt.py --run-checks` DEBT-033/034 OK done,
+  DEBT-036 waiting owner, DEBT-037 done (checkpoint approved); `debt.py --gate phase-06-exit`
+  clear; `gate_all.py --check-receipts` 8/8; DEBT-033 negative control (check=D-026 passes without
+  the decision) run and recorded in the row note.
+- **Unproven, reported plainly (AC-1/AC-3 remote halves)**: the CI runs were not observed — no
+  push was possible (tree uncommitted, auto_commit: false). First push proves check-windows/
+  check-linux green + the root test job's tauri/webkit-free log; first vX.Y.Z tag proves installers.
+- **Deviation**: the plan's `allow-start_sign_in` literal was wrong; the real permission id is
+  `allow-start-sign-in` (crates/desktop/permissions/autogenerated/start_sign_in.toml:4). Docs use
+  the true string.
+- **rtk gotcha**: `grep -c` through rtk returned a false 0 on docs/api.md; counts re-run bare
+  (RTK_OFF=1).
+- Owner decision still stands: do NOT deploy; the live site stays v0.1.1.
+- WebView2 quirk and obscura/playwright notes carry over from 06-03 (archived handoff
+  HANDOFF-2026-11-25-7, `.paul/handoffs/archive/`).
+- CARL GLOBAL rules: justrust for cargo, ygrep/agentgrep first for searches.

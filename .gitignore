@@ -30,6 +30,8 @@ Thumbs.db
 target/
 data/
 vendor/pgsqlite/
+# tauri-build's generated schemas and permission docs (crates/desktop, its own workspace)
+crates/desktop/gen/
 .dev/
 .playwright-mcp/
 .ds-receipts/
