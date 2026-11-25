@@ -1,0 +1,4 @@
+{
+  "status": 200,
+  "shape": "{binance:{msg:string,ok:bool},bybit:{msg:string,ok:bool},deriv:{msg:string,ok:bool}}"
+}

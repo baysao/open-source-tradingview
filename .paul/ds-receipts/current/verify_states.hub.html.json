@@ -1,0 +1,14 @@
+{
+ "gate": "verify_states",
+ "page": "hub.html",
+ "base": "http://127.0.0.1:8775",
+ "result": "fail",
+ "ts": 1795566882.743467,
+ "counts": {
+  "pass": false,
+  "checked": 24,
+  "unnamed": 5,
+  "hidden": 1,
+  "covered": 0
+ }
+}

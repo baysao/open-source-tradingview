@@ -1,0 +1,16 @@
+{
+ "gate": "lint_hardcodes",
+ "page": "hub.html",
+ "base": "http://127.0.0.1:8775",
+ "result": "fail",
+ "ts": 1795566882.743467,
+ "counts": {
+  "pass": false,
+  "exit": 1,
+  "tail": [
+   "",
+   "Scanned 1 of 1 candidate file(s).",
+   "FAIL: 222 hardcoded value(s). Map each to a token, or add a 'ds-allow-hardcode' comment for a justified exception."
+  ]
+ }
+}

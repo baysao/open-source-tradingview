@@ -1,0 +1,4 @@
+{
+  "status": 200,
+  "shape": "{arm:string,bybit:number,deriv:number,mt5:string,symbols:[{digits:number,group:string,name:string,open:bool,source:string,ticker:string}|{digits:number,group:string,name:string,source:string,ticker:string}|{group:string,name:string,source:string,ticker:string}],ws_port:number}"
+}

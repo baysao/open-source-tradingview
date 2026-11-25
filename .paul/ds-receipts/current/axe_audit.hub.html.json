@@ -1,0 +1,22 @@
+{
+ "gate": "axe_audit",
+ "page": "hub.html",
+ "base": "http://127.0.0.1:8775",
+ "result": "fail",
+ "ts": 1795566882.743467,
+ "counts": {
+  "pass": false,
+  "violations": [
+   {
+    "id": "label-title-only",
+    "impact": "serious",
+    "nodes": 1
+   },
+   {
+    "id": "region",
+    "impact": "moderate",
+    "nodes": 4
+   }
+  ]
+ }
+}

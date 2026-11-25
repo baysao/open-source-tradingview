@@ -15,7 +15,7 @@ use hub_core::AppState;
 use serde::Deserialize;
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 #[derive(Deserialize)]
@@ -261,6 +261,91 @@ async fn start_in_process() -> (
     (format!("http://127.0.0.1:{port}"), bg, server)
 }
 
+/// One case against the recorded shape fixtures (the Python oracle's replacement, phase 04).
+/// The comparison is the same key-set-and-type shape check the oracle got; `record` writes the
+/// fixture instead of comparing, so the first run with `CONTRACT_RECORD=1` freezes the served
+/// shapes and later runs hold the suite to the freeze. A `values = true` case keeps its shape
+/// only: recorded values would pin live upstream data that moves under the suite.
+async fn run_recorded_case(
+    client: &reqwest::Client,
+    rs: &str,
+    case: &Case,
+    allowed: &BTreeSet<String>,
+    dir: &Path,
+    record: bool,
+) -> Outcome {
+    let (status, v) = match fetch_case(client, rs, case).await {
+        Ok(r) => r,
+        Err(e) => return Outcome::Failed(format!("request failed: {e}")),
+    };
+    if case.status != 502 && status == 502 {
+        return Outcome::Skipped(format!("upstream: {v}"));
+    }
+    if status != case.status {
+        return Outcome::Failed(format!(
+            "status {status} expected {} (body {v})",
+            case.status
+        ));
+    }
+    let fixture = dir.join(format!("{}.json", case.name));
+    if record {
+        let body = match serde_json::to_string_pretty(&serde_json::json!({
+            "status": status,
+            "shape": shape(&v, "", allowed),
+        })) {
+            Ok(b) => b,
+            Err(e) => return Outcome::Failed(format!("serialise fixture: {e}")),
+        };
+        return match std::fs::create_dir_all(dir)
+            .and_then(|_| std::fs::write(&fixture, body + "\n"))
+        {
+            Ok(_) => Outcome::Passed,
+            Err(e) => Outcome::Failed(format!("write fixture: {e}")),
+        };
+    }
+    if !fixture.exists() {
+        return Outcome::Skipped("no recorded fixture (run once with CONTRACT_RECORD=1)".into());
+    }
+    let recorded: serde_json::Value = match std::fs::read_to_string(&fixture)
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())
+    {
+        Some(v) => v,
+        None => return Outcome::Failed("fixture unreadable".into()),
+    };
+    if recorded.get("status").and_then(|s| s.as_u64()) != Some(status as u64) {
+        return Outcome::Failed(format!(
+            "status {status}, fixture holds {:?}",
+            recorded.get("status")
+        ));
+    }
+    let got = shape(&v, "", allowed);
+    let want = recorded.get("shape").and_then(|s| s.as_str()).unwrap_or("");
+    if got != want {
+        return Outcome::Failed("shape differs from the recorded fixture".into());
+    }
+    if let Some(n) = case.bars_len {
+        let len = v.as_array().map(Vec::len);
+        if len != Some(n) {
+            return Outcome::Failed(format!("returned {len:?} bars, expected {n}"));
+        }
+    }
+    for key in &case.absent {
+        if v.get(key).is_some() {
+            return Outcome::Failed(format!("returned key {key:?}, expected none"));
+        }
+    }
+    if let Some(want_err) = &case.error {
+        if v["error"].as_str() != Some(want_err.as_str()) {
+            return Outcome::Failed(format!("error {:?} expected {want_err:?}", v["error"]));
+        }
+    }
+    if case.values {
+        return Outcome::Skipped("recorded shapes carry no values".into());
+    }
+    Outcome::Passed
+}
+
 async fn run_case(
     client: &reqwest::Client,
     py: &str,
@@ -429,7 +514,37 @@ async fn contract() {
                 }
             }
         }
-        None => skipped += cases.case.len(),
+        None => {
+            // The Python oracle retired in phase 04: the comparison cases hold their recorded
+            // shapes instead. CONTRACT_RECORD=1 freezes the shapes the server serves now.
+            let record = std::env::var("CONTRACT_RECORD")
+                .map(|v| v.trim() == "1")
+                .unwrap_or(false);
+            let recorded_dir =
+                PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/contract/recorded");
+            if record {
+                println!(
+                    "contract: recording shapes to {} (the Python oracle retired in phase 04)",
+                    recorded_dir.display()
+                );
+            }
+            for case in &cases.case {
+                match run_recorded_case(&client, &rs, case, &allowed, &recorded_dir, record).await {
+                    Outcome::Passed => {
+                        passed += 1;
+                        println!("  pass  {}", case.name);
+                    }
+                    Outcome::Skipped(why) => {
+                        skipped += 1;
+                        println!("  skip  {} ({why})", case.name);
+                    }
+                    Outcome::Failed(why) => {
+                        failed += 1;
+                        println!("  FAIL  {}: {why}", case.name);
+                    }
+                }
+            }
+        }
     }
     for probe in &cases.probe {
         let label = format!(

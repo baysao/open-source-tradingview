@@ -34,7 +34,9 @@ jobs:
       - uses: actions/checkout@v4
       - run: rustup show
       - uses: Swatinem/rust-cache@v2
-      # Without CONTRACT_PY_URL the contract tests skip; the contract job below runs them.
+      # The contract comparison cases hold their recorded shapes (tests/contract/recorded/,
+      # the Python oracle's phase-04 replacement); the contract job below also runs the probes
+      # against a live hub-server.
       - run: cargo test --workspace
 
   db:
@@ -128,3 +130,68 @@ jobs:
         if: failure()
         run: |
           tail -50 "$RUNNER_TEMP/rs.log" || true
+
+  browser-gates:
+    # DEBT-025: the served-page check (check-0402.mjs, 04-02's CSP/beacon/TTFC evidence) against
+    # a hosted test-idp build. Playwright and its chromium come from npm here, not from the dev
+    # box's ux-ui kit: the scripts accept PW_INDEX_MJS and PW_CHANNEL for exactly this.
+    # continue-on-error until the first green run proves the job (then DEBT-025 discharges and
+    # this flag goes).
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/postgres?sslmode=disable
+      VTV_SECRET_KEY: AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup show
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Playwright and its chromium
+        run: |
+          npm init -y >/dev/null
+          npm i --no-fund --no-audit playwright
+          npx playwright install --with-deps chromium
+      - run: cargo build -p hub-server --features test-idp
+      - name: Start the hosted test-idp server
+        run: |
+          HUB_HTTP_PORT=8771 \
+          HUB_STATIC_DIR="$PWD/hub" \
+          HUB_LOG_DIR="$RUNNER_TEMP/logs" HUB_CACHE_DIR="$RUNNER_TEMP/cache" \
+          AUTH_ENABLED=true \
+          PUBLIC_ORIGIN="http://127.0.0.1:8771" \
+          GOOGLE_CLIENT_ID="test-client.apps.googleusercontent.com" \
+          GOOGLE_CLIENT_SECRET="test-secret" \
+          GOOGLE_AUTH_URL="http://127.0.0.1:8771/__test-idp/authorize" \
+          GOOGLE_TOKEN_URL="http://127.0.0.1:8771/__test-idp/token" \
+          GOOGLE_JWKS_URL="http://127.0.0.1:8771/__test-idp/jwks" \
+          GOOGLE_ISSUER="https://accounts.google.com" \
+          ADMIN_EMAILS="owner@example.test" \
+          VTV_TEST_IDP=1 \
+          nohup target/debug/hub-server > "$RUNNER_TEMP/hub.log" 2>&1 &
+          for i in $(seq 1 60); do
+            curl -fs "http://127.0.0.1:8771/api/status" > /dev/null && break
+            sleep 1
+          done
+          curl -fs "http://127.0.0.1:8771/api/status" > /dev/null || { echo "server did not start"; tail -30 "$RUNNER_TEMP/hub.log"; exit 1; }
+      - name: Served-page check (hosted mode, no reconnect, no local)
+        env:
+          PW_INDEX_MJS: playwright
+          PW_CHANNEL: chromium
+          CHECK_HOSTED: http://127.0.0.1:8771
+          CHECK_RECONNECT: "0"
+        run: node .paul/runs/check-0402.mjs
+      - name: Server logs on failure
+        if: failure()
+        run: |
+          tail -50 "$RUNNER_TEMP/hub.log" || true

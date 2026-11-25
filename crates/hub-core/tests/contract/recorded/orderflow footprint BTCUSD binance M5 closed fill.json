@@ -1,0 +1,4 @@
+{
+  "status": 200,
+  "shape": "{candles:[{buy:[number],est:bool,r0:number,sell:[number],t:number}],covered_from:number,est_candles:number,method:string,pending:bool,real_symbol:string,row_size:number,source:string,unit:string}"
+}

@@ -107,10 +107,9 @@ PLAN ──▶ APPLY ──▶ UNIFY
 | /rsi | yes | no candidate; DEBT-016/017 carry the two that need building |
 
 ### Git State
-Last commit: 7ec1e61 (feat(03): database and Google sign-in complete)
-Branch: arch/axum-tauri (not pushed; DEBT-005 waits on the first green CI run)
-Uncommitted: phase 03 close-out, all of 04-01 (ops/, SOURCE.txt, load_ws.mjs) and all of 04-02
-(CSP, buckets, metrics, ttfc.js, lab.js reconnect, .paul state files); DEBT-024 waits on the owner
+Last commits: f744f09 (feat(04): public deploy complete, 88 files) + the ship-checklist sweep commit that follows it
+Branch: arch/axum-tauri (not pushed; DEBT-005 waits on the first green CI run, which waits on the push)
+Uncommitted: check the tree; the phase surface landed in f744f09 (DEBT-024 done 2026-11-25)
 
 ### Blockers/Concerns
 - Design doc Blockers still in the spec: C1, C2, R1 to R7 (see ROADMAP.md gates and

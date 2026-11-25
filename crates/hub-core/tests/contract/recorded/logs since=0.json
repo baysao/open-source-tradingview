@@ -1,0 +1,4 @@
+{
+  "status": 200,
+  "shape": "{boot:number,errors_15m:number,journal_raw:bool,last:number,latest_error:*,lines:[{id:number,lvl:string,msg:string,src:string,t:number}],now:number,problems:*,sources:*}"
+}

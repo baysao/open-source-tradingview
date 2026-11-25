@@ -181,3 +181,10 @@ phase = 4
 plan = "04-03"
 at = "2026-11-25T02:57:00+07:00"
 result = "UNIFIED: 5/5 tasks + agent-run checkpoint (owner-eye residual DEBT-026). AC-1..AC-6 pass: lint zero both pages, every link 200, gate_all 8/8 receipts + --check-receipts green, spec Risks H2 (C2) + three H2 promotions (C19), 9 Python files deleted, ci.yml Rust-only, contract Rust-only 7 passed/33 skipped/0 failed, fmt/clippy x2/139 workspace/169 test-idp all exit 0 bare, m1-m4 red-then-green (m3 twice per R-10). PHASE 04 CLOSED at this unify: reflect ran (3-lens panel + synthesizer, digest .paul/runs/reflect-0400-digest.md) - 11 accepted, 5 rejected, 2 backlog; R-11 written (auto-approval boundary), R-9 pages half, uxui gate-runner satisfaction note; L-032..036 added, L-031 validated; DEBT-027/028/029 opened, DEBT-025 note gains the CHECK_0303 window rule. UNIFIED but NOT LANDED: uncommitted with the rest of the phase (DEBT-024). Milestone v0.1: 4 of 4 phases complete; launch waits on owner rows."
+
+[[entry]]
+action = "ship-checklist"
+phase = 4
+plan = "sweep-1"
+at = "2026-11-25T03:40:00+07:00"
+result = "Owner picked the ship checklist. Committed the phase surface (f744f09, 88 files; DEBT-024 done). DEBT-027 done (D-019..021 transcribed into DECISIONS.md). DEBT-029 done (gate_all parameterized: ds-receipts/current, --pages required, page-mtime staleness, generic verify_states; mutations re-run red-then-green; the wider run exposed hub.html failing 6/8 gates -> DEBT-030 opened with the failing receipts as evidence). DEBT-028 done (recorded-shape fixtures in tests/contract/recorded/, contract.rs recorded mode: 32 passed / 8 skipped / 0 failed; the 8 orderflow values cases keep shapes only; stale ci.yml comment fixed). DEBT-025 local half done (check-0303/0402 accept PW_INDEX_MJS/PW_CHANNEL; ci.yml browser-gates job, continue-on-error until proven green on the first push - the row stays open for CI evidence). Gates after: fmt/clippy x2/139 workspace/169 test-idp all exit 0 bare."

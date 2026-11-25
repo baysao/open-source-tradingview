@@ -1,0 +1,15 @@
+{
+ "gate": "lint_hardcodes",
+ "page": "notices.html",
+ "base": "http://127.0.0.1:8775",
+ "result": "pass",
+ "ts": 1795567069.9880488,
+ "counts": {
+  "pass": true,
+  "exit": 0,
+  "tail": [
+   "Scanned 1 of 1 candidate file(s).",
+   "OK: no hardcoded values found."
+  ]
+ }
+}

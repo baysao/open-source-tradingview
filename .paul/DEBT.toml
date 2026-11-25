@@ -238,7 +238,7 @@ kind = "artifact"
 origin = "04-01 unify"
 owner = "owner"
 trigger = "event:owner-commit"
-status = "open"
+status = "done"
 check = { type = "command", run = "git log --oneline -1 -- ops/cloudflared.yml | grep -c .", expect = "1" }
 note = "The check passes only once a commit contains ops/cloudflared.yml; an empty log means the artifact is still uncommitted. The owner's rule is commit only when asked, so this row is the ask. Widened at 04-02 unify to name the 04-02 surface too; the check is unchanged (it proves a phase-04 commit exists), the title now lists what that commit must carry."
 
@@ -304,9 +304,9 @@ kind = "tech"
 origin = "phase 04 reflect (divergent lens)"
 owner = "agent"
 trigger = "phase:05"
-status = "open"
+status = "done"
 check = { type = "text_present", path = "crates/hub-core/tests/contract.rs", pattern = "recorded fixture" }
-note = "The Python retirement left 33 wire-parity comparisons skipping as the expected green (7 passed, 33 skipped, 0 failed), and their only re-creation note is a YAML comment, which cannot fail (R-4). The golden-fixture pattern in orderflow_golden.rs is the in-repo template. ci.yml's intro comment ('the contract job below runs them') is false for the comparisons until this lands."
+note = "The Python retirement left 33 wire-parity comparisons skipping as the expected green (7 passed, 33 skipped, 0 failed), and their only re-creation note is a YAML comment, which cannot fail (R-4). The golden-fixture pattern in orderflow_golden.rs is the in-repo template. ci.yml's intro comment ('the contract job below runs them') is false for the comparisons until this lands. Discharged 2026-11-25: recorded-shape mode shipped (CONTRACT_RECORD=1 freezes tests/contract/recorded/), the suite went from 7 passed / 33 skipped to 32 passed / 8 skipped / 0 failed. The 8 values = true orderflow cases keep their shapes only: recorded values would pin live upstream data, so their value parity stays with the skipped listing until a stable fixture story exists."
 
 [[debt]]
 id = "DEBT-029"
@@ -315,6 +315,17 @@ kind = "tech"
 origin = "phase 04 reflect (divergent lens)"
 owner = "agent"
 trigger = "phase:05"
-status = "open"
+status = "done"
 check = { type = "command", run = "grep -c 'ds-receipts/04-03' .paul/runs/gate_all.py", expect = "0" }
-note = "The runner stamps 8/8 gates receipted over exactly the two pages its birth plan created, hardcodes the receipt dir, and bakes one plan's change-set assertion (footerLinks >= 1) into a generic gate body; a page edited after the run stays green because staleness compares the manifest only. R-9's pages half rides on this."
+note = "The runner stamps 8/8 gates receipted over exactly the two pages its birth plan created, hardcodes the receipt dir, and bakes one plan's change-set assertion (footerLinks >= 1) into a generic gate body; a page edited after the run stays green because staleness compares the manifest only. R-9's pages half rides on this. Discharged 2026-11-25: receipts default to ds-receipts/current, --pages is required for a run, the change-set assertion left verify_states, staleness now also keys on the page's mtime (which immediately exposed hub.html's gate debt - DEBT-030). The wider run and the re-run mutation set are the discharge evidence."
+
+[[debt]]
+id = "DEBT-030"
+title = "Bring hub.html under the gate set: the legacy shell fails 6 of the 8 gates (lint_hardcodes 222 hardcoded values, axe, measure_render, verify_states, lint_intent, design_lint) and index.html has never been gated"
+kind = "tech"
+origin = "ship checklist (DEBT-029's pages half exposed it)"
+owner = "agent"
+trigger = "phase:05"
+status = "open"
+check = { type = "command", run = "python .paul/runs/gate_all.py --base http://127.0.0.1:8770 --pages hub.html,index.html --check-receipts", expect = "8/8 gates receipted" }
+note = "The pages half of R-9 exposed it on the first wider run: the failing receipts for hub.html are kept in .paul/ds-receipts/current/ as the evidence. hub.html is a legacy surface that predates the token discipline; the work is bringing it to tokens and landmarks without changing what it does. Until then the shipped-gate claim covers the new pages (privacy, notices) only."
