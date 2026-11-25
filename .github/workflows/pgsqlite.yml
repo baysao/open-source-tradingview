@@ -43,6 +43,10 @@ jobs:
           REV="${{ github.event.inputs.rev || '5e34b2d2a3e6ca2e9a74a15f723cc942a9a739fc' }}"
           echo "full=$REV" >> "$GITHUB_OUTPUT"
           echo "short=${REV:0:7}" >> "$GITHUB_OUTPUT"
+      # This workflow lives in the app repo (the release it publishes must be there, so mise can
+      # fetch it from the same origin). Check THAT repo out first: without a .git of its own,
+      # `gh release` has no repository and fails. The fork goes in a subdirectory.
+      - uses: actions/checkout@v4
       - uses: actions/checkout@v4
         with:
           repository: baysao/pgsqlite
@@ -56,7 +60,7 @@ jobs:
           fi
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: pgsqlite
+          workspaces: pgsqlite -> target
           key: pgsqlite-${{ matrix.target }}
       - name: Build the release binary
         working-directory: pgsqlite
