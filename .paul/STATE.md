@@ -131,14 +131,10 @@ PLAN ──▶ APPLY ──▶ UNIFY
 | /rsi | yes | no candidate; DEBT-016/017 carry the two that need building |
 
 ### Git State
-Last commit: 8fdda40 chore(paul): record the phase-05 commit in STATE.md git state
-Branch: arch/axum-tauri (not pushed since the phase-05 commits; DEBT-005 was discharged 2026-11-25 by
-the first green CI run)
-Uncommitted: 06-03's hub/auth.js + hub/hub.html, the phase-06 plan set + the 06-01/06-02 crate
-(crates/desktop/), .gitignore, STATE/ROADMAP/paul.toml/DEBT.toml/DECISIONS.md/ledger.toml, the
-archived handoffs, 06-04's .github/workflows/desktop.yml + ci.yml fmt line + docs/api.md +
-docs/desktop.md + the two spec amendments (check-0603.mjs/.sh live in gitignored .paul/runs/, like
-the other drivers)
+Last commit: 5d9c509 feat(06): tauri desktop shell, sign-in handoff, CI and docs
+Branch: arch/axum-tauri (not pushed since the phase-05 commits; the desktop.yml first run is
+DEBT-038's proof, due on the next push)
+Uncommitted: none (the phase commit landed everything; drivers stay in gitignored .paul/runs/)
 
 ### Blockers/Concerns
 - Design doc Blockers still in the spec: C1, C2, R1 to R7 (see ROADMAP.md gates and
@@ -152,7 +148,7 @@ Stopped at: phase 06 closed (4/4 unified, reflect + rsi run, the feat(06) commit
 Next action: /paul:plan for Phase 07 (per-user MT5 bridges) — in the resumed fresh session
   (config session_reset: phase; DEBT pile-up 14 waiting exceeds the budget 12, so the 07 plan must
   schedule at least one discharge)
-Resume file: .paul/ROADMAP.md
+Resume file: .paul/HANDOFF-2026-11-26.md
 Resume file: .paul/phases/06-desktop/06-04-SUMMARY.md
 Resume context:
 - **06-04 shipped**: `.github/workflows/desktop.yml` (check-windows test+clippy, check-linux with
