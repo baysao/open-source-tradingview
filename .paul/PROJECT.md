@@ -25,8 +25,8 @@ scripts kept in their Google account.
 | Attribute | Value |
 |-----------|-------|
 | Type | Application (complex) |
-| Version | 0.0.0 |
-| Status | Initializing |
+| Version | 0.2.0 |
+| Status | Milestone v0.2 complete (hosted site serves v0.1.1; promotion waits on owner rows) |
 | Last Updated | 2026-11-26 |
 
 ## Requirements
@@ -156,4 +156,4 @@ See `.paul/config.md` and `.paul/SPECIAL-FLOWS.md`.
 
 ---
 *Created: 2026-11-23 (imported from .paul/PLANNING.md and .paul/design/specs/vtradingview.md)*
-*Last updated: 2026-11-26 after Phase 07*
+*Last updated: 2026-11-26 after milestone v0.2*

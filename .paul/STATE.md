@@ -18,35 +18,23 @@ unified 2026-11-25; phase 06 (Tauri desktop) planned 2026-11-25 in four plans, a
 
 ## Current Position
 
-Milestone: v0.2 Accounts everywhere
-Phase: 07 of 07 (Per-user MT5 bridges) - Complete
-Plan: 07-01 and 07-02 UNIFIED 2026-11-26; 07-03 UNIFIED 2026-11-26; 07-04 UNIFIED 2026-11-26
-Status: Phase 07 CLOSED 2026-11-26 — all 4 plans unified, the exit debt gate clear (DEBT-039
-discharged by the owner's real-bridge observation), /security-review --full run (no Critical/High;
-2 Medium + 1 Low filed as DEBT-042). Milestone v0.2 is 3 of 3 phases complete. Next: the phase
-commit `feat(07)` (asks first), then milestone wrap-up (complete-milestone) — and the launch rows.
-Last activity: 2026-11-26 - DEBT-039 discharged: the owner ran the real bridge on the MT5 host
-(Exness-MT5Real28, python+cloudflared via mise, quick tunnel), registered it in Settings, watched
-live XAUUSDm candles; the agent verified the public half (health/bars/wait/symbols all 200, 358
-symbols). DEBT-043 (named tunnel + ONSTART tasks + registration-file handoff) and DEBT-042
-(security findings) filed as waiting rows.
+Milestone: complete (v0.2 Accounts everywhere, 2026-11-26) — awaiting the next milestone
+Phase: None active
+Plan: None
+Status: Milestone v0.2 complete — ready for /paul:discuss-milestone or /paul:milestone
+Last activity: 2026-11-26T13:40+07:00 — milestone completed (MILESTONES.md entry, archive,
+ROADMAP reorganized, PROJECT evolved to 0.2.0)
 
 Progress:
-- Phase 01: complete 2026-11-23 (milestone v0.1: 1 of 4 phases)
-- Phase 02: complete 2026-11-23 (reflect deferred: owner has not run /reflect)
-- Phase 03: complete 2026-11-24 (3 of 3 plans unified; reflect + RSI done at 03-03)
-- Phase 04: complete 2026-11-25 (3 of 3 plans unified; phase reflect run)
-- Phase 05: complete 2026-11-25 (4 of 4 plans unified; phase reflect + rsi run)- Phase 06: complete 2026-11-26 (4 of 4 plans unified; phase reflect + rsi run at 06-04; the
-  per-plan evidence lives in 06-01..06-04-SUMMARY.md)
-- Phase 07: complete 2026-11-26 (4 of 4 plans unified; phase reflect + rsi run at 07-04;
-  DEBT-039 discharged by the owner's observation; milestone v0.2 phases all complete)
+- v0.1 Hosted launch: complete 2026-11-25 (4 phases, 13 plans)
+- v0.2 Accounts everywhere: complete 2026-11-26 (3 phases, 12 plans)
 
 ## Loop Position
 
 Current loop state:
 ```
 PLAN ──▶ APPLY ──▶ UNIFY
-  ✓        ✓        ✓     [Phase 07 complete 2026-11-26; milestone v0.2 phases done]
+  ○        ○        ○     [Milestone v0.2 complete - ready for next]
 ```
 
 ## Accumulated Context
@@ -167,13 +155,13 @@ negative half (another login sees neither the bridge nor its symbols) is enforce
 (owner-scoped routes, cross-user 404) and proven by the 07-03 suites. The quick-tunnel durability
 gap and the credential handoff are filed as DEBT-043 (waiting).
 
-Last session: 2026-11-26 (phase 07 closed: DEBT-039 discharged by the owner; exit gate clear)
-Stopped at: Phase 07 complete — transition finished except the phase commit. Milestone v0.2 is
-  3 of 3 phases complete.
-Next action: the phase commit `feat(07): per-user MT5 bridges` landing wave-1 + 07-03 + 07-04
-  (auto_commit: false — the owner is asked first; the first push after it discharges DEBT-038's
-  CI proof), then complete-milestone for v0.2.
-Resume file: .paul/phases/07-bridges/07-04-SUMMARY.md
+Last session: 2026-11-26 (milestone v0.2 completed: phases 05/06/07 shipped, pushed, CI green)
+Stopped at: Milestone v0.2 complete — MILESTONES.md entry written, ROADMAP reorganized with the
+  archive at .paul/milestones/v0.2-ROADMAP.md, PROJECT at 0.2.0.
+Next action: /paul:discuss-milestone (define the next milestone) or /paul:milestone (create it
+  directly). Standing work while deciding: the launch-waiting owner rows (Q2/Q3/Q9, DEBT-020/026)
+  and the agent rows (DEBT-040..043).
+Resume file: .paul/MILESTONES.md
 Resume context:
 - **Reflect outcomes this unify**: L-024/L-029 validated (hits 3), L-027 generalized (hits 2),
   L-048/L-049/L-050 added; D-034 (plans emit parallel_agents: false here); R-12 (automated

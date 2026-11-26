@@ -14,7 +14,7 @@ mode: full   # lite (default) | standard | full; see paul-config "Mode"
 ```yaml
 project:
   name: vtradingview
-  version: 0.0.0
+  version: 0.2.0
 ```
 
 ## Tools

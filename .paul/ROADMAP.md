@@ -14,10 +14,34 @@ Rust (Axum) server, Google accounts that sync each user's work, and a Tauri 2 de
 
 ## Current Milestone
 
-**v0.2 Accounts everywhere** (v0.2.0)
-Status: Phase 07 complete 2026-11-26 (4 of 4 plans unified; phase reflect + rsi run; the exit debt
-gate blocks on DEBT-039, the owner's real-bridge observation)
-Phases: 3 of 3 complete
+Run /paul:discuss-milestone or /paul:milestone to define the next one.
+
+## Completed Milestones
+
+<details>
+<summary>v0.1 Hosted launch - 2026-11-25 (4 phases, 13 plans)</summary>
+
+| Phase | Name | Plans | Completed |
+|-------|------|-------|-----------|
+| 01 | Rust workspace and hub-server parity | 3/3 | 2026-11-23 |
+| 02 | Order flow in Rust | 3/3 | 2026-11-23 |
+| 03 | Database and Google sign-in | 3/3 | 2026-11-24 |
+| 04 | Public deploy | 3/3 | 2026-11-25 |
+
+</details>
+
+<details>
+<summary>v0.2 Accounts everywhere - 2026-11-26 (3 phases, 12 plans)</summary>
+
+| Phase | Name | Plans | Completed |
+|-------|------|-------|-----------|
+| 05 | Synced state | 4/4 | 2026-11-25 |
+| 06 | Tauri desktop | 4/4 | 2026-11-26 |
+| 07 | Per-user MT5 bridges | 4/4 | 2026-11-26 |
+
+Full details: `.paul/MILESTONES.md`, archives: `.paul/milestones/`.
+
+</details>
 
 ## Milestones
 
@@ -26,9 +50,9 @@ Phases: 3 of 3 complete
 | v0.1 Hosted launch | 01 to 04 | the public site with live charts and Google sign-in |
 | v0.2 Accounts everywhere | 05 to 07 | synced state, desktop app, per-user MT5 |
 
-**v0.1 note:** all four phases are complete and their gates passed; the public launch itself still waits
-on the owner rows (OAuth URI DEBT-013, data terms Q2, trademark Q3, privacy text Q9). DEBT-018 (host) and
-DEBT-005 (first green CI) are discharged.
+**Launch note:** the hosted site stays at v0.1.1; promoting it to the v0.2 build waits on the owner
+rows (data terms Q2, trademark Q3, privacy text Q9 — DEBT-020/026; DEBT-013 and DEBT-018 are
+discharged).
 
 ## Phases
 
@@ -214,3 +238,4 @@ registration-file credential handoff), DEBT-040/041 (agent), and the launch-wait
 
 ---
 *Roadmap created: 2026-11-23*
+*Last updated: 2026-11-26 after milestone v0.2*

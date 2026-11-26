@@ -1,6 +1,6 @@
 [package]
 name = "hub-core"
-version = "0.1.0"
+version = "0.2.0"
 description = "TradeX hub server as a library: one router (hub_core::app) for every host"
 edition.workspace = true
 license.workspace = true

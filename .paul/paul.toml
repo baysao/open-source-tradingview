@@ -11,7 +11,7 @@ source = "https://chrisai.cv/skool"
 [milestone]
 name = "v0.2 Accounts everywhere"
 version = "0.2.0"
-status = "in_progress"
+status = "complete"
 phases = 7
 
 [phase]
@@ -29,4 +29,4 @@ groom = true
 [stats]
 total_plans = 19
 total_phases = 9
-last_activity = "2026-11-26T13:10:00+07:00"
+last_activity = "2026-11-26T13:40:00+07:00"

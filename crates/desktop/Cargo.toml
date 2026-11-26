@@ -1,6 +1,6 @@
 [package]
 name = "desktop"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "TradeX desktop shell (Tauri 2): the hosted hub in a native window"
 license = "AGPL-3.0-only"
