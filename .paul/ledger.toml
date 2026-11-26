@@ -420,3 +420,9 @@ phase = 8
 plan = "08-03"
 at = "2026-11-26T18:55:00+07:00"
 result = "UNIFIED: 4/4 tasks, AC-1..AC-5 pass. The phase accept is met: 33/33 contract cases identical (plain + SSE passes) vs the oracle copy, six mutations red-then-green with the L-026 pin, python bridge retired (grep clean), release.yml parses, mise.mt5.toml resolves the exact asset URL (404 pending the next tag), release binary refuses exit 1. reflect+rsi: pending at the phase close (pstack, session_reset plan). Phase 08's 3 plans all unified; transition next. Debt: 0 overdue, 15 waiting, 28 done."
+
+[[entry]]
+action = "transition"
+phase = 8
+at = "2026-11-26T19:05:00+07:00"
+result = "PHASE 08 COMPLETE. Phase commit 7317378 feat(08): rust MT5 bridge, mise distribution, python bridge retired (30 files). Debt gate phase-08-exit clear (0 overdue). PROJECT.md evolved: v0.3.0, phase 08 validated row, D-035/D-036 added, MT5 tech-stack row now the binary. ROADMAP: phase 08 complete, 1 of 2 v0.3 phases. Next: phase 09 Bridge manager app; phase reflect (pstack) runs at the session reset (session_reset: plan), then /paul:plan."

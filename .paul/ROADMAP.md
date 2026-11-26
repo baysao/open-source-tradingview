@@ -16,7 +16,7 @@ Rust (Axum) server, Google accounts that sync each user's work, and a Tauri 2 de
 
 **v0.3 Bridge platform**
 Status: In progress
-Phases: 0 of 2 complete
+Phases: 1 of 2 complete
 
 The bridge becomes a Rust binary distributed by mise, and a Tauri manager app on the MT5 VPS
 installs, pairs (OTP from Settings), controls and monitors it. Deployment stays terminal-local:
@@ -247,10 +247,11 @@ transition gate: no Critical/High, 2 Medium + 1 Low filed as DEBT-042. Also clos
 milestone: DEBT-038 done (first-push CI green, both workflows).
 
 ### Phase 08: Rust bridge and mise distribution
-- **Status (2026-11-26):** all 3 plans unified — 08-01 (crate, 21 tests), 08-02 (served bridge,
-  40 tests), 08-03 (parity proven: 33/33 contract cases identical across plain + SSE passes,
-  six mutations red-then-green; distribution wired; the Python bridge retired). Phase commit and
-  phase reflect pending at the transition.
+- **Status: ✅ Complete 2026-11-26** — 3/3 plans unified (08-01 crate 21 tests; 08-02 served
+  bridge 40 tests; 08-03 parity proven: 33/33 contract cases identical across plain + SSE passes,
+  six mutations red-then-green, distribution wired, `bridge/mt5_bridge.py` retired). Phase commit
+  `feat(08)` = 7317378. Deferred to phase 09's checkpoints: stale-session behavior on the real
+  terminal, `time_ms` ms-digit confirmation, ONLOGON-vs-ONSTART, the mise leg's real install.
 - **Build:** the Rust rewrite of `bridge/mt5_bridge.py` — MCP client (initialize handshake,
   session behind a lock, reopen-once on a dead session) to the MT5 terminal's built-in MCP
   server, the four HTTPS routes with identical JSON shapes (`/health`, `/symbols`, `/bars`,

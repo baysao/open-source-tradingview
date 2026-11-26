@@ -25,8 +25,8 @@ scripts kept in their Google account.
 | Attribute | Value |
 |-----------|-------|
 | Type | Application (complex) |
-| Version | 0.2.0 |
-| Status | Milestone v0.2 complete (hosted site serves v0.1.1; promotion waits on owner rows) |
+| Version | 0.3.0 |
+| Status | Milestone v0.3 phase 08 complete (the bridge is a Rust binary; phase 09 is the manager app) |
 | Last Updated | 2026-11-26 |
 
 ## Requirements
@@ -60,6 +60,11 @@ scripts kept in their Google account.
   (`start_sign_in`), the nav guard refuses off-origin, tray Show/Quit; checkpoint approved
   2026-11-25 (owner looked at the window); 31 crate tests + 5 phase mutations red-then-green,
   gate receipts 8/8
+- ✓ The MT5 bridge is a Rust binary distributed by mise (G6's runtime): parity proven by the
+  08-03 contract suite (33/33 cases identical to the Python oracle across plain-JSON and SSE
+  passes), six mutations red-then-green, release.yml publishes mt5-bridge-vX.Y.Z-windows-x64.zip,
+  the host install is `MISE_ENV=mt5 mise install mt5-bridge`, and `bridge/mt5_bridge.py` is
+  retired - Phase 08
 - ✓ Per-user MT5 bridge plumbing (G6): sealed token storage (XChaCha20-Poly1305), SSRF guard
   refusing every private/loopback/link-local target with auth on, owner-scoped routes (cross-user
   404), symbols merged owner-only, per-(bridge,symbol,tf) poller, settings screen + picker wiring
@@ -69,8 +74,8 @@ scripts kept in their Google account.
   XAUUSDm candles stream (public half verified by the agent: health/bars/wait/symbols 200)
 
 ### Planned (Next)
-- v0.1 Hosted launch: Rust parity, order flow in Rust, database and Google sign-in, public deploy
-- v0.2 Accounts everywhere: synced state, Tauri desktop, per-user MT5 bridges
+- v0.3 Bridge platform: 08 Rust bridge + mise distribution done; 09 Tauri manager app on the MT5
+  VPS (install, OTP pairing, control, status) remains
 
 ### Out of Scope
 - Order placement or any trading action (read-only market data)
@@ -88,7 +93,7 @@ scripts kept in their Google account.
 - `hub-server` binds `127.0.0.1`; ingress only through the Cloudflare Tunnel
 - Migrations stay in the Postgres subset pgsqlite supports; CI runs pgsqlite and Postgres 17
 - The bridge speaks MCP to the MT5 terminal's built-in MCP server (no MetaTrader SDK, no
-  third-party gateway); v0.3 rewrites it in Rust, keeping the route/JSON surface
+  third-party gateway); the Rust rewrite (v0.3 phase 08) kept the route/JSON surface byte-for-byte
 - Google forbids OAuth inside webviews: desktop sign-in goes through the system browser
 - New screens use only the hub theme variables from `hub/theme.js` (graphite, black, light presets)
 - Repo house rules: no emoji, no em or en dashes, no native `<select>`, no one-sided coloured borders
@@ -124,6 +129,8 @@ scripts kept in their Google account.
 | Bridge surface contract (D-032): optional ws `bridge` field, owner-only symbols merge, per-(bridge,symbol,tf) poller, cross-user 404, no new rate bucket | the anonymous surfaces and D-009 parity hold by construction; the per-bridge semaphore plus shared poller is the spec's per-user bound | 2026-11-26 | Active |
 | Local mode carries one env-configured bridge `local`; loopback URLs only when auth is off (D-033) | local mode has no users so no registered bridge can exist; the env bridge doubles as the served-test seam | 2026-11-26 | Active |
 | Plans in this repo emit `parallel_agents: false` (D-034) | ZCode has no worktree isolation; sequential waves are the designed behaviour, not a degradation | 2026-11-26 | Active |
+| Every wire float goes through `py_str` (D-035): Rust's `{}` is not Python `str(float)` | the /wait key is diffed byte-for-byte; integral volumes print `1829.0` in Python but `1829` in Rust | 2026-11-26 | Active |
+| Domain functions take `&M: Terminal` (D-036), `Mcp` in production | in-memory fakes under test keep sockets out of domain tests (L-016); the sealed leaf stays sealed | 2026-11-26 | Active |
 
 ## Success Metrics
 
@@ -147,7 +154,7 @@ scripts kept in their Google account.
 | Desktop | Tauri 2 with deep-link and opener plugins | `crates/desktop` |
 | Process mgmt | gaffa with a `Procfile` (`db`, `hub`, `tunnel`) | pattern from `~/project/pricehub` |
 | Edge | Cloudflare Tunnel | new tunnel `vtradingview` |
-| MT5 | `bridge/mt5_bridge.py` with `BRIDGE_TOKEN` | per-user, HTTPS |
+| MT5 | `mt5-bridge` Rust binary (crates/mt5-bridge), distributed by mise (`mise.mt5.toml`) | per-user, HTTPS; reads `bridge.env` exe-relative |
 
 ## PAUL Configuration
 
@@ -157,4 +164,4 @@ See `.paul/config.md` and `.paul/SPECIAL-FLOWS.md`.
 
 ---
 *Created: 2026-11-23 (imported from .paul/PLANNING.md and .paul/design/specs/vtradingview.md)*
-*Last updated: 2026-11-26 after milestone v0.2*
+*Last updated: 2026-11-26 after Phase 08 (v0.3)*
