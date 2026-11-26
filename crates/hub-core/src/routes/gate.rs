@@ -3,10 +3,11 @@
 //!
 //! Order: a path outside the three areas passes with no database hit; `/admin/*` resolves the
 //! viewer and answers 404 unless admin (before the Origin rule, so an outsider learns nothing);
-//! any non-GET in an area needs `Origin == PUBLIC_ORIGIN` (missing refused, 403); a non-GET that
-//! declares a body needs JSON (415) under 300,000 bytes (413); then the viewer is resolved once
-//! and inserted as `Extension<Viewer>`; after the handler, the slide's cookie is appended unless
-//! the response already sets the session cookie (sign-in, logout, delete win).
+//! any non-GET in an area needs `Origin == PUBLIC_ORIGIN` (missing refused, 403) except the two
+//! secret-authenticated pairing paths; a non-GET that declares a body needs JSON (415) under
+//! 300,000 bytes (413); then the viewer is resolved once and inserted as `Extension<Viewer>`;
+//! after the handler, the slide's cookie is appended unless the response already sets the session
+//! cookie (sign-in, logout, delete win).
 
 use crate::auth::{AuthError, SetCookie, Viewer};
 use crate::routes::api_error;
@@ -70,6 +71,28 @@ fn declares_body(req: &Request<Body>) -> bool {
     declared > 0 || req.headers().contains_key(header::TRANSFER_ENCODING)
 }
 
+/// The two pairing routes the manager app calls, which authenticate by a presented SECRET
+/// rather than by the session cookie: `POST /api/me/mt5/pair` (a one-time pairing code) and
+/// `POST /api/me/mt5/paired/{id}/revoke` (a per-bridge revoke secret). 09-01.
+///
+/// The Origin rule stops a hostile page from riding the user's cookie (D-010). These paths never
+/// read that cookie: their credential is the body secret, so a cross-site caller has nothing to
+/// ride, while the rule as written would refuse the one legitimate caller — the Rust manager app
+/// on the MT5 host, which sends no `Origin` header at all.
+///
+/// Matched structurally, never by prefix: `/api/me/mt5/pairing-code` (the mint, which IS
+/// session-gated) and every other `/api/me/mt5*` path keep the rule. A prefix test would quietly
+/// unguard the mint and each future sibling.
+fn is_secret_authenticated(path: &str) -> bool {
+    if path == "/api/me/mt5/pair" {
+        return true;
+    }
+    // `/api/me/mt5/paired/{id}/revoke`: five leading segments, an opaque non-empty id, a fixed
+    // tail. `split('/')` on a rooted path always yields a leading empty segment.
+    let p: Vec<&str> = path.split('/').collect();
+    matches!(p.as_slice(), ["", "api", "me", "mt5", "paired", id, "revoke"] if !id.is_empty())
+}
+
 /// The gate. Mounted on the whole router only when hosted (local mode has no gated route).
 pub async fn gate(State(st): State<AppState>, req: Request<Body>, next: Next) -> Response {
     let Some(area) = area(req.uri().path()) else {
@@ -102,11 +125,14 @@ pub async fn gate(State(st): State<AppState>, req: Request<Body>, next: Next) ->
 
     if req.method() != axum::http::Method::GET {
         // D-010, hosted strictness: a missing Origin is refused too (curl and agents included).
-        let origin_ok = req
-            .headers()
-            .get(header::ORIGIN)
-            .and_then(|v| v.to_str().ok())
-            .is_some_and(|o| o == st.cfg.public_origin);
+        // The secret-authenticated pairing paths are exempt (see `is_secret_authenticated`): they
+        // carry their own credential in the body and never read the session cookie.
+        let origin_ok = is_secret_authenticated(req.uri().path())
+            || req
+                .headers()
+                .get(header::ORIGIN)
+                .and_then(|v| v.to_str().ok())
+                .is_some_and(|o| o == st.cfg.public_origin);
         if !origin_ok {
             tracing::debug!(target: "auth", "origin refused");
             return api_error(StatusCode::FORBIDDEN, "forbidden origin");
@@ -182,5 +208,26 @@ mod tests {
         assert_eq!(area("/ws"), None);
         assert_eq!(area("/authx"), None, "the slash ends the prefix");
         assert_eq!(area("/adminx"), None);
+    }
+
+    /// The Origin exemption is exactly two paths, and it must never widen (09-01 AC-5).
+    #[test]
+    fn only_the_two_secret_authenticated_paths_skip_the_origin_rule() {
+        assert!(is_secret_authenticated("/api/me/mt5/pair"));
+        assert!(is_secret_authenticated(
+            "/api/me/mt5/paired/0192f3a4-0000-7000-8000-000000000000/revoke"
+        ));
+        // The MINT is session-gated and must keep the rule: a prefix test here would lose it.
+        assert!(!is_secret_authenticated("/api/me/mt5/pairing-code"));
+        // No sibling widens either: the register/list/test/delete surface is untouched.
+        assert!(!is_secret_authenticated("/api/me/mt5"));
+        assert!(!is_secret_authenticated("/api/me/mt5/paired"));
+        assert!(!is_secret_authenticated("/api/me/mt5/paired/x"));
+        assert!(!is_secret_authenticated("/api/me/mt5/paired//revoke"));
+        assert!(!is_secret_authenticated(
+            "/api/me/mt5/paired/x/revoke/extra"
+        ));
+        assert!(!is_secret_authenticated("/api/me/state"));
+        assert!(!is_secret_authenticated("/api/me/mt5/pair/extra"));
     }
 }

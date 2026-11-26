@@ -88,6 +88,24 @@ engines!(
                 continue;
             }
             let url = format!("{base}{}", sample_path(s.path));
+            // The two secret-authenticated pairing paths (09-01) are exempt by design: their
+            // credential is the body secret, not the cookie, so the Origin rule would only
+            // refuse the Rust manager app that legitimately holds it. Both must still NOT be
+            // 403 on either Origin -- the reachability assertion below is the proof, and the
+            // exemption's exact shape is pinned in src/routes/gate.rs's own unit test.
+            let secret_auth = s.path == "/api/me/mt5/pair"
+                || (s.path.starts_with("/api/me/mt5/paired/") && s.path.ends_with("/revoke"));
+            if secret_auth {
+                // No Origin, empty body: the handler answers on the secret's merits (401 for a
+                // missing/unknown one), never 403.
+                let r = if s.method == reqwest::Method::POST {
+                    h.client.post(&url).json(&json!({})).send().await.unwrap()
+                } else {
+                    panic!("unexpected method {}", s.method)
+                };
+                assert_ne!(r.status(), 403, "{} {} is secret-authenticated", s.method, s.path);
+                continue;
+            }
             // No Origin: refused.
             let method = s.method.clone();
             let r = match method {

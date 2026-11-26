@@ -7,6 +7,8 @@
 use sqlx::PgPool;
 use uuid::Uuid;
 
+use crate::auth::ids::RevokeHash;
+
 /// B1.
 const B1: &str = "INSERT INTO mt5_bridges (id, user_id, label, url, token_enc, symbols_json, last_ok_at, last_error, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)";
 /// B2: one user's bridges, oldest first (the Settings list).
@@ -17,10 +19,24 @@ const B3: &str = "SELECT id, url, token_enc, symbols_json, last_ok_at, last_erro
 const B4: &str = "DELETE FROM mt5_bridges WHERE id = $1 AND user_id = $2";
 /// B5: the result of a Test (placeholders ascend in text order, DEBT-012).
 const B5: &str = "UPDATE mt5_bridges SET symbols_json = $1, last_ok_at = $2, last_error = $3 WHERE id = $4 AND user_id = $5";
+/// B6: one bridge's standing revoke secret (0004's side table; shown once, stored hashed).
+const B6: &str = "INSERT INTO mt5_bridge_secrets (bridge_id, revoke_hash) VALUES ($1, $2)";
+/// B7: the revoke lookup. The owner check is a separate statement so this one stays single-table
+/// (D-014): the caller reads B3 first and only then asks whether the secret matches. The secret
+/// row needs no explicit delete: B4's `ON DELETE CASCADE` on `bridge_id` takes it.
+const B7: &str =
+    "SELECT bridge_id FROM mt5_bridge_secrets WHERE bridge_id = $1 AND revoke_hash = $2";
+/// B8: does any bridge carry this id? The revoke path's 404-versus-401 split needs the fact, and
+/// a join would break D-014 (09-01 deviation 2 records the disclosure this accepts).
+const B8: &str = "SELECT id FROM mt5_bridges WHERE id = $1";
+/// B9: delete by id alone. Only the revoke path issues this, and only after B7 proved the caller
+/// holds that bridge's secret, so the secret IS the authority here — the row cannot be reached
+/// without it.
+const B9: &str = "DELETE FROM mt5_bridges WHERE id = $1";
 
 /// Every statement this file issues, for the shape test.
 #[cfg(test)]
-pub(crate) const STATEMENTS: &[&str] = &[B1, B2, B3, B4, B5];
+pub(crate) const STATEMENTS: &[&str] = &[B1, B2, B3, B4, B5, B6, B7, B8, B9];
 
 /// What the Settings list shows for one bridge: never the token.
 #[derive(Debug, Clone)]
@@ -178,6 +194,58 @@ pub async fn set_test_result(
         .map(|_| ())
 }
 
+/// B6: attach the one standing revoke secret to a bridge just registered (the pairing path; the
+/// session `POST /api/me/mt5` route mints none, so a browser-registered bridge revokes by
+/// `DELETE`, which is what Settings offers).
+pub async fn set_revoke_hash(
+    pool: &PgPool,
+    bridge_id: Uuid,
+    revoke_hash: &RevokeHash,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(B6)
+        .bind(bridge_id)
+        .bind(revoke_hash.as_bytes())
+        .execute(pool)
+        .await
+        .map(|_| ())
+}
+
+/// B7. `Ok(true)` when this bridge carries that exact revoke secret. The caller has already
+/// established ownership through B3, so a `false` here means a wrong secret, never a foreign
+/// bridge: the two answers stay distinguishable (`404` vs `401`, AC-4).
+pub async fn revoke_matches(
+    pool: &PgPool,
+    bridge_id: Uuid,
+    revoke_hash: &RevokeHash,
+) -> Result<bool, sqlx::Error> {
+    sqlx::query_as::<_, (Uuid,)>(B7)
+        .bind(bridge_id)
+        .bind(revoke_hash.as_bytes())
+        .fetch_optional(pool)
+        .await
+        .map(|r| r.is_some())
+}
+
+/// B8. `Ok(true)` when a bridge with this id exists at all, whatever its owner. The revoke path
+/// uses it to answer 404 (no such bridge) separately from 401 (a real bridge, wrong secret).
+pub async fn exists(pool: &PgPool, bridge_id: Uuid) -> Result<bool, sqlx::Error> {
+    sqlx::query_as::<_, (Uuid,)>(B8)
+        .bind(bridge_id)
+        .fetch_optional(pool)
+        .await
+        .map(|r| r.is_some())
+}
+
+/// B9. `Ok(true)` when the row went. The revoke path only reaches this after B7 proved the caller
+/// holds the bridge's own secret, which is what makes an owner-free delete safe here.
+pub async fn delete_by_id(pool: &PgPool, bridge_id: Uuid) -> Result<bool, sqlx::Error> {
+    sqlx::query(B9)
+        .bind(bridge_id)
+        .execute(pool)
+        .await
+        .map(|r| r.rows_affected() > 0)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -185,7 +253,7 @@ mod tests {
 
     #[test]
     fn every_store_statement_is_single_table() {
-        assert_eq!(STATEMENTS.len(), 5);
+        assert_eq!(STATEMENTS.len(), 9);
         for s in STATEMENTS {
             let v = sql_shape_violations(s);
             assert!(v.is_empty(), "{s}\n  -> {v:?}");

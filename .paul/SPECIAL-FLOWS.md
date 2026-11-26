@@ -48,6 +48,7 @@ design-taste-frontend, huashu and a11y-audit this way; design-gate stays a UNIFY
 | 04 | /security-review | CSP, rate limits, tunnel, AGPL notice |
 | 06 | /configuring-tauri-capabilities, /signing-tauri-apps | remote origin gets no IPC beyond sign-in |
 | 07 | /security-review | SSRF guard and bridge tokens |
+| 09 | /security-review | two endpoints authenticated by a body secret instead of the cookie (no Origin required), plus two new long-lived secrets: the 10-digit pairing code and the per-bridge revoke secret |
 
 ---
 

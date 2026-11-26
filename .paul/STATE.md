@@ -21,29 +21,33 @@ after v0.3.
 ## Current Position
 
 Milestone: v0.3 Bridge platform - 1 of 2 phases
-Phase: 09 of 2 (Bridge manager app)
-Plan: Not started
-Status: Ready to plan. Phase 08 complete and committed (feat(08) = 7317378): the bridge is a
-Rust binary (crates/mt5-bridge), parity proven 33/33 vs the retired Python oracle across plain
-and SSE passes, distribution via release.yml + mise.mt5.toml + host-install.ps1.
-Last activity: 2026-11-26T19:05+07:00 - phase 08 transitioned: debt gate clear, PROJECT.md
-evolved (v0.3.0, D-035/D-036), ROADMAP phase 08 complete.
+Phase: 09 of 2 (Bridge manager app) — 1 of 3 plans unified
+Plan: 09-01 UNIFIED (hub pairing surface); 09-02 next
+Status: 09-01 UNIFIED. All ACs green, five recorded deviations (AC-3/AC-5 Origin contradiction
+resolved by a two-path narrow exemption; revoke secret as a side table rather than an unproven
+ALTER; u64 rejection sampling; D-034 sequential execution). /security-review found and fixed two
+defects: pairing codes were never swept (S14 clears sessions, whose TTL is 4,320x the code's) and
+the new FK lacked an index.
+Last activity: 2026-11-26T22:45+07:00 - 09-01 apply + unify in one session: migration 0004 +
+P4 sweep, pairing routes, Settings dialog, 10 contract tests, four mutation proofs. DEBT-044
+discharged, DEBT-043 dropped by the owner, DEBT-045 filed (check-mt5c.sh live-clock assertion).
 
 - v0.1 Hosted launch: complete 2026-11-25 (4 phases, 13 plans)
 - v0.2 Accounts everywhere: complete 2026-11-26 (3 phases, 12 plans)
-- v0.3 Bridge platform: [███░░░░░░░] 30% (phase 08 complete; phase 09 pending)
+- v0.3 Bridge platform: [████░░░░░░] 40% (phase 08 complete; 09-01 of phase 09 unified)
 
 ## Loop Position
 
 Current loop state:
 ```
 PLAN ──▶ APPLY ──▶ UNIFY
-  ○        ○        ○     [Phase 09: ready to plan]
+  ✓        ✓        ✓     [09-01 unified; 09-02 next]
 ```
 
 ## Accumulated Context
 
 ### Decisions
+| D-037 | The two pairing paths (`/api/me/mt5/pair`, `/api/me/mt5/paired/{id}/revoke`) authenticate by a body secret and are exempt from the gate's Origin rule, matched structurally in `gate.rs::is_secret_authenticated`; the session-gated mint keeps the rule | Phase 09 | D-010 stops a cookie-riding page, and these paths never read the cookie; the Rust manager app sends no Origin. AC-3 vs AC-5 collided and this is the resolution. Written at 09-01 UNIFY. |
 | D-034 | Plans carry `parallel_agents: false` here: the harness has no worktree isolation, so an APPLY wave runs task-by-task in plan order | Phase 07 | reflect outcome at 07-04; a parallel schedule without isolated copies races on the shared tree |
 | D-035 | `py_str(f64)` reproduces Python `str(float)` and every wire string goes through it; Rust's `{}`/`{:e}` differ (`1829` vs `1829.0`, `1e15` vs `1000000000000000.0`) so the `/wait` `key` would diff red byte-for-byte | Phase 08 | measured against 18 Python outputs; the plan's Task 3 note claiming `{}` was equivalent is wrong (08-01 deviation 1) |
 | D-036 | `term.rs` functions take `&M: Terminal` (a trait `Mcp` implements), so domain tests inject in-memory sources and no socket enters a domain test (L-016) while production passes the sealed `Mcp` | Phase 08 | the plan's `Terminals{live,hist,misc}` shape is unchanged; only the bound generalizes |
@@ -108,9 +112,25 @@ PLAN ──▶ APPLY ──▶ UNIFY
 - DEBT-036 open (owner, phase:06): Q4 code signing — a Windows EV/OV certificate and an Apple
   Developer ID are missing; installers stay unsigned beta until wired (secrets-only change).
 - DEBT-037 done 2026-11-25 (the 06-04 closing checkpoint was approved — owner looked at the window).
-- DEBT-038 open (agent, phase:06): the desktop CI workflow has never run; observe check-windows and
-  check-linux green plus the root test job's tauri/webkit-free log on the first push after the phase
-  commit (AC-1/AC-3's unproven halves).
+- DEBT-038 done 2026-11-26 (desktop.yml run 45767331583 green: check-windows, check-linux, root
+  test job tauri/webkit-free).
+- DEBT-039 done 2026-11-26 (owner saw live candles through their tunnel; the public half verified
+  from the dev box).
+- DEBT-043 dropped 2026-11-26 by the owner: a Cloudflare quick tunnel's temporary domain is
+  acceptable, so a named tunnel is not owed. The AT-STARTUP hardening lives in 09-02/09-03's
+  install_stack, not in that row.
+- DEBT-044 done 2026-11-26 (09-01 task 5: the five parity-suite files force-added; git ls-files = 5;
+  the differ was already un-sorted at the phase-08 reflect).
+- DEBT-046 open (agent, phase:09): DECISIONS.md lacks D-035 and D-036 — phase 08 wrote both to the
+  STATE table only, so the id list jumps D-034 to D-037. Same class as DEBT-027 (discharged in phase
+  05), so the transcription step regressed. Filed at 09-01 UNIFY.
+- PILE-UP: 16 non-discharged rows at 09-01 close, against the budget of 12. Per the UNIFY rule the
+  next PLAN must schedule at least one discharge; DEBT-046 and DEBT-045 are the two cheapest (both
+  are transcription/check fixes, no design work).
+- DEBT-045 open (agent, phase:10): check-mt5c.sh's logged-out /health assertion canonically diffs a
+  live `measured_at` across two sequential curls, so the suite exits 1 whenever they straddle a
+  second boundary (33/33 parity still passes both ways). Filed at 09-01; R-10: fixing it invalidates
+  the phase-08 mutation results, so re-run mutate-mt5c.sh afterwards.
 
 ### Skill Audit (Phase 03, plan 02)
 | Expected | Invoked | Notes |
@@ -161,7 +181,8 @@ public half beforehand (all http 200 through the tunnel from the dev box): /heal
 XAUUSDm M1 returning live candles, /wait long-poll fresh bar, /symbols 358. The second-account
 negative half (another login sees neither the bridge nor its symbols) is enforced by construction
 (owner-scoped routes, cross-user 404) and proven by the 07-03 suites. The quick-tunnel durability
-gap and the credential handoff are filed as DEBT-043 (waiting).
+gap was filed as DEBT-043 and **dropped by the owner on 2026-11-26**: a quick tunnel's temporary
+domain is acceptable, so no named tunnel is owed.
 
 Last session: 2026-11-26T19:05+07:00 (phase 08 committed and transitioned)
 Stopped at: Phase 08 complete (7317378); phase 09 Bridge manager app next.
@@ -179,17 +200,42 @@ Resume context:
   (103.93.92.204, Windows) is phase 09's checkpoint.
 - Debt: 0 overdue (all checks OK 2026-11-26), 15 waiting; DEBT-040/041/042 -> phase:10;
   DEBT-043 event fired (phase 09).
-- Phase 08 contract: .paul/phases/08-rust-bridge/08-ARCHITECTURE.md (5-module crate, 7-rule
-  parity contract, fake-MCP-terminal test architecture, windows-first distribution).
-- RustMT5 and mcp-proxy both verified and rejected (cloud gateway / Tower aggregator).
-- D-032 frozen surface; D-005 pins; workspace stays tauri-free; L-003/L-009/L-024/L-026/R-8
-  govern every check; the real MT5 host (103.93.92.204, Windows) is phase 09's checkpoint.
-- Debt: 0 overdue, 15 waiting; DEBT-040/041/042 -> phase:10; DEBT-043 event fired (phase 09).
-Carried context (not re-derived this session):
+
+**Phase-08 reflect ran in this session** (pstack panel, 2026-11-26T19:05+07:00; consumed
+HANDOFF-2026-11-26-phase09.md and session-reset.json). 3 lenses, parent-verified by live probe.
+One live defect found and fixed: /symbols key order (preserve_order was dev-only; the built
+binary shipped BTreeMap order against contract rule 6; differ's sort_keys hid it). Differ now
+un-sorts keys and pins total == 33. All gates re-run green after the edit (R-10): fmt, clippy,
+40 crate tests, 200 workspace tests, 33/33 parity both passes, 6 mutations red/green.
+Filed: L-051..L-054, L-023 hit 6, L-026 hit 3, DEBT-044 (parity suite untracked; trigger
+phase:09). Pending owner yes: R-8 tighten + context-budget exemption line (see below).
+
+Last session: 2026-11-26T23:05+07:00 (/paul:pause, owner-requested)
+Stopped at: 09-01 UNIFIED (apply + unify + /security-review in one session). All gates green:
+fmt 0, clippy plain 0, clippy test-idp 0, workspace 0 (tauri-free), hosted 0 (19 binaries),
+pairing_routes 10 passed, gates 8/8 x 5 pages, receipts 0, debt 0 overdue. ~80 files uncommitted
+(auto_commit off): UNIFIED != landed.
+Next action: offer the commit of the 09-01 surface, then /paul:apply
+.paul/phases/09-bridge-manager/09-02-PLAN.md (the manager Tauri app; its blocker is the 09-01
+contract, now settled: pair takes {code, label, url, token} with no cookie and no Origin, 201
+carries revoke_code exactly once, and a refused attempt burns the code).
+Resume file: .paul/HANDOFF-2026-11-26-phase09-01.md
+Resume context:
+- The five deviations and the two security findings are in 09-01-SUMMARY.md; do not re-derive.
+- D-037 pins the Origin exemption to exactly two paths; the mint keeps the rule.
+- PILE-UP: 16 non-discharged rows vs a budget of 12 - the next plan must schedule one discharge
+  (DEBT-045 and DEBT-046 are the cheap ones).
+- check-mt5c.sh exits 1 on a pre-existing live-clock assertion (DEBT-045), not a 09-01 regression;
+  its differ still reports 33/33 twice.
+- Owner decision stands: do NOT deploy; the live site stays v0.1.1.
+- Two instruction edits still await the owner's yes: R-8 tighten, context-budget judged-gate line.
+Resume context:
 - Reflect outcomes at 07-04: L-024/L-029 validated, L-027 generalized, L-048..L-050 added,
   D-034 (parallel_agents false), R-12, DEBT-040/041 filed; DEBT-042 carries the phase-07
   security dispositions.
-- One instruction edit still awaits the owner's yes: tune design-taste-frontend's look-pass step
-  ("Read the shots; say explicitly when the harness cannot render images").
+- Instruction edits awaiting the owner's yes: tune design-taste-frontend's look-pass step
+  ("Read the shots; say explicitly when the harness cannot render images"); R-8 tighten
+  (bare `; echo exit=$?` only valid with nothing piped); context-budget exemption line
+  (judged gate commands are exempt from the no-single-call rule).
 - Owner decision stands: do NOT deploy; the live site stays v0.1.1.
 - CARL GLOBAL rules: justrust for cargo, ygrep/agentgrep first for searches.

@@ -118,3 +118,26 @@ Worst three found and fixed by the gates + browser pass:
    (networkidle never settled; `r.text()` on every path).
 Status: done, red 0. Not visually inspected by the agent (no image input this session); the owner
 look joins 07-04's checkpoint.
+
+## 09-01 settings.html: the pairing dialog (2026-11-26)
+
+Round 1 (agent, Playwright against a served auth-off hub)
+1. The gates never see the dialog: `gate_all.py` measures the page at load, where a `<dialog>` is
+   closed, so an 8/8 receipt proves nothing about the panel the user actually reads. Measured the
+   open state by hand instead (`showModal()` + a fake code): `dialogOpen: true`,
+   `codeVisible: true`, both visible focusables (`Copy code`, `Close`) `covered: false`, Esc closes,
+   the code clears from the DOM on close.
+2. The mint action had to sit beside `Add` in a `<h3>` that was `display:flex` with the ghost button
+   pushed right by `margin-left:auto`; a second button would have split them across the row. Wrapped
+   both in `.h3-acts` and dropped the per-button auto margin, so the pair of actions travels together
+   and wraps as one unit below 600px.
+3. Empty-state copy still told the user to run `bridge/mt5_bridge.py`, deleted in phase 08 (7317378).
+   Rewritten to name the manager app or a hand-added bridge; a stale instruction is a defect a lint
+   gate cannot catch.
+- Lint: `design_lint` pass, red 0. `lint_hardcodes` pass (the dialog uses only theme variables: one
+  `--fs-2xl` mono readout, no hex, no px sizes beyond the token scale).
+- Looked at after the change: settings.html at 1280 with the dialog open (screenshot
+  `.paul/runs/tmp/dialog-open.png`). Left: nothing worth fixing; the code block is the page's one
+  large readout by design.
+Status: done, red 0. The open-state judgement is the agent's measurement, not an owner look; it
+joins 09-03's phase checkpoint if the owner wants one.

@@ -75,7 +75,7 @@ discharged).
 | 06 | Tauri desktop | v0.2 | 4 (06-01..06-04) | Complete | 2026-11-26 |
 | 07 | Per-user MT5 bridges | v0.2 | 4 (07-01..07-04) | Complete | 2026-11-26 |
 | 08 | Rust bridge and mise distribution | v0.3 | TBD | Not started | - |
-| 09 | Bridge manager app | v0.3 | TBD | Not started | - |
+| 09 | Bridge manager app | v0.3 | TBD | In progress (1/3) | 09-01 |
 
 ## Phase Details
 
@@ -266,7 +266,7 @@ milestone: DEBT-038 done (first-push CI green, both workflows).
   `bridge/mt5_bridge.py`, the live oracle.
 - **Depends on:** Phase 07 (the bridge surface D-032 froze is the compatibility contract).
 
-### Phase 09: Bridge manager app
+### Phase 09: Bridge manager app — In progress (09-01 UNIFIED 2026-11-26; 09-02 and 09-03 next)
 - **Build:** a second Tauri app (the v0.2 desktop shell stays as is) running on the MT5 VPS as a
   local control panel wrapping mise and the other CLIs (cloudflared, schtasks):
   **Install** — set up or repair the stack on a fresh VPS: mise tools, bridge binary, cloudflared,
@@ -292,4 +292,4 @@ stay outside v0.3.
 
 ---
 *Roadmap created: 2026-11-23*
-*Last updated: 2026-11-26 milestone v0.3 created*
+*Last updated: 2026-11-26 09-01 unified (OTP pairing surface)*

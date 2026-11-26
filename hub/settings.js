@@ -85,6 +85,7 @@
     const empty = $("empty");
     empty.hidden = bridges.length > 0;
     $("addBtn").hidden = false;
+    $("pairBtn").hidden = false;
     const list = $("bridgeList");
     list.textContent = "";
     bridges.forEach((b) => list.appendChild(bridgeRow(b)));
@@ -354,6 +355,104 @@
     btn.removeAttribute("aria-disabled");
     btn.innerHTML = "Test connection";
   };
+
+  // ---------- pairing (09-01) ----------
+  // A signed-in session mints a ten-digit code here; the manager app on the MT5 host types it in
+  // and registers the bridge. The code is single-use, dies in ten minutes, and is bound to this
+  // account's session, so showing it here is the only way it can leave the server.
+  let pairTimer = null;
+
+  const groupCode = (code) => String(code || "").replace(/^(\d{5})(\d{5})$/, "$1 $2");
+
+  async function openPair() {
+    closeConfirm();
+    const dlg = $("pairDialog");
+    $("pairErr").hidden = true;
+    $("pairErr").textContent = "";
+    $("pairCode").textContent = "";
+    $("pairCode").hidden = true;
+    $("pairCopy").hidden = true;
+    $("pairNote").textContent = "Minting a code";
+    $("pairAgain").hidden = true;
+    if (typeof dlg.showModal === "function") dlg.showModal();
+    else dlg.setAttribute("open", "");
+    say("Minting a pairing code");
+    let r;
+    try {
+      r = await fetch("/api/me/mt5/pairing-code", { method: "POST" });
+    } catch (_) {
+      pairFailed("the server did not answer. Close this and try again.");
+      return;
+    }
+    const raw = await r.text().catch(() => "");
+    if (r.status === 401) { closePair(); show("signedOut"); return; }
+    if (!r.ok) { pairFailed(`the server refused the request (HTTP ${r.status}).`); return; }
+    let j = null;
+    try { j = JSON.parse(raw); } catch (_) {}
+    if (!j || !j.code) { pairFailed("the server sent no code. Close this and try again."); return; }
+    $("pairCode").textContent = groupCode(j.code);
+    $("pairCode").hidden = false;
+    $("pairCopy").hidden = false;
+    startCountdown(j.expires_at);
+    say("Pairing code ready. It is valid for ten minutes and can be used once.");
+  }
+
+  function pairFailed(cause) {
+    $("pairNote").textContent = "";
+    $("pairErr").textContent = cause;
+    $("pairErr").hidden = false;
+    $("pairAgain").hidden = false;
+    say(`Error: ${cause}`);
+  }
+
+  function startCountdown(expiresAt) {
+    clearInterval(pairTimer);
+    const end = Date.parse(expiresAt);
+    const tick = () => {
+      const left = Math.max(0, Math.round((end - Date.now()) / 1000));
+      const m = Math.floor(left / 60), s = left % 60;
+      if (left <= 0) {
+        clearInterval(pairTimer);
+        $("pairNote").textContent = "This code has expired. Close this and open it again for a fresh one.";
+        $("pairCopy").hidden = true;
+        return;
+      }
+      $("pairNote").textContent = `Valid for ${m}:${String(s).padStart(2, "0")}, for one use.`;
+    };
+    tick();
+    pairTimer = setInterval(tick, 1000);
+  }
+
+  function closePair() {
+    clearInterval(pairTimer);
+    const dlg = $("pairDialog");
+    if (dlg.open) dlg.close();
+    else dlg.removeAttribute("open");
+    // The code is a secret: drop it from the DOM the moment the dialog goes.
+    $("pairCode").textContent = "";
+    $("pairCopy").hidden = true;
+  }
+
+  $("pairBtn").onclick = openPair;
+  $("pairAgain").onclick = openPair;
+  $("pairClose").onclick = closePair;
+  $("pairCopy").onclick = async () => {
+    // Clipboard only on a user gesture (the button's own click), never at load.
+    const text = $("pairCode").textContent.replace(/\s+/g, "");
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      $("pairNote").textContent = "Copied. It can be used once, for ten minutes.";
+      say("Pairing code copied.");
+    } catch (_) {
+      $("pairNote").textContent = "Could not copy. Select the code and copy it by hand.";
+    }
+  };
+  // Esc closes a native <dialog> and fires cancel; the countdown must die with it either way.
+  $("pairDialog").addEventListener("close", () => {
+    clearInterval(pairTimer);
+    $("pairCode").textContent = "";
+  });
 
   // ---------- boot ----------
   loadList();

@@ -9,7 +9,7 @@
 
 use sqlx::PgPool;
 
-use crate::auth::ids::{CodeHash, KeyHash, SessionHash};
+use crate::auth::ids::{CodeHash, KeyHash, PairingCodeHash, SessionHash};
 
 /// S1.
 const S1: &str = "SELECT user_id FROM identities WHERE provider = $1 AND subject = $2";
@@ -59,11 +59,24 @@ const S20: &str = "DELETE FROM user_state WHERE user_id = $1 AND key = $2 AND ve
 /// `'backup;'`, the byte after `:`) selects exactly the `backup:*` namespace with no function and
 /// one table (D-014; `LIKE` would also pass the shape check, the range avoids pattern escaping).
 const S21: &str = "DELETE FROM user_state WHERE updated_at < $1 AND key >= $2 AND key < $3";
+/// P1: mint a pairing code bound to the minting session (09-01; 0004's table).
+const P1: &str =
+    "INSERT INTO pairing_codes (code_hash, session_id_hash, expires_at) VALUES ($1, $2, $3)";
+/// P2: read a code's binding (the burn precedes the check, S12/S13's ordering).
+const P2: &str = "SELECT session_id_hash, expires_at FROM pairing_codes WHERE code_hash = $1";
+/// P3: burn a code. `rows_affected == 1` means this call won.
+const P3: &str = "DELETE FROM pairing_codes WHERE code_hash = $1";
+/// P4: expired pairing codes go. P1..P3 only ever delete a code that is PRESENTED, so a code
+/// nobody types would otherwise sit in the table until its minting session expired (30 days) - a
+/// 10-minute credential outliving itself by a month. S14 cannot cover this: it deletes expired
+/// SESSIONS, and a live session's expired code is exactly the row this removes.
+const P4: &str = "DELETE FROM pairing_codes WHERE expires_at < $1";
 
 /// Every statement this file issues, for the shape test.
 #[cfg(test)]
 pub(crate) const STATEMENTS: &[&str] = &[
     S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15, S16, S17, S18, S19, S20, S21,
+    P1, P2, P3, P4,
 ];
 
 /// A user row as S7 reads it.
@@ -464,6 +477,72 @@ pub(crate) async fn expire_backups(
         .map(|r| r.rows_affected())
 }
 
+/// P2's row: the session a code is bound to, and when it dies.
+pub(crate) struct PairingRow {
+    pub(crate) session_id_hash: SessionHash,
+    pub(crate) expires_at: chrono::DateTime<chrono::Utc>,
+}
+
+pub(crate) async fn insert_pairing_code(
+    pool: &PgPool,
+    code_hash: &PairingCodeHash,
+    session_id_hash: &SessionHash,
+    expires_at: chrono::DateTime<chrono::Utc>,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(P1)
+        .bind(code_hash.as_bytes())
+        .bind(session_id_hash.as_bytes())
+        .bind(expires_at)
+        .execute(pool)
+        .await
+        .map(|_| ())
+}
+
+/// P2. `None` for an unknown code: the caller burns first, so this read never decides alone.
+pub(crate) async fn pairing_row(
+    pool: &PgPool,
+    code_hash: &PairingCodeHash,
+) -> Result<Option<PairingRow>, sqlx::Error> {
+    sqlx::query_as::<_, (Vec<u8>, chrono::DateTime<chrono::Utc>)>(P2)
+        .bind(code_hash.as_bytes())
+        .fetch_optional(pool)
+        .await
+        .map(|r| {
+            r.map(|(session_id_hash, expires_at)| PairingRow {
+                session_id_hash: SessionHash::from_bytes(
+                    session_id_hash
+                        .try_into()
+                        .expect("session hash is 32 bytes"),
+                ),
+                expires_at,
+            })
+        })
+}
+
+/// P4: expired pairing codes. Returns rows removed.
+pub(crate) async fn sweep_pairing_codes(
+    pool: &PgPool,
+    now: chrono::DateTime<chrono::Utc>,
+) -> Result<u64, sqlx::Error> {
+    sqlx::query(P4)
+        .bind(now)
+        .execute(pool)
+        .await
+        .map(|r| r.rows_affected())
+}
+
+/// P3. `Ok(true)` means this call burned the code (the desktop exchange's S13 contract).
+pub(crate) async fn burn_pairing_code(
+    pool: &PgPool,
+    code_hash: &PairingCodeHash,
+) -> Result<bool, sqlx::Error> {
+    sqlx::query(P3)
+        .bind(code_hash.as_bytes())
+        .execute(pool)
+        .await
+        .map(|r| r.rows_affected() == 1)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -471,7 +550,7 @@ mod tests {
 
     #[test]
     fn every_store_statement_is_single_table() {
-        assert_eq!(STATEMENTS.len(), 21);
+        assert_eq!(STATEMENTS.len(), 25);
         for s in STATEMENTS {
             let v = sql_shape_violations(s);
             assert!(v.is_empty(), "{s}\n  -> {v:?}");

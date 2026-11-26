@@ -12,6 +12,7 @@ pub mod me;
 pub mod metrics;
 pub mod mt5;
 pub mod orderflow;
+pub mod pairing;
 pub mod state;
 pub mod table;
 pub mod ws;

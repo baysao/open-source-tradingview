@@ -471,6 +471,37 @@ kind = "tech"
 origin = "07-04 DEBT-039 host run (owner plan request)"
 owner = "agent"
 trigger = "event:owner-wants-permanent-bridge"
-status = "waiting"
+status = "dropped"
 check = { type = "text_present", path = ".paul/STATE.md", pattern = "DEBT-043 discharged: named tunnel live" }
-note = "2026-11-26 DEBT-039's proof ran on bridge host 103.93.92.204: schtasks VTV-Bridge (python via mise, env from .tok1/.tok2 files) + VTV-Tunnel (cloudflared via mise, quick tunnel), public URL https://harvard-concentration-celebrities-east.trycloudflare.com verified 200 from the dev box for /health, /bars?symbol=XAUUSDm&tf=M1 (live candles), /wait, /symbols (358). Both tasks are SC ONCE + manual /Run: a reboot leaves nothing running and the quick-tunnel name is not stable. Discharge = cloudflared tunnel login + create + route dns on the host, the tasks switched to ONSTART with restart-on-failure, and bridge\\bridge-registration.txt rewritten with the permanent URL. The check anchors on the discharge-record line in STATE.md (L-024: this note deliberately does not carry the pattern, and the DUE NOW text must never quote it). 2026-11-26 the event FIRED at milestone v0.3 creation: the owner chose the Tauri manager app (phase 09) whose install function IS the permanent bridge — named tunnel, AT-STARTUP tasks, no registration file. Discharge moves into v0.3 phase 09; the waiting trigger stays until the app ships it."
+note = "2026-11-26 DEBT-039's proof ran on bridge host 103.93.92.204: schtasks VTV-Bridge (python via mise, env from .tok1/.tok2 files) + VTV-Tunnel (cloudflared via mise, quick tunnel), public URL https://harvard-concentration-celebrities-east.trycloudflare.com verified 200 from the dev box for /health, /bars?symbol=XAUUSDm&tf=M1 (live candles), /wait, /symbols (358). Both tasks are SC ONCE + manual /Run: a reboot leaves nothing running and the quick-tunnel name is not stable. Discharge = cloudflared tunnel login + create + route dns on the host, the tasks switched to ONSTART with restart-on-failure, and bridge\\bridge-registration.txt rewritten with the permanent URL. The check anchors on the discharge-record line in STATE.md (L-024: this note deliberately does not carry the pattern, and the DUE NOW text must never quote it). 2026-11-26 the event FIRED at milestone v0.3 creation: the owner chose the Tauri manager app (phase 09) whose install function IS the permanent bridge — named tunnel, AT-STARTUP tasks, no registration file. Discharge moves into v0.3 phase 09; the waiting trigger stays until the app ships it. 2026-11-26 DROPPED by the owner: a Cloudflare quick tunnel's temporary domain is acceptable, so a named tunnel (mt5.vtradingview.com) is no longer owed. The AT-STARTUP task hardening is not dropped by this - it is 09-02/09-03's install_stack work, carried by the phase plans, not by this row."
+[[debt]]
+id = "DEBT-044"
+title = "The phase-08 parity proof is not re-runnable from a clean clone: check-mt5c.sh, mutate-mt5c.sh, fake_mcp_terminal.py, diff_bridge_contract.py and 0803/mt5_bridge_oracle.py live in gitignored .paul/runs/ while bridge/mt5_bridge.py was deleted in the same phase; force-add the suite (39b8772 precedent) and un-sort the differ's object keys"
+kind = "tech"
+origin = "phase-08 reflect (pstack panel, divergent lens)"
+owner = "agent"
+trigger = "phase:09"
+status = "done"
+check = { type = "command", run = "git ls-files .paul/runs/check-mt5c.sh .paul/runs/mutate-mt5c.sh .paul/runs/fake_mcp_terminal.py .paul/runs/diff_bridge_contract.py .paul/runs/0803/mt5_bridge_oracle.py", expect = "5" }
+note = "Phase-08 reflect found the accept's falsifier evaporates at the next clone: .paul/.gitignore excludes runs/ (git ls-files confirms only phase-03/04 strays are tracked), so 33/33 parity and the six mutations cannot be re-proven once this dev box's copies drift, and bridge/mt5_bridge.py (the differ's other arm) was deleted in 7317378. Precedent: 39b8772 force-added check-0303.mjs/check-0402.mjs for exactly this. Discharge = git add -f the five files (adjust paths if the suite moves), then expect=5 passes. Secondary: the differ sorts keys (canon/normalize sort_keys=True), which is why the /symbols key-order divergence (L-051) scored identical; un-sort object keys and keep the total==33 assertion."
+[[debt]]
+id = "DEBT-045"
+title = "check-mt5c.sh's logged-out /health assertion compares a LIVE clock field: it canonically diffs two sequential curls whose measured_at is a wall-clock second, so the check fails whenever the two requests land in different seconds (33/33 parity still passes; the suite's exit is 1 regardless)"
+kind = "tech"
+origin = "09-01 task 5 gate enumeration"
+owner = "agent"
+trigger = "phase:10"
+status = "open"
+check = { type = "text_absent", path = ".paul/runs/check-mt5c.sh", pattern = "CANON_RUST=$(printf" }
+note = "Measured 2026-11-26 twice in a row during 09-01: 'DIFFER: 33/33 cases identical, 0 differences' twice (both passes), then 'FAIL: logged-out /health differs (canonical)' with the two bodies differing only in measured_at (1795698259 vs 1795698260). The script's own differ (diff_bridge_contract.py:34 normalize) already pops pollers and measured_at for exactly this reason; the inline ERRX-CASE block at check-mt5c.sh:110-113 re-implements the comparison WITHOUT that normalization, then does `fail`. Not caused by 09-01: crates/mt5-bridge/ is untouched by this plan (only Cargo.toml carries the phase-08 preserve_order fix). Owed because the accept's own script cannot exit 0 reliably; discharged when the inline block normalizes (or delegates to diff_bridge_contract.normalize) so a pass is possible, and the check counts zero remaining raw-canon comparisons of a live field. NOTE: R-10 — editing this checker invalidates the phase-08 mutation results, so whoever fixes it must re-run mutate-mt5c.sh afterwards."
+
+[[debt]]
+id = "DEBT-046"
+title = "DECISIONS.md is missing D-035 and D-036: phase 08 wrote both to the STATE.md table only, so the decision file jumps D-034 to D-037 and two decisions any later plan should read exist in one place only"
+kind = "artifact"
+origin = "09-01 unify (contiguity check while adding D-037)"
+owner = "agent"
+trigger = "phase:09"
+status = "open"
+check = { type = "text_present", path = ".paul/DECISIONS.md", pattern = "## D-036:" }
+note = "Measured 2026-11-26 at 09-01 UNIFY: `grep '^## D-' .paul/DECISIONS.md` yields 35 ids, D-001..D-037 with 35 and 36 absent (no dupes). Both rows exist in .paul/STATE.md's ### Decisions table (lines 51-52: D-035 py_str reproduces Python str(float) at phase 08-01 deviation 1; D-036 term.rs takes &M: Terminal so domain tests inject in-memory sources) but were never transcribed into DECISIONS.md. This is DEBT-027's exact class, which was discharged in phase 05 for D-019/020/021 - so the transcription step regressed. Discharge = append both entries in their phase-08 wording, then this check reports 2 and the id list is contiguous. Owed because DECISIONS.md is the file paul-plan reads for decisions; a row that exists only in STATE.md is invisible to the next plan."

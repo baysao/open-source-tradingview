@@ -27,7 +27,9 @@ use uuid::Uuid;
 #[cfg(feature = "test-idp")]
 use crate::auth::google::{memory_id_token, memory_keys};
 use crate::auth::google::{Idp, JwksCache};
-use crate::auth::ids::{CodeHash, DesktopCode, Keys, SessionHash, SessionId};
+use crate::auth::ids::{
+    CodeHash, DesktopCode, Keys, PairingCode, PairingCodeHash, SessionHash, SessionId,
+};
 use crate::auth::rules::{
     decide_exchange, is_admin, parse_client, session_check, verify_id_token, Client, Expect,
     OauthTicket, Refusal, SessionCheck, VerifiedIdentity,
@@ -49,6 +51,8 @@ pub mod test_idp;
 const SESSION_TTL: Duration = Duration::days(30);
 /// A desktop placeholder session lives 60 s; the exchange replaces it at once.
 const PLACEHOLDER_TTL: Duration = Duration::seconds(60);
+/// A pairing code lives 10 minutes (09-ARCHITECTURE; the ROADMAP's "codes expiring").
+const PAIRING_TTL: Duration = Duration::minutes(10);
 /// The sealed oauth cookie lives 600 s.
 const OAUTH_COOKIE_TTL: i64 = 600;
 /// The session cookie: `__Host-` (secure context enforced by the browser), HttpOnly, Lax.
@@ -1024,11 +1028,80 @@ impl Auth {
         self.0.db.pool()
     }
 
-    /// S14: expired sessions go (their codes die by cascade). Returns rows removed.
-    pub async fn sweep_expired(&self) -> Result<u64, AuthError> {
-        store::sweep_expired(self.0.db.pool(), self.now())
+    /// Mints a pairing code for the signed-in session (09-01, AC-2): a ten-digit code, stored
+    /// only as its sha256, bound to THIS session, dying with it (0004's `ON DELETE CASCADE`) or
+    /// at its 10-minute TTL. Returns the code's wire form and its expiry; the plaintext exists
+    /// only in this return value and the 201 body.
+    ///
+    /// Multiple live codes are allowed on purpose (AC-2): a user who opened the dialog twice
+    /// keeps both until each expires, and neither invalidates the other.
+    pub async fn mint_pairing_code(
+        &self,
+        m: &Member,
+    ) -> Result<(String, DateTime<Utc>), AuthError> {
+        let code = PairingCode::fresh();
+        let expires_at = self.now() + PAIRING_TTL;
+        store::insert_pairing_code(self.0.db.pool(), &code.hash(), &m.session, expires_at)
             .await
-            .map_err(db_unavailable)
+            .map_err(db_unavailable)?;
+        Ok((code.encode(), expires_at))
+    }
+
+    /// Resolves a presented pairing code to the user who minted it (AC-3), burning the code
+    /// before any check that could refuse — `exchange_desktop_code`'s ordering (S12 read, S13
+    /// burn, then `decide_*`): the burn decides the race, so a refusal after it cannot leave a
+    /// usable code behind, while the row read before it is what the check needs.
+    ///
+    /// The refusals are the desktop exchange's family, so a client renders one string table:
+    /// unknown/reused -> [`Refusal::CodeUnknown`], expired -> [`Refusal::CodeExpired`]. Unknown
+    /// and reused are deliberately the same answer: a spent row is deleted, and telling a
+    /// replayer "that code existed" is the timing oracle the single-use rule denies.
+    ///
+    /// Bound to the minting session, not to a user column: signing that session out (S9) or the
+    /// TTL sweep (S14) removes the live code by cascade.
+    pub async fn resolve_pairing_code(&self, presented: &str) -> Result<Uuid, AuthError> {
+        let code_hash = PairingCodeHash::of_code(presented);
+        let pool = self.0.db.pool();
+        let row = store::pairing_row(pool, &code_hash)
+            .await
+            .map_err(db_unavailable)?
+            .ok_or(AuthError::SignInFailed(Refusal::CodeUnknown))?;
+        // Burn before the expiry check: a second presentment of the same code is a race the
+        // delete settles, whatever state the first caller got to.
+        let won = store::burn_pairing_code(pool, &code_hash)
+            .await
+            .map_err(db_unavailable)?;
+        if !won {
+            return Err(AuthError::SignInFailed(Refusal::CodeUnknown));
+        }
+        if self.now() >= row.expires_at {
+            return Err(AuthError::SignInFailed(Refusal::CodeExpired));
+        }
+        // The session the code was bound to names the user. A session that expired is gone from
+        // `sessions`, which is how a pairing dies with its own sign-in instead of outliving it.
+        let session = store::session_row(pool, &row.session_id_hash)
+            .await
+            .map_err(db_unavailable)?
+            .ok_or(AuthError::SignInFailed(Refusal::CodeExpired))?;
+        Ok(session.user_id)
+    }
+
+    /// S14: expired sessions go (their codes die by cascade). Returns rows removed.
+    ///
+    /// Expired PAIRING codes are swept here too, and deliberately not left to the cascade: a
+    /// pairing code lives 10 minutes while its minting session lives 30 days, so waiting for the
+    /// session would keep a dead 10-minute credential in the table for a month. One sweep, two
+    /// statements, one interval.
+    pub async fn sweep_expired(&self) -> Result<u64, AuthError> {
+        let pool = self.0.db.pool();
+        let now = self.now();
+        let codes = store::sweep_pairing_codes(pool, now)
+            .await
+            .map_err(db_unavailable)?;
+        let sessions = store::sweep_expired(pool, now)
+            .await
+            .map_err(db_unavailable)?;
+        Ok(codes + sessions)
     }
 
     /// S15: every saved-state key of one user, in key order (05-01; D-024 caps the value).

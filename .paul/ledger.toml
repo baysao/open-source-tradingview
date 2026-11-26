@@ -426,3 +426,17 @@ action = "transition"
 phase = 8
 at = "2026-11-26T19:05:00+07:00"
 result = "PHASE 08 COMPLETE. Phase commit 7317378 feat(08): rust MT5 bridge, mise distribution, python bridge retired (30 files). Debt gate phase-08-exit clear (0 overdue). PROJECT.md evolved: v0.3.0, phase 08 validated row, D-035/D-036 added, MT5 tech-stack row now the binary. ROADMAP: phase 08 complete, 1 of 2 v0.3 phases. Next: phase 09 Bridge manager app; phase reflect (pstack) runs at the session reset (session_reset: plan), then /paul:plan."
+
+[[entry]]
+action = "apply"
+phase = 9
+plan = "09-01"
+at = "2026-11-26T22:40:00+07:00"
+result = "APPLIED: 5/5 tasks, AC-1..AC-6 pass. Migration 0004_pairing (pairing_codes PK code_hash + FK session cascade + indexes; mt5_bridge_secrets side table for revoke_hash); ids.rs PairingCode (u64 rejection-sampled, 10-digit zero-padded, PAIRING_SPACE 10^10, const-asserted bound) + RevokeSecret/RevokeHash/PairingCodeHash; auth/store.rs P1..P4; Auth::mint_pairing_code + resolve_pairing_code (S12 read, S13 burn, then decide); bridges/store.rs B6/B7/B8/B9; routes/pairing.rs (mint session-gated, pair + revoke secret-authenticated); routes/gate.rs is_secret_authenticated (2 paths, slice-pattern); table.rs 3 routes; mt5.rs register_for_user extracted so both paths share one vet/test/seal/insert; settings.js/html native dialog pairing UI. Tests: pairing_routes 10 passed, gate 7, db_engines 9+2 ignored. Deviations: (1) AC-3 vs AC-5 contradicted on the Origin rule - gate 403s every non-GET in /api/me without Origin while pair must run with no cookie, so a 2-path structural exemption (mint keeps the rule, 10 negative cases pinned); (2) ALTER TABLE unproven on pgsqlite 0.0.22 -> side table, NewBridge untouched; (3) plan said rejection-sample 4 bytes into 10^10 which is impossible (2^32=4.3e9) -> u64; (4) tests/gate.rs enumeration learned the exemption; (5) db_engines FAILING_THIRD probe 4->5. Mutations: scheme guard off -> 2 red, loopback guard off -> 3 red (the first draft's 422-only assertion was VACUOUS and stayed green under the mutation - L-055). Debt: DEBT-044 discharged (git ls-files = 5), DEBT-043 dropped by owner (quick-tunnel domain acceptable), DEBT-045 filed (check-mt5c.sh live measured_at assertion)."
+
+[[entry]]
+action = "unify"
+phase = 9
+plan = "09-01"
+at = "2026-11-26T22:45:00+07:00"
+result = "UNIFIED: 5/5 tasks, AC-1..AC-6 pass. /security-review run (the phase-09 override, added to SPECIAL-FLOWS in this close): S1 pairing codes were NEVER swept - S14 deletes expired sessions and a code's session lives 30 days vs the code's 10 minutes, so a dead credential sat in the table ~4,320x its lifetime; fixed with P4 + Auth::sweep_expired calling it, pinned by the_sweep_removes_expired_pairing_codes (mutation: P4 off -> exactly 1 test red) and an_expired_code_refuses_even_before_any_sweep. S2 the new FK had no index (0001/0003 convention) - added both. Verified clean: no format! into SQL, 10^10 space vs 12k/IP/TTL budget (1.2e-6 per IP), sealed Debug on all four secret types, add_secret on every secret including wrong ones, no tracing of codes. Gates after the fixes: fmt 0, clippy plain 0, clippy test-idp 0, workspace 0 (0 tauri lines), hosted 0, pairing_routes 0 (10), gates 8/8 x 5 pages, receipts 0. reflect deferred to phase close (pstack; 09-01 is not the last plan). learnings +2 (L-055 validated, L-056 candidate). SUMMARY at .paul/phases/09-bridge-manager/09-01-SUMMARY.md. UNIFIED != landed: 40 files uncommitted. Next: 09-02."

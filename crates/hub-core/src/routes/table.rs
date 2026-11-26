@@ -7,6 +7,7 @@ use super::logs;
 use super::me;
 use super::metrics;
 use super::mt5;
+use super::pairing;
 use super::state;
 use crate::AppState;
 use axum::http::Method;
@@ -72,6 +73,21 @@ pub(crate) fn hosted() -> Vec<(RouteSpec, MethodRouter<AppState>)> {
             Method::DELETE,
             "/api/me/mt5/{id}",
             axum::routing::delete(mt5::delete),
+        ),
+        // The pairing surface (09-01): the mint is session-gated like the block above it; pair
+        // and revoke authenticate by a body secret and are the two paths the gate exempts from
+        // its Origin rule (gate.rs `is_secret_authenticated`). Inside the gate area like every
+        // /api/me route (L-022).
+        spec(
+            Method::POST,
+            "/api/me/mt5/pairing-code",
+            post(pairing::mint),
+        ),
+        spec(Method::POST, "/api/me/mt5/pair", post(pairing::pair)),
+        spec(
+            Method::POST,
+            "/api/me/mt5/paired/{id}/revoke",
+            post(pairing::revoke),
         ),
         // The saved-state surface (05-02): contract in routes/state.rs's module doc.
         spec(Method::GET, "/api/me/state", get(state::list)),

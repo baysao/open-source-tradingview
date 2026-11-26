@@ -50,13 +50,13 @@ pub(crate) fn bridge_key(st: &AppState) -> [u8; 32] {
 }
 
 /// A failed registration or Test: the exact cause text verbatim (CUJ 7, D-032e).
-fn cause_response(status: StatusCode, cause: &str) -> Response {
+pub(crate) fn cause_response(status: StatusCode, cause: &str) -> Response {
     super::api_error(status, cause)
 }
 
 /// A bridge-store error is `service unavailable` (the cause logs under `auth`, never renders;
 /// the same mapping the saved-state routes use for their storage).
-fn db_down(e: &sqlx::Error) -> Response {
+pub(crate) fn db_down(e: &sqlx::Error) -> Response {
     auth_error(AuthError::Unavailable(format!("mt5 store: {e}")))
 }
 
@@ -76,6 +76,102 @@ pub struct RegisterBody {
     token: String,
 }
 
+/// What a successful registration produced, before it is rendered: the row's identity and the
+/// live test's answer. Both the session route (`register`) and the code-authenticated pairing
+/// route (`routes::pairing::pair`) end here, so vet -> /health -> /symbols -> seal -> insert is
+/// ONE sequence with one set of refusal texts (AC-3; a copy would drift).
+pub(crate) struct Registered {
+    pub(crate) id: Uuid,
+    pub(crate) label: String,
+    pub(crate) url: String,
+    pub(crate) symbol_count: usize,
+}
+
+/// The refusal a registration answers with: the exact cause text and the status carrying it.
+pub(crate) struct RegisterRefusal {
+    pub(crate) status: StatusCode,
+    pub(crate) cause: String,
+}
+
+/// Vet, live-test in CUJ 7's order, seal, insert: the one registration sequence (07-03's
+/// `register` body, lifted verbatim so pairing cannot fork it).
+///
+/// The guard runs first (a refused URL never reaches the network, AC-2's auth-on half), the
+/// token goes only into the Authorization header, and no error path composes it into text
+/// (07-01's tracked note). A store failure is [`RegisterRefused`] with 503, so the caller keeps
+/// its own error mapping.
+pub(crate) async fn register_for_user(
+    st: &AppState,
+    user: Uuid,
+    label: &str,
+    url: &str,
+    token: &str,
+) -> Result<Registered, RegisterRefusal> {
+    let auth = st.auth.as_ref().expect("mounted only when hosted");
+    // The id is minted before the calls so the client's per-bridge semaphore has its key; the
+    // same id lands in the row on success.
+    let id = Uuid::now_v7();
+    // Guard first: a refused URL never reaches the network (AC-2, auth-on half).
+    let vetted = match vet_url(url, true).await {
+        Ok(v) => v,
+        Err(e) => {
+            return Err(RegisterRefusal {
+                status: StatusCode::UNPROCESSABLE_ENTITY,
+                cause: e.to_string(),
+            })
+        }
+    };
+    // Live test in CUJ 7's order: /health then /symbols.
+    if let Err(e) = st.bridges.client.health(&id, &vetted, token).await {
+        return Err(RegisterRefusal {
+            status: StatusCode::UNPROCESSABLE_ENTITY,
+            cause: e.to_string(),
+        });
+    }
+    let symbols = match st.bridges.client.symbols(&id, &vetted, token).await {
+        Ok(v) => v,
+        Err(e) => {
+            return Err(RegisterRefusal {
+                status: StatusCode::UNPROCESSABLE_ENTITY,
+                cause: e.to_string(),
+            })
+        }
+    };
+    let symbol_count = symbols.as_array().map(|a| a.len()).unwrap_or(0);
+    let symbols_json = serde_json::to_string(&symbols).ok();
+    let token_enc = crypto::seal(&bridge_key(st), token);
+    let now = chrono::Utc::now();
+    let row = NewBridge {
+        id,
+        user_id: user,
+        label: label.trim().to_string(),
+        url: vetted.url.to_string(),
+        token_enc,
+        symbols_json: symbols_json.clone(),
+        last_ok_at: Some(now),
+        last_error: None,
+        created_at: now,
+    };
+    if let Err(e) = store::insert(auth.bridge_pool(), &row).await {
+        return Err(RegisterRefusal {
+            status: StatusCode::SERVICE_UNAVAILABLE,
+            cause: format!("mt5 store: {e}"),
+        });
+    }
+    // The token and the URL's query string join the ring's redaction set (AC-5): a hostile
+    // bridge echoing the Authorization value into its error text cannot land it in a log.
+    st.logs.add_secret(token);
+    if let Some(q) = vetted.url.query().map(|s| s.to_string()) {
+        st.logs.add_secret(&q);
+    }
+    Ok(Registered {
+        id,
+        label: row.label,
+        url: row.url,
+        symbol_count,
+    })
+}
+
 /// `POST /api/me/mt5`: vet, live-test, seal, insert. 201 with the listing fields or 422 with
 /// the exact cause (a guard refusal, a DNS miss, a wrong token, a bridge error — whatever
 /// CUJ 7's Test screen must show verbatim).
@@ -88,58 +184,22 @@ pub async fn register(
         Ok(u) => u,
         Err(resp) => return *resp,
     };
-    let auth = st.auth.as_ref().expect("mounted only when hosted");
-    // The id is minted before the calls so the client's per-bridge semaphore has its key; the
-    // same id lands in the row on success.
-    let id = Uuid::now_v7();
-    // Guard first: a refused URL never reaches the network (AC-2, auth-on half).
-    let vetted = match vet_url(&body.url, true).await {
-        Ok(v) => v,
-        Err(e) => return cause_response(StatusCode::UNPROCESSABLE_ENTITY, &e.to_string()),
-    };
-    // Live test in CUJ 7's order: /health then /symbols. The token goes only into the
-    // Authorization header; no error path composes it into text (07-01's tracked note).
-    if let Err(e) = st.bridges.client.health(&id, &vetted, &body.token).await {
-        return cause_response(StatusCode::UNPROCESSABLE_ENTITY, &e.to_string());
+    match register_for_user(&st, user, &body.label, &body.url, &body.token).await {
+        Ok(r) => super::json(
+            StatusCode::CREATED,
+            &json!({
+                "id": r.id.to_string(),
+                "label": r.label,
+                "url": r.url,
+                "symbol_count": r.symbol_count,
+                "connected": true,
+            }),
+        ),
+        Err(refusal) if refusal.status == StatusCode::SERVICE_UNAVAILABLE => {
+            auth_error(AuthError::Unavailable(refusal.cause))
+        }
+        Err(refusal) => cause_response(refusal.status, &refusal.cause),
     }
-    let symbols = match st.bridges.client.symbols(&id, &vetted, &body.token).await {
-        Ok(v) => v,
-        Err(e) => return cause_response(StatusCode::UNPROCESSABLE_ENTITY, &e.to_string()),
-    };
-    let symbol_count = symbols.as_array().map(|a| a.len()).unwrap_or(0);
-    let symbols_json = serde_json::to_string(&symbols).ok();
-    let token_enc = crypto::seal(&bridge_key(&st), &body.token);
-    let now = chrono::Utc::now();
-    let row = NewBridge {
-        id,
-        user_id: user,
-        label: body.label.trim().to_string(),
-        url: vetted.url.to_string(),
-        token_enc,
-        symbols_json: symbols_json.clone(),
-        last_ok_at: Some(now),
-        last_error: None,
-        created_at: now,
-    };
-    if let Err(e) = store::insert(auth.bridge_pool(), &row).await {
-        return db_down(&e);
-    }
-    // The token and the URL's query string join the ring's redaction set (AC-5): a hostile
-    // bridge echoing the Authorization value into its error text cannot land it in a log.
-    st.logs.add_secret(&body.token);
-    if let Some(q) = vetted.url.query().map(|s| s.to_string()) {
-        st.logs.add_secret(&q);
-    }
-    super::json(
-        StatusCode::CREATED,
-        &json!({
-            "id": id.to_string(),
-            "label": row.label,
-            "url": row.url,
-            "symbol_count": symbol_count,
-            "connected": true,
-        }),
-    )
 }
 
 /// `GET /api/me/mt5`: this session's bridges, oldest first, the token absent by construction

@@ -76,6 +76,6 @@ pairing, control, status) on the MT5 VPS, and the real-host checkpoints this pha
 
 ## Reflect and RSI
 
-- reflect: deferred to phase close (reflect: pstack) — pending, runs in the fresh session (session_reset: plan)
-- instruction edits proposed: none
-- rsi: deferred to phase close (reflect: pstack)
+- reflect: skill: reflect (pstack panel, 2026-11-26 fresh session) — 3 lenses (judgment/tooling/divergent), parent verified the decisive claims by live probe before accepting. 12 raw findings -> 9 accepted after synthesis/verification, 3 rejected (see the panel record in `.paul/runs/reflect-08/`; verdicts in STATE.md's Session Continuity). Landed: L-051..L-054 (LEARNINGS), L-023 hit 6 (piped-exit lie recurred, seq 136/376), L-026 hit 3 (differ had no total==33 pin), DEBT-044 (parity suite untracked, trigger phase:09), and one live code repair: /symbols key order — the built binary emitted {"desc","digits","name","path"} (BTreeMap) against the contract's {"name",...}; preserve_order moved to the normal dependency (dev-only unification had made the unit test lie), differ un-sorted, re-probed green, full gates re-run (fmt/clippy/40 crate/200 workspace/33-33 both passes/mutations 6 red 6 green after the edit per R-10).
+- instruction edits proposed: R-8 tighten (a bare `; echo exit=$?` is only valid with nothing piped) and the context-budget exemption line (judged gate commands that must quote a bare exit are exempt from the no-single-call rule) — both await the owner's explicit yes (LEARNINGS.md policy: instruction edits never auto-apply).
+- rsi: deferred to DEBT-044's discharge pass (the flaky-test-killer rate-measurement loop the session hand-rolled seven times is the one candidate; filed under L-052's evidence rather than an experiment row now) — no other candidate met the before-and-after bar this phase.

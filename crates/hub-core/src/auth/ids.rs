@@ -69,10 +69,129 @@ impl DesktopCode {
     }
 }
 
+/// The OTP pairing code's modulus: exactly ten digits, so the room is 10^10.
+const PAIRING_SPACE: u64 = 10_000_000_000;
+
+/// A pairing code shown in Settings and typed into the manager app: ten digits, 0..=10^10-1.
+///
+/// Uniform by rejection sampling over `u64`. Four bytes cannot reach 10^10 (2^32 is about
+/// 4.3e9), and `% 10^10` over 2^64 would bias the low residues by roughly 1.8e9/2^64 - small,
+/// but a biased code alphabet is exactly the property the gate wants absent. The rejection
+/// bound is `2^64 - (2^64 mod 10^10)`, so every digit string is equally likely.
+pub struct PairingCode(u64);
+
+impl PairingCode {
+    pub(crate) fn fresh() -> PairingCode {
+        // `2^64 mod 10^10`: computed once at compile time, so the loop rejects exactly the
+        // tail that would bias the mapping.
+        const LIMIT: u64 = u64::MAX - (u64::MAX % PAIRING_SPACE);
+        loop {
+            let mut buf = [0u8; 8];
+            getrandom::getrandom(&mut buf).expect("OS random source");
+            let n = u64::from_le_bytes(buf);
+            if n < LIMIT {
+                return PairingCode(n % PAIRING_SPACE);
+            }
+        }
+    }
+
+    /// Fixed value, for tests.
+    #[cfg(test)]
+    pub(crate) fn from_digits(n: u64) -> PairingCode {
+        assert!(n < PAIRING_SPACE, "a pairing code is under 10^10");
+        PairingCode(n)
+    }
+
+    /// The wire form: ten digits, zero-padded (`0073451209`), never grouped. The page groups
+    /// it for display only.
+    pub(crate) fn encode(&self) -> String {
+        format!("{:010}", self.0)
+    }
+
+    pub(crate) fn hash(&self) -> PairingCodeHash {
+        PairingCodeHash(sha256(self.encode().as_bytes()))
+    }
+}
+
+impl std::fmt::Debug for PairingCode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Sealed like every other live secret: a code in a log line is a code a reader can use.
+        write!(f, "PairingCode(_)")
+    }
+}
+
+/// SHA-256 of a pairing code's ten-digit string.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub struct PairingCodeHash([u8; SECRET_LEN]);
+
+impl std::fmt::Debug for PairingCodeHash {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "PairingCodeHash(_)")
+    }
+}
+
+impl PairingCodeHash {
+    pub(crate) fn of_code(code: &str) -> PairingCodeHash {
+        PairingCodeHash(sha256(code.as_bytes()))
+    }
+
+    pub(crate) fn as_bytes(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+/// A bridge's standing revoke secret: 32 random bytes, base64url on the wire, only its hash
+/// stored. One per bridge, shown once at pairing (09-ARCHITECTURE decision 2).
+pub struct RevokeSecret([u8; SECRET_LEN]);
+
+impl RevokeSecret {
+    pub(crate) fn fresh() -> RevokeSecret {
+        RevokeSecret(random_bytes())
+    }
+
+    /// The 43-character wire value, returned exactly once in the pairing response.
+    pub(crate) fn encode(&self) -> String {
+        URL_SAFE_NO_PAD.encode(self.0)
+    }
+
+    pub(crate) fn hash(&self) -> RevokeHash {
+        RevokeHash(sha256(self.encode().as_bytes()))
+    }
+}
+
+impl std::fmt::Debug for RevokeSecret {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "RevokeSecret(_)")
+    }
+}
+
+/// SHA-256 of a revoke secret's wire value.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub struct RevokeHash([u8; SECRET_LEN]);
+
+impl std::fmt::Debug for RevokeHash {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "RevokeHash(_)")
+    }
+}
+
+impl RevokeHash {
+    /// Public: the bridge store's `set_revoke_hash` takes one, and the contract suites seed a
+    /// bridge with a known secret. It hashes only what it is given, so exposing it grants no
+    /// capability a caller does not already have.
+    pub fn of_secret(secret: &str) -> RevokeHash {
+        RevokeHash(sha256(secret.as_bytes()))
+    }
+
+    #[allow(dead_code)] // read by the store's B6/B7 binds
+    pub(crate) fn as_bytes(&self) -> &[u8] {
+        &self.0
+    }
+}
+
 /// SHA-256 of a session id's cookie value.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct SessionHash([u8; SECRET_LEN]);
-
 impl std::fmt::Debug for SessionHash {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // Sealed: the bytes never print, only the type and a length marker.
@@ -208,5 +327,61 @@ mod tests {
         let c = Keys::derive(b"other");
         assert_eq!(a.oauth_mac, b.oauth_mac);
         assert_ne!(a.oauth_mac, c.oauth_mac);
+    }
+
+    #[test]
+    fn a_pairing_code_is_ten_digits_and_zero_padded() {
+        // The alphabet is exactly the ten digits, and a small value keeps its leading zeros:
+        // the wire form is always ten characters, so a client can group it without guessing.
+        let code = PairingCode::from_digits(7);
+        assert_eq!(code.encode(), "0000000007");
+        assert_eq!(
+            PairingCode::from_digits(9_999_999_999).encode(),
+            "9999999999"
+        );
+        assert!(code.encode().bytes().all(|b| b.is_ascii_digit()));
+        // Fresh codes stay inside the modulus (the rejection loop's contract).
+        for _ in 0..64 {
+            let s = PairingCode::fresh().encode();
+            assert_eq!(s.len(), 10, "{s}");
+            assert!(s.bytes().all(|b| b.is_ascii_digit()), "{s}");
+        }
+    }
+
+    #[test]
+    fn the_rejection_bound_covers_the_whole_space() {
+        // 4 bytes cannot reach 10^10, which is why the generator samples u64. This is a
+        // compile-time fact, so it is asserted as one: a later "optimization" back to 4 bytes
+        // fails the BUILD, not just this test, and can never bias the alphabet unnoticed.
+        const {
+            assert!(
+                (u32::MAX as u64) < PAIRING_SPACE,
+                "4 bytes cannot hold 10^10 - sample u64"
+            )
+        };
+        // The rejection tail is the remainder: a multiple of the modulus means every accepted n
+        // maps onto a uniform residue, which is the property the bound exists for.
+        let limit = u64::MAX - (u64::MAX % PAIRING_SPACE);
+        assert_eq!(
+            limit % PAIRING_SPACE,
+            0,
+            "the bound is a multiple of the space"
+        );
+    }
+
+    #[test]
+    fn hashes_are_domain_shaped_and_sealed_in_debug() {
+        let code = PairingCode::from_digits(1234567890);
+        assert_eq!(code.hash(), PairingCodeHash::of_code("1234567890"));
+        assert_ne!(
+            code.hash().as_bytes(),
+            PairingCodeHash::of_code("1234567891").as_bytes()
+        );
+        // Neither a live code nor a revoke secret prints its bytes.
+        assert_eq!(format!("{code:?}"), "PairingCode(_)");
+        let secret = RevokeSecret::fresh();
+        assert_eq!(secret.encode().len(), 43);
+        assert_eq!(format!("{secret:?}"), "RevokeSecret(_)");
+        assert_eq!(secret.hash(), RevokeHash::of_secret(&secret.encode()));
     }
 }
