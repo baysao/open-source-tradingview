@@ -139,9 +139,9 @@ PLAN ──▶ APPLY ──▶ UNIFY
 | /rsi | yes | no candidate; DEBT-016/017 carry the two that need building |
 
 ### Git State
-Last commit: 5d9c509 feat(06): tauri desktop shell, sign-in handoff, CI and docs
-Branch: arch/axum-tauri (not pushed since the phase-05 commits; the desktop.yml first run is
-DEBT-038's proof, due on the next push)
+Last commit: 63cd4e4 feat(07): per-user MT5 bridges (the phase commit; 105 files)
+Branch: arch/axum-tauri (not pushed since the phase-05 commits; the next push is DEBT-038's
+proof: desktop.yml check-windows/check-linux green, root test job tauri/webkit-free)
 Uncommitted: none (the phase commit landed everything; drivers stay in gitignored .paul/runs/)
 
 ### Blockers/Concerns
