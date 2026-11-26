@@ -307,6 +307,21 @@ with a new entry that names the old id. -->
   which D-030 did not depend on. The five release legs still pass explicit `--target`s and are
   unaffected.
 
+## D-039: The host triple lives in rustup's default-host, never in rust-toolchain.toml (supersedes D-038's pin clause)
+- **Date:** 2026-11-27  **Plan:** 09-03 (tag v0.3.0 push)  **Status:** decided
+- **Decision:** `rust-toolchain.toml` stays **channel-only** (`channel = "1.95.0"`). The Windows-msvc
+  host is set on the dev box with `rustup set default-host x86_64-pc-windows-msvc`. D-038's clause
+  "channel = 1.95.0-x86_64-pc-windows-msvc" is superseded by this.
+- **Why:** the triple in `channel` is a host toolchain NAME, and rustup on any non-Windows machine
+  cannot install it — the first v0.3.0 tag push failed all three workflows in under a minute with
+  `error: target tuple in channel name '1.95.0-x86_64-pc-windows-msvc'` on ubuntu-latest. The msvc
+  goal of D-038 still holds: on the dev box the channel-only pin now resolves to
+  1.95.0-x86_64-pc-windows-msvc through the default host, and CI keeps resolving its native host.
+- **Evidence:** run 45878126619/45878126671/45878148333 all failed at the first cargo call; after the
+  revert, `rustup show active-toolchain` in the repo reports
+  `1.95.0-x86_64-pc-windows-msvc (overridden by rust-toolchain.toml)` with `rustc -vV` host
+  `x86_64-pc-windows-msvc` on the dev box, while a linux CI runner resolves its own host.
+
 ## D-037: Two pairing paths authenticate by a body secret and are exempt from the gate's Origin rule
 - **Date:** 2026-11-26  **Plan:** 09-01  **Status:** decided (recorded at UNIFY; the plan's AC-3 and AC-5 contradicted each other and this is the resolution)
 - **Decision:** `POST /api/me/mt5/pair` and `POST /api/me/mt5/paired/{id}/revoke` sit inside `/api/me` (the L-022 gate area) but are exempt from D-010's `Origin == PUBLIC_ORIGIN` rule. `routes/gate.rs::is_secret_authenticated` is the only place that decides it, matched **structurally** (a slice pattern on the split path), never by prefix. The session-gated `POST /api/me/mt5/pairing-code` keeps the rule, as does every other `/api/me/*` path. Ten negative cases are unit-tested so the exemption cannot widen without a failing test.

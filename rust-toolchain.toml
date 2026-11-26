@@ -1,10 +1,8 @@
 [toolchain]
-# The host triple is EXPLICIT (`x86_64-pc-windows-msvc`), not just the channel. A channel-only pin
-# resolves against rustup's `default_host_tuple`, which on a dev box that once installed a mingw
-# toolchain can still be `*-windows-gnu` — and that silently changes the binary's ABI and its DLL
-# dependencies. Measured 2026-11-27: the gnu build linked `WebView2Loader.dll` dynamically
-# (webview2-com-sys-0.39.1/src/lib.rs:14-24 links it statically only under `target_env = "msvc"`),
-# so the manager app refused to start on the MT5 host with 0xC0000135 STATUS_DLL_NOT_FOUND. CI was
-# never affected: every workflow leg passes an explicit `--target`, so it always built msvc.
-channel = "1.95.0-x86_64-pc-windows-msvc"
+# Channel only: the host triple is a MACHINE property, never a repo property. Pinning the triple
+# here (D-038's first cut) broke every Linux CI job - rustup on Ubuntu cannot install a
+# x86_64-pc-windows-msvc host toolchain. The Windows-msvc default lives in rustup's
+# default_host_tuple on the dev box instead (rustup set default-host), so a local build is msvc
+# while Linux CI keeps resolving 1.95.0-x86_64-unknown-linux-gnu.
+channel = "1.95.0"
 components = ["clippy", "rustfmt"]
