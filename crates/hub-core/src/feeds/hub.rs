@@ -21,6 +21,11 @@ pub struct Wanted {
     pub source: Source,
     pub symbol: String,
     pub tf: Tf,
+    /// 07-03 (D-032a): the `bridge` field, verbatim. `None` is every pre-07-03 subscribe: the
+    /// Binance path bit for bit. The string is validated at subscribe time, where the state
+    /// can check it (a uuid the session owns, or `local` when auth is off), not in the pure
+    /// parser.
+    pub bridge: Option<String>,
 }
 
 #[derive(Clone)]

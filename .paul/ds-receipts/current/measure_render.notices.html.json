@@ -1,9 +1,9 @@
 {
  "gate": "measure_render",
  "page": "notices.html",
- "base": "http://127.0.0.1:8775",
+ "base": "http://127.0.0.1:18774",
  "result": "pass",
- "ts": 1795567069.9880488,
+ "ts": 1795659881.575461,
  "counts": {
   "pass": true,
   "h1count": 1,
@@ -13,7 +13,7 @@
    "width": 960,
    "height": 44.875
   },
-  "bodyHeight": 1189,
-  "shotBytes": 67575
+  "bodyHeight": 1181,
+  "shotBytes": 64375
  }
 }

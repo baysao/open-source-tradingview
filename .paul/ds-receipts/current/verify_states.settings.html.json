@@ -1,0 +1,14 @@
+{
+ "gate": "verify_states",
+ "page": "settings.html",
+ "base": "http://127.0.0.1:18774",
+ "result": "pass",
+ "ts": 1795659881.575461,
+ "counts": {
+  "pass": true,
+  "checked": 14,
+  "unnamed": 0,
+  "hidden": 10,
+  "covered": 0
+ }
+}

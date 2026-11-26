@@ -1018,6 +1018,12 @@ impl Auth {
         Ok(cookies)
     }
 
+    /// The account database pool, for the bridge store (07-03): `/api/me/mt5*` reads
+    /// `mt5_bridges` scoped by the session's own user id.
+    pub(crate) fn bridge_pool(&self) -> &sqlx::PgPool {
+        self.0.db.pool()
+    }
+
     /// S14: expired sessions go (their codes die by cascade). Returns rows removed.
     pub async fn sweep_expired(&self) -> Result<u64, AuthError> {
         store::sweep_expired(self.0.db.pool(), self.now())

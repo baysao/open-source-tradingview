@@ -15,8 +15,9 @@ Rust (Axum) server, Google accounts that sync each user's work, and a Tauri 2 de
 ## Current Milestone
 
 **v0.2 Accounts everywhere** (v0.2.0)
-Status: Phase 06 complete 2026-11-26 (4 of 4 plans unified; phase reflect + rsi run); 07 not started
-Phases: 2 of 3 complete
+Status: Phase 07 complete 2026-11-26 (4 of 4 plans unified; phase reflect + rsi run; the exit debt
+gate blocks on DEBT-039, the owner's real-bridge observation)
+Phases: 3 of 3 complete
 
 ## Milestones
 
@@ -39,7 +40,7 @@ DEBT-005 (first green CI) are discharged.
 | 04 | Public deploy | v0.1 | 3 (04-01, 04-02, 04-03) | Complete | 2026-11-25 |
 | 05 | Synced state | v0.2 | 4 (05-01..05-04) | Complete | 2026-11-25 |
 | 06 | Tauri desktop | v0.2 | 4 (06-01..06-04) | Complete | 2026-11-26 |
-| 07 | Per-user MT5 bridges | v0.2 | TBD | Not started | - |
+| 07 | Per-user MT5 bridges | v0.2 | 4 (07-01..07-04) | Complete | 2026-11-26 |
 
 ## Phase Details
 
@@ -182,6 +183,34 @@ push, agent), and the launch-waiting owner rows.
   see or use the bridge.
 - **Gate:** how bridges reach the symbol picker and the subscribe format (R24); start only after Phase 04
   has live users (Z5).
+- **Planned 2026-11-26** (4 plans, `07-ARCHITECTURE.md` is the contract). R24 answered by proposed
+  D-032: the ws subscribe JSON gains an optional `bridge` field (`source=mt5` without it keeps the
+  Binance fallback, so D-009 parity and the anonymous surfaces hold); the bridge's `/symbols` answer is
+  cached at every successful Test and merged into `/api/symbols` for the session owner only; live
+  updates come from one server-side poller per (bridge, symbol, tf) long-polling `/wait`; failures
+  surface the exact cause verbatim (CUJ 7); cross-user is 404; no new rate bucket. Proposed D-033 gives
+  D-001's loopback-when-auth-off exception its mechanics: local mode reads `VTV_LOCAL_BRIDGE_URL` /
+  `VTV_LOCAL_BRIDGE_TOKEN` as the implicit bridge `local`, which is also the served-test seam. 07-02
+  schedules the phase's debt discharge (DEBT-032, DEBT-035); DEBT-039 (owner real-bridge uat) was filed
+  at plan time and blocks phase-07-exit. Z5 confirmed satisfied at the plan approval 2026-11-26
+  (the live site serves v0.1.1; owner approval).
+  Plans: 07-01 bridge core (migration, crypto, guard, client) · 07-02 Python bridge hardening + user
+  docs + debt discharge · 07-03 routes, symbols merge, bars + ws poller, suites · 07-04 settings
+  screen, picker wiring, gates, served driver, owner checkpoint.
+
+**Phase 07 exit (2026-11-26):** all four plans unified; the loop closed at 07-04's UNIFY with the
+phase reflect (pstack panel: 8 accepted, 1 rejected, 2 backlog — L-024/L-029 validated at hits 3,
+L-027 generalized, L-048..050 added, D-034 parallel_agents-false, R-12 automated-falsifiers-first,
+DEBT-040/041 filed). The build is proven: 313 workspace tests exit 0, m1-m3 red-then-green (07-03),
+a11y mutation red-then-green (07-04), gate receipts 8/8 x 5 pages including settings.html,
+check-0704 14/14 served, the SSRF 17-case table green auth-on and auth-off, cross-user 404s,
+logbus redaction proven by the ECHO fake. **The phase's accept is discharged: DEBT-039 done
+2026-11-26** — the owner ran the real bridge on the MT5 host (Exness-MT5Real28), registered it in
+Settings, and watched live XAUUSDm candles stream; the agent verified the public half through the
+tunnel (health/bars/wait/symbols all 200, 358 symbols). /security-review --full ran at the
+transition gate: no Critical/High, 2 Medium + 1 Low filed as DEBT-042. Also open after the phase:
+DEBT-038 (first-push CI proof, agent), DEBT-043 (permanent named tunnel + ONSTART tasks + the
+registration-file credential handoff), DEBT-040/041 (agent), and the launch-waiting owner rows.
 
 ---
 *Roadmap created: 2026-11-23*

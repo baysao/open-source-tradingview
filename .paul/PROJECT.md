@@ -60,6 +60,13 @@ scripts kept in their Google account.
   (`start_sign_in`), the nav guard refuses off-origin, tray Show/Quit; checkpoint approved
   2026-11-25 (owner looked at the window); 31 crate tests + 5 phase mutations red-then-green,
   gate receipts 8/8
+- ✓ Per-user MT5 bridge plumbing (G6): sealed token storage (XChaCha20-Poly1305), SSRF guard
+  refusing every private/loopback/link-local target with auth on, owner-scoped routes (cross-user
+  404), symbols merged owner-only, per-(bridge,symbol,tf) poller, settings screen + picker wiring
+  - Phase 07 — 313 workspace tests, m1-m3 + a11y mutations red-then-green, 8/8 gate receipts x 5
+  pages, check-0704 14/14 served. **The live observation landed 2026-11-26 (DEBT-039 done):** the
+  owner ran the real bridge on the Exness MT5 host, registered it in Settings, and watched live
+  XAUUSDm candles stream (public half verified by the agent: health/bars/wait/symbols 200)
 
 ### Planned (Next)
 - v0.1 Hosted launch: Rust parity, order flow in Rust, database and Google sign-in, public deploy
@@ -113,6 +120,9 @@ scripts kept in their Google account.
 | Delete confirmation uses the native `<dialog>` modal | the browser owns the focus trap, Esc and top layer; the modern-web-guidance rule for destructive actions | 2026-11-24 | Active |
 | The test-IdP router needs feature, debug profile and `VTV_TEST_IDP=1` | it mints a token for any `sub`; a release build must refuse it, verified 404 | 2026-11-24 | Active |
 | Desktop grants the remote page one permission; the deep link arrives by a Rust-side eval (D-029/D-030) | every granted permission is attack surface on an untrusted page; the crate stays its own workspace so the root test job stays tauri-free | 2026-11-25 | Active |
+| Bridge surface contract (D-032): optional ws `bridge` field, owner-only symbols merge, per-(bridge,symbol,tf) poller, cross-user 404, no new rate bucket | the anonymous surfaces and D-009 parity hold by construction; the per-bridge semaphore plus shared poller is the spec's per-user bound | 2026-11-26 | Active |
+| Local mode carries one env-configured bridge `local`; loopback URLs only when auth is off (D-033) | local mode has no users so no registered bridge can exist; the env bridge doubles as the served-test seam | 2026-11-26 | Active |
+| Plans in this repo emit `parallel_agents: false` (D-034) | ZCode has no worktree isolation; sequential waves are the designed behaviour, not a degradation | 2026-11-26 | Active |
 
 ## Success Metrics
 
@@ -146,4 +156,4 @@ See `.paul/config.md` and `.paul/SPECIAL-FLOWS.md`.
 
 ---
 *Created: 2026-11-23 (imported from .paul/PLANNING.md and .paul/design/specs/vtradingview.md)*
-*Last updated: 2026-11-26 after Phase 06*
+*Last updated: 2026-11-26 after Phase 07*

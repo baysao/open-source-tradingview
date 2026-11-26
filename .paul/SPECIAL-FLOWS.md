@@ -103,6 +103,8 @@ design-taste-frontend, huashu and a11y-audit this way; design-gate stays a UNIFY
   Rationale: the directive delegates the asking decision to the agent; without a written boundary the next
   session either re-asks through every gate or self-discharges the rows meant to catch what a script cannot
   judge (04 reflect: DEBT-020/021/026 are `text_present` on a SUMMARY the agent authors).
+- **R-12: an automated falsifier that can reopen a phase runs before the phase's human-judgment gate closes it.** When a push is deferred (`auto_commit: false`), the phase exit records "CI-unproven on this tree" as an open exit condition in the phase's own record — the first-push observation (the DEBT-038 pattern) belongs to the phase's gate arithmetic, not to a post-exit artifact row that only archaeology can act on. If the first push can fail the phase's build, a "closed" phase reopens; order the cheap automated signal before the expensive human gate whenever the automated result can contradict what the human gate approved.
+  Rationale: 07 reflect: phase 07's exit was gated on DEBT-039 (the owner's real-bridge observation) while the only signal that could falsify the phase (first-push ci.yml/desktop.yml green) was deliberately sequenced after exit — CI was being used as archaeology instead of as a gate.
 
 ---
 

@@ -96,3 +96,25 @@ two real defects the state checks missed: (1) `.desk-card .steps` kept `display:
 only h1 (axe heading-order) - demoted to h2. `deskHide`'s flag param also shadowed `render()` (Cancel
 left the busy button) - renamed `rerender`. Lint: axe 0 violations waiting + failed (driver case 12);
 verify_states/verify_responsive green on the auth-off base. Status: done, red 0.
+
+## 2026-11-26 settings.html MT5 bridges (07-04)
+
+Satisfied via the gate-runner note (surface in the receipt set): gate_all 8/8 gates × 5 pages on the
+auth-off base (`--base http://127.0.0.1:18774`, settings.html in the page list; `--check-receipts`
+exit 0) plus a served browser pass with screenshots (`.paul/runs/shots-0704/`) and the driver's
+DOM-level assertions (`.paul/runs/check-0704.mjs`, 14/14, mutation red-then-green). The kit's
+`design_lint.py check` is file://-only (`collect` resolves `as_uri()`), so its served half is
+gate_all's design_lint receipt — green (red 0). The file:// run reports its own fetch noise (L-020).
+Worst three found and fixed by the gates + browser pass:
+1. Wrapped inline link in the signed-out panel: the union rect spans both lines and the point
+   between them hit-tests to the parent `p` — verify_states read `covered: 1`. Fixed with
+   `a.link { white-space: nowrap }`.
+2. `lint_intent` wanted a page footer (hasFooter false); added the privacy.html footer pattern
+   ("Open the hub | Licence and notices").
+3. The page's boot `/api/me/mt5` fetch 404'd on the auth-off base — one console error (design_lint
+   red) and, on a real hosted server, a signed-out console error on every visit. Fixed: `/auth/me`
+   first; signed out or local mode never touches `/api/me/mt5`. Also fixed en route: 4 hardcoded px
+   → rem (lint_hardcodes), and an unconsumed error body that kept the boot request alive forever
+   (networkidle never settled; `r.text()` on every path).
+Status: done, red 0. Not visually inspected by the agent (no image input this session); the owner
+look joins 07-04's checkpoint.

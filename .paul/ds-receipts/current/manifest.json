@@ -11,8 +11,11 @@
  ],
  "pages": [
   "hub.html",
-  "index.html"
+  "index.html",
+  "settings.html",
+  "privacy.html",
+  "notices.html"
  ],
- "base": "http://127.0.0.1:8775",
- "ts": 1795622046.9093156
+ "base": "http://127.0.0.1:18774",
+ "ts": 1795659881.575461
 }

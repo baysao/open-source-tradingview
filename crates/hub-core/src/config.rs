@@ -101,6 +101,16 @@ pub struct AuthSettings {
     pub idp: IdpEndpoints,
 }
 
+/// The local-mode bridge (proposed D-033): `VTV_LOCAL_BRIDGE_URL` + `VTV_LOCAL_BRIDGE_TOKEN`,
+/// parsed only when `AUTH_ENABLED=false` and exposed as the implicit bridge id `local` on
+/// `/api/bars` and the ws subscribe. With auth on both keys are ignored (the boot log names
+/// that, never the values). The token is a [`Secret`]: `Debug` redacts it.
+#[derive(Clone, Debug)]
+pub struct LocalBridge {
+    pub url: String,
+    pub token: Secret,
+}
+
 #[derive(Clone, Debug)]
 pub struct Config {
     pub http_port: u16,
@@ -114,6 +124,10 @@ pub struct Config {
     pub auth: AuthMode,
     /// Most distinct `(source, symbol)` upstreams open at once (D-002).
     pub feed_max_symbols: usize,
+    /// The local-mode bridge (D-033), present only when auth is off.
+    pub local_bridge: Option<LocalBridge>,
+    /// The keys were set with auth on: dead config, warned about once at boot.
+    pub local_bridge_ignored: bool,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -147,7 +161,9 @@ const REQUIRED: [&str; 5] = [
 impl Config {
     /// Reads `HUB_HTTP_PORT`, `HUB_STATIC_DIR`, `HUB_LOG_DIR`, `HUB_CACHE_DIR`, `PUBLIC_ORIGIN`,
     /// `AUTH_ENABLED`, `FEED_MAX_SYMBOLS`, and with `AUTH_ENABLED=true` also `DATABASE_URL`,
-    /// `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `VTV_SECRET_KEY`, `ADMIN_EMAILS`.
+    /// `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `VTV_SECRET_KEY`, `ADMIN_EMAILS`. With
+    /// `AUTH_ENABLED=false` also the local bridge (D-033): `VTV_LOCAL_BRIDGE_URL` and
+    /// `VTV_LOCAL_BRIDGE_TOKEN`, both or neither; with auth on the two are ignored.
     /// Defaults: 8770, `hub`, `hub/logs`, `hub/.cache/orderflow`, `http://127.0.0.1:<port>`
     /// (local mode only), false, 400.
     pub fn from_env() -> Result<Config, ConfigError> {
@@ -189,7 +205,7 @@ impl Config {
             None => 400,
         };
         let origin = get("PUBLIC_ORIGIN").map(|v| v.trim().trim_end_matches('/').to_string());
-        let (auth, public_origin) = if hosted {
+        let (auth, public_origin, local_bridge, local_bridge_ignored) = if hosted {
             let missing: Vec<&'static str> = REQUIRED
                 .iter()
                 .copied()
@@ -223,11 +239,41 @@ impl Config {
                     .unwrap_or_default(),
                 idp: idp_endpoints(&get),
             };
-            (AuthMode::Google(Arc::new(settings)), origin)
+            // D-033: with auth on the local-bridge keys are dead config; record that they were
+            // set so the boot log can say so once (never the values).
+            let local_bridge_ignored =
+                get("VTV_LOCAL_BRIDGE_URL").is_some() || get("VTV_LOCAL_BRIDGE_TOKEN").is_some();
+            (
+                AuthMode::Google(Arc::new(settings)),
+                origin,
+                None,
+                local_bridge_ignored,
+            )
         } else {
+            let local_bridge = match (get("VTV_LOCAL_BRIDGE_URL"), get("VTV_LOCAL_BRIDGE_TOKEN")) {
+                (None, None) => None,
+                (Some(url), Some(token)) => Some(LocalBridge {
+                    url: url.trim().to_string(),
+                    token: Secret::new(token.trim()),
+                }),
+                (Some(_), None) => {
+                    return Err(ConfigError::Invalid {
+                        key: "VTV_LOCAL_BRIDGE_TOKEN",
+                        value: "required when VTV_LOCAL_BRIDGE_URL is set".into(),
+                    })
+                }
+                (None, Some(_)) => {
+                    return Err(ConfigError::Invalid {
+                        key: "VTV_LOCAL_BRIDGE_URL",
+                        value: "required when VTV_LOCAL_BRIDGE_TOKEN is set".into(),
+                    })
+                }
+            };
             (
                 AuthMode::Off,
                 origin.unwrap_or_else(|| format!("http://127.0.0.1:{http_port}")),
+                local_bridge,
+                false,
             )
         };
         Ok(Config {
@@ -244,6 +290,8 @@ impl Config {
             public_origin,
             auth,
             feed_max_symbols,
+            local_bridge,
+            local_bridge_ignored,
         })
     }
 
@@ -493,5 +541,37 @@ mod tests {
             cfg(&[("HUB_HTTP_PORT", "abc")]),
             Err(ConfigError::Invalid { .. })
         ));
+    }
+
+    #[test]
+    fn local_bridge_parses_only_when_auth_off() {
+        // Both keys, auth off: parsed (D-033).
+        let c = cfg(&[
+            ("VTV_LOCAL_BRIDGE_URL", "http://127.0.0.1:8797"),
+            ("VTV_LOCAL_BRIDGE_TOKEN", "tok"),
+        ])
+        .unwrap();
+        let b = c.local_bridge.expect("local bridge parsed");
+        assert_eq!(b.url, "http://127.0.0.1:8797");
+        assert_eq!(b.token.expose(), "tok");
+        assert!(!c.local_bridge_ignored);
+        // Half-set is an error, in either order.
+        assert!(cfg(&[("VTV_LOCAL_BRIDGE_URL", "http://127.0.0.1:8797")]).is_err());
+        assert!(cfg(&[("VTV_LOCAL_BRIDGE_TOKEN", "tok")]).is_err());
+        // Hosted mode ignores both keys and flags it for the boot warning.
+        let c = cfg(&hosted(&[
+            ("VTV_LOCAL_BRIDGE_URL", "http://127.0.0.1:8797"),
+            ("VTV_LOCAL_BRIDGE_TOKEN", "tok"),
+        ]))
+        .unwrap();
+        assert!(c.local_bridge.is_none());
+        assert!(c.local_bridge_ignored);
+        // An empty value counts as absent, as for every variable.
+        let c = cfg(&[
+            ("VTV_LOCAL_BRIDGE_URL", "  "),
+            ("VTV_LOCAL_BRIDGE_TOKEN", ""),
+        ])
+        .unwrap();
+        assert!(c.local_bridge.is_none());
     }
 }

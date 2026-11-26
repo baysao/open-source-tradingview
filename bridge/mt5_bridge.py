@@ -1,14 +1,22 @@
 """Remote MT5 bridge: serves candles from a MetaTrader 5 terminal through the terminal's native MCP server.
 Plain Python, standard library only. Run it on the machine that runs MT5 (for example a Linux server with MT5
-under Wine), then reach it from the hub through an SSH tunnel. It binds to 127.0.0.1 only and never places orders.
+under Wine), then register it in the hub's Settings over HTTPS (your own Cloudflare Tunnel or Caddy,
+docs/mt5-bridges.md). It binds to 127.0.0.1 by default and never places orders.
 
 Settings (environment variables):
-  BRIDGE_PORT        HTTP port on 127.0.0.1 (default 8797)
+  BRIDGE_TOKEN       the bearer token the hub must send (required; the bridge refuses to start
+                     without it; the hub stores it encrypted and the bridge never logs it)
+  BRIDGE_BIND        the bind address (default 127.0.0.1; publish over HTTPS with your own
+                     Cloudflare Tunnel or Caddy, see docs/mt5-bridges.md)
+  BRIDGE_PORT        HTTP port on the bind address (default 8797)
   MT5_MCP_URL        the terminal's MCP endpoint (default http://127.0.0.1:22346/mcp)
   MT5_MCP_TOKEN      the MCP token from MT5: Tools > Options > MCP (required; never commit it)
   BRIDGE_STATE_DIR   folder for the small server-time offset file (default: this folder)
 
 Every time it returns is UTC.
+
+Every route checks the Authorization header (Bearer BRIDGE_TOKEN) with a constant-time compare
+(hmac.compare_digest) before dispatching; anything else answers 401.
 
 GET /health                              broker server name, server-time offset (asks the terminal each time, never cached)
 GET /symbols                             every symbol: name, desc, path, digits
@@ -18,11 +26,13 @@ GET /wait?symbol=&tf=&after=<key>        long-poll: returns as soon as the last 
 One shared poller per symbol+timeframe (a few reads a second, stopped when nobody asks), so any number of charts
 and alerts adds no load on the terminal, which is also the trading path.
 """
-import calendar, datetime as dt, json, os, threading, time, urllib.error, urllib.request
+import calendar, datetime as dt, hmac, json, os, sys, threading, time, urllib.error, urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
 PORT = int(os.environ.get("BRIDGE_PORT", "8797"))
+TOKEN = os.environ.get("BRIDGE_TOKEN", "").strip()
+BIND = os.environ.get("BRIDGE_BIND", "127.0.0.1")
 MCP_URL = os.environ.get("MT5_MCP_URL", "http://127.0.0.1:22346/mcp")
 STATE_DIR = os.environ.get("BRIDGE_STATE_DIR", os.path.dirname(os.path.abspath(__file__)))
 OFFSET_FILE = os.path.join(STATE_DIR, ".bridge_offset")
@@ -253,7 +263,14 @@ class H(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"  # keep-alive: one tunnel connection per stream
     timeout = 120                  # a dead client cannot hold a thread for ever
 
+    def authorized(self):
+        want = "Bearer " + TOKEN
+        got = self.headers.get("Authorization", "")
+        return hmac.compare_digest(got, want)
+
     def do_GET(self):
+        if not self.authorized():
+            return self.send_json({"error": "unauthorized"}, 401)
         u = urlparse(self.path)
         q = {k: v[0] for k, v in parse_qs(u.query).items()}
         try:
@@ -291,10 +308,13 @@ class Server(ThreadingHTTPServer):
 
 
 if __name__ == "__main__":
+    if not TOKEN:
+        log("BRIDGE_TOKEN is required (a random secret; the hub stores it encrypted).")
+        sys.exit(1)
     try:
         STATE.update(offset_s=int(open(OFFSET_FILE).read()), offset_src="last measured")
     except (OSError, ValueError):
         pass
     threading.Thread(target=offset_loop, daemon=True).start()
-    log(f"native MT5 bridge on 127.0.0.1:{PORT}")
-    Server(("127.0.0.1", PORT), H).serve_forever()
+    log(f"native MT5 bridge on {BIND}:{PORT}")
+    Server((BIND, PORT), H).serve_forever()

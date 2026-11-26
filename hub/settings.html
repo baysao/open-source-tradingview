@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TradeX - MT5 bridges</title>
+<script src="theme.js"></script>
+<style>
+  /* The MT5 bridges screen (07-04, mockup 03): the shared.css hub-native layer, ported.
+     Colours come only from hub/theme.js variables (plus --onAccent/--lift); no hex here. */
+  :root {
+    --r-sm: 3px; --r-md: 4px; --r-lg: 6px; --r-round: 50%;
+    --fs-xs: 12px; --fs-sm: 14px; --fs-md: 14px; --fs-lg: 14px; --fs-xl: 18px; --fs-2xl: 24px;
+    --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 20px; --sp-6: 24px; --sp-10: 40px;
+    --hair: 1px; --ring: 2px; --ctl-h: 28px; --ctl-h-touch: 32px; --icon: 14px; --icon-lg: 20px;
+    --dur-fast: 120ms; --ease: cubic-bezier(.2, 0, 0, 1);
+    --onAccent: var(--accentInk); --lift: var(--text);
+  }
+  @media (prefers-reduced-motion: reduce) { :root { --dur-fast: 0ms } *, *::before, *::after { animation-duration: 0ms !important; transition-duration: 0ms !important } }
+
+  * { box-sizing: border-box }
+  [hidden] { display: none !important }
+  html { background: var(--bg) }
+  body { margin: 0; background: var(--bg); color: var(--text); font: var(--fs-md)/1.4 var(--font); -webkit-font-smoothing: antialiased; padding: var(--sp-5) max(var(--sp-4), 4vw) var(--sp-10) }
+  main { max-width: 40rem; margin: 0 auto }
+  h1, h2, h3, h4, p { margin: 0 }
+  svg.i { width: var(--icon); height: var(--icon); flex: none; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round }
+  svg.i.lg { width: var(--icon-lg); height: var(--icon-lg) }
+  .mono { font-family: var(--mono) }
+  .dim { color: var(--dim) }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap }
+  code { font: var(--fs-md) var(--mono); color: var(--text) }
+  .ok-i { color: var(--ok) } .bad-i { color: var(--bad) }
+
+  .page-head { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-3); align-items: baseline; justify-content: space-between; padding-bottom: var(--sp-4); border-bottom: var(--hair) solid var(--line); margin-bottom: var(--sp-6) }
+  .page-head h1 { font-size: var(--fs-2xl); font-weight: 600; letter-spacing: -.01em }
+  .page-head p { color: var(--dim); margin-top: var(--sp-1); max-width: 68ch; flex-basis: 100% }
+
+  /* Buttons: the eight states. Primary is the one amber action; danger uses --bad. */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-1); min-height: var(--ctl-h-touch); padding: 0 var(--sp-3);
+    background: var(--raised); color: var(--text); border: var(--hair) solid var(--line); border-radius: var(--r-sm);
+    font: inherit; font-size: var(--fs-sm); font-weight: 600; cursor: pointer; white-space: nowrap; text-decoration: none;
+    transition: background-color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease) }
+  .btn:hover { background: var(--line); border-color: var(--dim) }
+  .btn:active { background: color-mix(in srgb, var(--line) 70%, var(--dim)) }
+  .btn:focus-visible, .ghost:focus-visible, .link:focus-visible, .field input:focus-visible { outline: var(--ring) solid var(--accent); outline-offset: 1px }
+  .btn.primary { background: var(--accent); color: var(--onAccent); border-color: var(--accent) }
+  .btn.primary:hover { background: color-mix(in srgb, var(--accent) 84%, var(--lift)); border-color: color-mix(in srgb, var(--accent) 84%, var(--lift)) }
+  .btn.primary:active { background: color-mix(in srgb, var(--accent) 72%, var(--lift)) }
+  .btn.danger { background: color-mix(in srgb, var(--bad) 16%, var(--panel)); color: var(--text); border-color: var(--bad) }
+  .btn.danger svg { color: var(--bad) }
+  .btn.danger:hover { background: color-mix(in srgb, var(--bad) 26%, var(--panel)) }
+  .btn.danger:active { background: color-mix(in srgb, var(--bad) 34%, var(--panel)) }
+  .btn:disabled, .btn[aria-disabled="true"] { opacity: .5; pointer-events: none }
+  .btn[aria-busy="true"] { opacity: 1; color: var(--text); pointer-events: none } /* busy: the spinner carries the state, the label keeps full contrast */
+  .btn[aria-busy="true"][aria-disabled="true"] { background: var(--raised); border: var(--hair) solid var(--line) }
+  .ghost { display: inline-flex; align-items: center; justify-content: center; min-width: var(--ctl-h); min-height: var(--ctl-h); padding: 0 var(--sp-2); gap: var(--sp-1);
+    background: transparent; color: var(--dim); border: 0; border-radius: var(--r-sm); font: inherit; font-size: var(--fs-sm); font-weight: 600; cursor: pointer }
+  .ghost:hover { background: var(--raised); color: var(--text) }
+  .ghost:active { background: var(--line); color: var(--text) }
+  .ghost:disabled { opacity: .5; pointer-events: none }
+  .link { color: var(--text); text-decoration: underline; text-underline-offset: 0.125rem; text-decoration-color: var(--dim); border-radius: var(--r-sm) }
+  .link:hover { text-decoration-color: var(--accent) }
+  .link:active { color: var(--dim) }
+  .spin { width: var(--icon); height: var(--icon); border-radius: var(--r-round); border: var(--ring) solid currentColor; border-right-color: transparent; animation: spin .8s linear infinite; flex: none }
+  @keyframes spin { to { transform: rotate(360deg) } }
+  @media (prefers-reduced-motion: reduce) { .spin { border-right-color: currentColor; border-style: dotted } }
+
+  /* Dock, sets, fields */
+  .dock { background: var(--panel); border: var(--hair) solid var(--line); border-radius: var(--r-md); width: 100% }
+  @media (min-width: 600px) { .dock { width: min(560px, 100%) } }
+  .dock > h2 { padding: var(--sp-3); font-size: var(--fs-sm); color: var(--dim); border-bottom: var(--hair) solid var(--line); font-weight: 600; display: flex; align-items: center; gap: var(--sp-2) }
+  .set { padding: var(--sp-3) }
+  .set > h3 { font-size: var(--fs-sm); font-weight: 600; color: var(--dim); margin-bottom: var(--sp-2); display: flex; align-items: center; gap: var(--sp-2) }
+  .set > h3 .ghost { margin-left: auto }
+  .set p { color: var(--dim); font-size: var(--fs-md); line-height: 1.5 }
+  .field { display: grid; gap: var(--sp-1); margin-bottom: var(--sp-3) }
+  .field label { font-size: var(--fs-sm); font-weight: 600 }
+  .field label .req { color: var(--bad) }
+  .field .hint { font-size: var(--fs-sm); color: var(--dim); line-height: 1.45 }
+  .field .wrap { display: flex; align-items: center; gap: var(--sp-1); background: var(--bg); border: var(--hair) solid var(--dim); border-radius: var(--r-sm); padding-right: var(--sp-1) }
+  .field .wrap:hover { border-color: var(--text) }
+  .field .wrap:focus-within { border-color: var(--accent); box-shadow: 0 0 0 var(--hair) var(--accent) }
+  .field input { flex: 1; min-width: 0; height: var(--ctl-h-touch); background: transparent; color: var(--text); border: 0; padding: 0 var(--sp-2); font: inherit; font-size: var(--fs-md); border-radius: var(--r-sm) }
+  .field input.mono { font-family: var(--mono); font-size: var(--fs-sm) }
+  .field input::placeholder { color: var(--dim); opacity: 1 }
+  .field input:focus { outline: none }
+  .field input:focus-visible { outline: none }
+  .field input:disabled { cursor: default }
+  .field.err .wrap { border-color: var(--bad) }
+  .field .msg { margin-top: var(--sp-1) }
+  .msg { display: flex; gap: var(--sp-2); align-items: flex-start; font-size: var(--fs-md); line-height: 1.45; color: var(--text) }
+  .msg svg { margin-top: 0.125rem }
+  .row-acts { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center }
+  .busy-note { margin-top: var(--sp-2); color: var(--dim) }
+
+  /* Bridge rows, inline delete confirm, result panel, empty state (mockup 03) */
+  .br { display: grid; grid-template-columns: 1fr auto; gap: 0.125rem var(--sp-2); padding: var(--sp-2) 0; border-top: var(--hair) solid var(--grid) }
+  .br:first-of-type { border-top: 0 }
+  .br b { font-weight: 600; font-size: var(--fs-md) }
+  .br .u { grid-column: 1; font: var(--fs-md) var(--mono); color: var(--dim); overflow-wrap: anywhere }
+  .br .st { grid-column: 1 / -1; display: flex; gap: var(--sp-1); align-items: center; font-size: var(--fs-sm) }
+  .br .ops { grid-column: 2; grid-row: 1 / span 2; display: flex; gap: var(--sp-1); align-items: start }
+  .confirm { margin-top: var(--sp-2); padding: var(--sp-3); border: var(--hair) solid var(--bad); border-radius: var(--r-sm); background: var(--bg) }
+  .confirm p { color: var(--text); margin-bottom: var(--sp-2) }
+  .result { padding: var(--sp-2) var(--sp-3); border: var(--hair) solid var(--line); border-radius: var(--r-sm); background: var(--bg); margin: var(--sp-2) 0 var(--sp-3) }
+  .empty { text-align: left }
+  .empty svg.i { width: var(--icon-lg); height: var(--icon-lg); color: var(--dim); margin-bottom: var(--sp-2) }
+  .empty h4 { font-size: var(--fs-md); margin: 0 0 var(--sp-1); font-weight: 600 }
+  .empty p { margin-bottom: var(--sp-3) }
+  /* A wrapped inline link's union rect spans both lines, and a point in the gap between
+     them hit-tests to the parent — the occlusion gate would read that as covered. */
+  a.link { white-space: nowrap }
+  footer { max-width: 40rem; margin: var(--sp-6) auto 0; border-top: var(--hair) solid var(--line); padding-top: var(--sp-3); color: var(--dim); font-size: 0.9rem }
+</style></head>
+<body>
+<main>
+  <header class="page-head">
+    <h1>MT5 bridges</h1>
+    <a class="link" href="/"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg> Back to the charts</a>
+    <p>A bridge is your own MetaTrader 5 terminal, published over HTTPS. Each user connects their own; nobody else can see or use it.</p>
+  </header>
+
+  <div class="dock" id="signedOut" hidden>
+    <div class="set">
+      <p><b>Sign in to manage your bridges.</b> MT5 bridges belong to your Google account.
+        <a class="link" href="/">Go to the charts to sign in</a>, then open this page from the account menu.</p>
+    </div>
+  </div>
+
+  <div class="dock" id="loadErr" hidden>
+    <div class="set">
+      <p class="msg" id="loadErrMsg"></p>
+    </div>
+  </div>
+
+  <section id="mainView" hidden>
+    <div class="dock">
+      <h2><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>Settings</h2>
+      <div class="set">
+        <h3>MT5 bridges <button type="button" class="ghost" id="addBtn" hidden><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add</button></h3>
+        <div class="empty" id="empty">
+          <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/></svg>
+          <h4>No bridge connected</h4>
+          <p>Run <code>bridge/mt5_bridge.py</code> on your VPS, publish it over HTTPS with a <code>BRIDGE_TOKEN</code>, then add it here. Your MT5 symbols then appear in the symbol picker.</p>
+          <button type="button" class="btn primary" id="addBtnEmpty"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add a bridge</button>
+        </div>
+        <div id="bridgeList"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="formView" hidden>
+    <div class="dock">
+      <h2><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>Settings</h2>
+      <form class="set" id="addForm" method="post" action="/api/me/mt5" novalidate aria-labelledby="formH">
+        <h3 id="formH">Add an MT5 bridge</h3>
+        <div class="field" data-field="label">
+          <label for="f-label">Label <span class="req" aria-hidden="true">*</span></label>
+          <div class="wrap"><input id="f-label" name="label" placeholder="VPS Frankfurt" autocomplete="off" required aria-invalid="false"></div>
+          <div class="msg" id="f-label-e" role="alert" hidden></div>
+        </div>
+        <div class="field" data-field="url">
+          <label for="f-url">Bridge URL <span class="req" aria-hidden="true">*</span></label>
+          <div class="wrap"><input id="f-url" name="url" class="mono" type="url" inputmode="url" placeholder="https://mt5.example.net" autocomplete="off" required aria-invalid="false" data-hint="f-url-h" aria-describedby="f-url-h"></div>
+          <span class="hint" id="f-url-h">HTTPS only, on port 443 or 1024 to 65535. Private and local addresses are refused.</span>
+          <div class="msg" id="f-url-e" role="alert" hidden></div>
+        </div>
+        <div class="field" data-field="token">
+          <label for="f-token">Token <span class="req" aria-hidden="true">*</span></label>
+          <div class="wrap"><input id="f-token" name="token" class="mono" type="password" placeholder="BRIDGE_TOKEN value" autocomplete="off" required aria-invalid="false" data-hint="f-token-h" aria-describedby="f-token-h">
+            <button type="button" class="ghost" id="showpw" aria-pressed="false" aria-label="Show token"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
+          <span class="hint" id="f-token-h">Stored encrypted on the server. It is never shown again after you save.</span>
+          <div class="msg" id="f-token-e" role="alert" hidden></div>
+        </div>
+        <div class="row-acts" id="submitActs">
+          <button type="submit" class="btn primary" id="testBtn">Test connection</button>
+          <button type="button" class="btn" id="cancelBtn">Cancel</button>
+        </div>
+        <p class="busy-note" id="busyNote" hidden>Checking the address, then calling /health on your bridge.</p>
+        <div class="result" id="resultPanel" hidden></div>
+        <div class="row-acts" id="doneActs" hidden>
+          <button type="button" class="btn primary" id="doneBtn"><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Done</button>
+          <button type="button" class="btn" id="againBtn">Test again</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <div class="sr" id="live" role="status" aria-live="polite"></div>
+</main>
+<footer><a href="/">Open the hub</a> | <a href="notices.html">Licence and notices</a></footer>
+<script src="settings.js" defer></script>
+</body></html>

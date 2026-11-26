@@ -218,3 +218,47 @@ with a new entry that names the old id. -->
   decision 4 chose corrective deliberately. Revisit with Q7 (the per-user byte quota).
 - **Evidence:** `crates/hub-core/src/auth/mod.rs` (state_cap_check inserts, counts, undoes at its
   own version); `.paul/DEBT.toml` DEBT-033 (the repaired check).
+
+## D-032: the bridge surface contract (R24 answered)
+- **Date:** 2026-11-26  **Plan:** 07 phase plan approval  **Status:** decided
+- **Decision:** the ws subscribe JSON gains an optional `bridge` field; `source=mt5` without
+  `bridge` keeps the Binance fallback, so D-009 parity and the anonymous surfaces hold by
+  construction. `/api/symbols` stays synchronous: the bridge's `/symbols` answer is cached into
+  `mt5_bridges.symbols_json` at every successful Test and merged into the response for the session
+  owner only (entries carry `source: "mt5"` and the bridge id). Live updates come from one
+  server-side poller per `(bridge_id, symbol, tf)` long-polling the bridge's `/wait`, shared by that
+  user's open charts. Registration and call failures surface the exact cause verbatim into the UI
+  (CUJ 7). Cross-user access is 404, matching the admin-gate convention. No new rate bucket: the
+  per-bridge 2-call semaphore plus the shared poller is the spec's "stricter per user on MT5" bound.
+- **Why:** a separate client-side picker endpoint would fork the picker code; ticker-encoding the
+  bridge id would leak the id into user-visible chart labels; the anonymous picker must never make a
+  live bridge call; D-009's orderflow rule and the phase-01 parity tests pin the unchanged halves.
+- **Evidence:** `.paul/phases/07-bridges/07-ARCHITECTURE.md` (route table, decisions 1 and 4);
+  `crates/hub-core/src/routes/ws.rs:42` and `:187`; `crates/hub-core/src/catalog.rs:65`.
+
+## D-033: local mode carries one env-configured bridge (`local`); loopback only when auth is off
+- **Date:** 2026-11-26  **Plan:** 07 phase plan approval  **Status:** decided
+- **Decision:** D-001's "loopback bridge URLs allowed only when auth is off" gets its mechanics:
+  local mode (`AUTH_ENABLED=false`, no database) reads `VTV_LOCAL_BRIDGE_URL` and
+  `VTV_LOCAL_BRIDGE_TOKEN` and exposes them as the implicit bridge id `local` on `/api/bars` and the
+  ws subscribe. With auth on, loopback, private and link-local targets are always refused. The keys
+  are ignored (with a warning, values never printed) when auth is on.
+- **Why:** local mode has no database and no users, so a registered bridge cannot exist there; the
+  env bridge is the only way the exception is live, and it doubles as the integration-test seam
+  (the served drivers run an auth-off server against a loopback fake bridge). Rejected: dropping the
+  exception (D-001 names it); allowing loopback for admins (no decision supports it).
+- **Evidence:** `.paul/phases/07-bridges/07-ARCHITECTURE.md` (decision 2, the guard signature);
+  `.paul/DECISIONS.md` D-001; `.paul/design/specs/vtradingview.md:91-94`.
+
+## D-034: plan stage emits `parallel_agents: false` in this repo; sequential waves are the designed behaviour, not a degradation
+- **Date:** 2026-11-26  **Plan:** 07-04 UNIFY (phase reflect)  **Status:** decided
+- **Decision:** the architect stage stops declaring `parallel_agents: true` here: ZCode has no
+  worktree isolation, so every "parallel" task wave applies sequentially in-session — all four
+  phase-07 plans degraded the flag and the SUMMARYs had to record a concurrency the record never
+  contained. Waves stay authored sequential until the harness gains isolation; then a new decision
+  supersedes this one.
+- **Why:** a plan field the executor always falsifies corrupts the record (apply order inside a
+  degraded wave was ad hoc and unrecorded) and mis-computes effort expectations at plan time;
+  sequential-first costs nothing on this box and matches what actually runs.
+- **Evidence:** 07-01..07-04 SUMMARY skill audits ("parallel_agents: true degraded to sequential"
+  ×4); phase-07 reflect synthesizer, finding 4 (judgment + divergent converged).

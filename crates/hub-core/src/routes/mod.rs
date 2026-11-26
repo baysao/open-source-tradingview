@@ -10,6 +10,7 @@ pub mod logs;
 pub mod market;
 pub mod me;
 pub mod metrics;
+pub mod mt5;
 pub mod orderflow;
 pub mod state;
 pub mod table;

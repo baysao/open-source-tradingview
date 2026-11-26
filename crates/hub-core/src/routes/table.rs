@@ -6,6 +6,7 @@ use super::auth;
 use super::logs;
 use super::me;
 use super::metrics;
+use super::mt5;
 use super::state;
 use crate::AppState;
 use axum::http::Method;
@@ -61,6 +62,16 @@ pub(crate) fn hosted() -> Vec<(RouteSpec, MethodRouter<AppState>)> {
             Method::DELETE,
             "/api/me",
             axum::routing::delete(me::delete_me),
+        ),
+        // The MT5 bridge surface (07-03, D-032's route table): owner-scoped CRUD + test, a
+        // foreign id 404 (G5). Inside the gate area like every /api/me route (L-022).
+        spec(Method::POST, "/api/me/mt5", post(mt5::register)),
+        spec(Method::GET, "/api/me/mt5", get(mt5::list)),
+        spec(Method::POST, "/api/me/mt5/{id}/test", post(mt5::test)),
+        spec(
+            Method::DELETE,
+            "/api/me/mt5/{id}",
+            axum::routing::delete(mt5::delete),
         ),
         // The saved-state surface (05-02): contract in routes/state.rs's module doc.
         spec(Method::GET, "/api/me/state", get(state::list)),

@@ -104,6 +104,9 @@ pub struct LogRing {
     sources: BTreeMap<String, SourceInfo>,
     problems: BTreeMap<String, String>,
     states: HashMap<(String, String), String>,
+    /// 07-03 AC-5: secrets registered for literal redaction (bridge tokens, bridge URL query
+    /// strings). Applied after the static set, in `push`.
+    secrets: Vec<String>,
 }
 
 impl LogRing {
@@ -116,6 +119,15 @@ impl LogRing {
             sources: BTreeMap::new(),
             problems: BTreeMap::new(),
             states: HashMap::new(),
+            secrets: Vec::new(),
+        }
+    }
+
+    /// Registers a secret for literal redaction in `push` (07-03 AC-5). Four bytes minimum so
+    /// a tiny fragment cannot eat the ring; duplicates are harmless.
+    pub fn add_secret(&mut self, secret: &str) {
+        if secret.len() >= 4 {
+            self.secrets.push(secret.to_string());
         }
     }
 
@@ -133,6 +145,20 @@ impl LogRing {
     /// Adds a line (redacted, capped, throttled). Returns the stored row, or `None` when throttled.
     pub fn push(&mut self, now_ms: i64, line: Line) -> Option<LogRow> {
         let msg = cap(redact(&line.msg));
+        // 07-03 AC-5: the bridge tokens and URL query strings registered on this bus join the
+        // static set, so a hostile bridge echoing the Authorization value into its error text
+        // cannot land it in the ring (07-01's tracked note, closed here).
+        let msg = if self.secrets.is_empty() {
+            msg
+        } else {
+            let mut m = msg;
+            for s in &self.secrets {
+                if m.contains(s.as_str()) {
+                    m = m.replace(s.as_str(), "[redacted]");
+                }
+            }
+            m
+        };
         let t = line.t_ms.unwrap_or(now_ms);
         if let Some(every) = line.every.filter(|e| *e > 0) {
             let k = (line.src.clone(), msg.clone());
@@ -423,6 +449,18 @@ impl LogBus {
         }
     }
 
+    /// Registers a secret that must never appear in the ring (07-03 AC-5): bridge tokens and
+    /// bridge URL query strings join the redaction set. Shared by every clone of the bus.
+    pub fn add_secret(&self, secret: &str) {
+        if secret.len() >= 4 {
+            self.inner
+                .ring
+                .lock()
+                .unwrap_or_else(|p| p.into_inner())
+                .add_secret(secret);
+        }
+    }
+
     pub fn state(&self, src: &str, key: &str, value: &str, lvl: &str, msg: &str) {
         let now = self.now();
         let row = self.ring().state(now, src, key, value, lvl, msg);
@@ -550,6 +588,28 @@ impl<S: tracing::Subscriber> tracing_subscriber::Layer<S> for RingLayer {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn bridge_secrets_never_reach_the_ring() {
+        // AC-5: the token and the URL's query string, registered on the ring, vanish from any
+        // line a hostile bridge could have echoed them into.
+        let mut ring = LogRing::new(0);
+        ring.add_secret("tok-bridge-42");
+        ring.add_secret("token=abc&x=1");
+        let row = ring
+            .push(
+                0,
+                Line::new(
+                    "server",
+                    "info",
+                    "bridge said: Bearer tok-bridge-42 at /bars?token=abc&x=1 end",
+                ),
+            )
+            .expect("stored");
+        assert!(!row.msg.contains("tok-bridge-42"), "{}", row.msg);
+        assert!(!row.msg.contains("token=abc&x=1"), "{}", row.msg);
+        assert!(row.msg.contains("[redacted]"), "{}", row.msg);
+    }
 
     #[test]
     fn redaction_matches_python() {

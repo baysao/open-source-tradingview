@@ -348,9 +348,9 @@ kind = "tech"
 origin = "DEBT-018 provisioning, live deploy"
 owner = "agent"
 trigger = "phase:05"
-status = "open"
-check = { type = "command", run = "grep -c 'commit: ' /app/vtradingview/repo/hub/SOURCE.txt", expect = "1" }
-note = "Seen live: after checkout -f v0.1.2 the served SOURCE.txt was the placeholder again. Fix options: ops/deploy.sh writes it after the checkout and before the restart (it already does, but 'git checkout -f' in a later deploy wipes it), or the file moves outside the git tree and the static route serves it from there. The check above passes today because the file was written by hand; it fails again after the next checkout -f."
+status = "done"
+check = { type = "command", run = "bash .paul/runs/check-032.sh", expect = "0" }
+note = "Seen live: after checkout -f v0.1.2 the served SOURCE.txt was the placeholder again. Discharged 2026-11-26 (07-02 task 3). The fix was already in place: ops/deploy.sh writes the AGPL offer after its checkout (deploy.sh:24 to :52, one writer for both deploy paths) and ops/README.md's manual redeploy sequence ends with ops/write_source.sh (README:138 to :140). The old check grepped the live host path /app/... so it could not run from a clean shell (L-040); the new check (.paul/runs/check-032.sh) asserts both orders from the repo and prints 0. Negative control: a temp copy with the write moved before the checkout exits 1 (run 2026-11-26)."
 
 [[debt]]
 id = "DEBT-033"
@@ -382,8 +382,9 @@ kind = "tech"
 origin = "06-03 task 4"
 owner = "agent"
 trigger = "phase:06"
+status = "done"
 check = { type = "command", run = "grep -c 'auth-off' .paul/runs/gate_all.py", expect = "1" }
-note = "Found while refreshing the hub.html receipts in 06-03: the auth-on base (8773) failed verify_states and verify_responsive on covered focusables; the identical run auth-off (8775) is 8/8 green. The discharge is a base note in gate_all.py's usage header, not a harness change."
+note = "Found while refreshing the hub.html receipts in 06-03: the auth-on base (8773) failed verify_states and verify_responsive on covered focusables; the identical run auth-off (8775) is 8/8 green. The discharge is a base note in gate_all.py's usage header, not a harness change. Discharged 2026-11-26 (07-02 task 4): the docstring names the auth-off base (the count was 0 before the edit, which is the negative control); --run-checks discharged it live the same hour and this status edit is the diff."
 
 [[debt]]
 id = "DEBT-036"
@@ -416,3 +417,59 @@ owner = "agent"
 trigger = "event:first-push"
 check = { type = "text_present", path = ".paul/STATE.md", pattern = "desktop.yml run observed green" }
 note = "The workflow files land with the phase commit; the proof is the first push of arch/axum-tauri after it. Discharge = the run list shows check-windows and check-linux green, and the line 'desktop.yml run observed green (check-windows, check-linux; root test job tauri/webkit-free)' is recorded in STATE.md's Session Continuity. A secrets-absent installers skip is not a red run."
+
+[[debt]]
+id = "DEBT-039"
+title = "Owner runs bridge/mt5_bridge.py on the machine with their MT5 terminal, publishes it over HTTPS (their own Cloudflare Tunnel or Caddy) with BRIDGE_TOKEN set, registers it in Settings, and sees their broker's candles stream on a chart; a second account sees neither the bridge nor its symbols (the phase's accept: a real bridge streams candles for its owner)"
+kind = "uat"
+origin = "phase 07 plan (checkpoint:human-action pre-registered at plan time)"
+owner = "owner"
+trigger = "event:owner-bridge-live"
+blocking = "phase-07-exit"
+status = "done"
+check = { type = "text_present", path = ".paul/STATE.md", pattern = "DEBT-039 discharged: real bridge streams candles observed" }
+note = "No script on the dev box can hold an MT5 terminal, so the owner's terminal is the only real bridge. The agent-run halves are 07-03's suites (SSRF refusals with auth on, cross-user 404s) and 07-04's served driver (the auth-off local-bridge path against a loopback fake); this row is only what needs the real terminal. Filed 2026-11-26 while planning phase 07. 2026-11-26 check repaired twice: (1) the original pattern matched STATE.md's DUE NOW instruction line, which quoted the phrase the owner is asked to say — the DEBT-033 vacuous-check trap (L-024); (2) the first repair quoted the full discharge line in the REWRITTEN DUE NOW text, which matched the new pattern the same way (L-024's fourth hit, same mechanism). Invariant now written into the rule: the discharge pattern is anchored on the 'DEBT-NNN discharged:' record line, and the DUE NOW text must NEVER carry that pattern, quoted or plain — the discharge agent writes exactly 'DEBT-039 discharged: real bridge streams candles observed' plus the date into STATE.md, and this file's note is the only place the literal lives."
+
+[[debt]]
+id = "DEBT-040"
+title = "gate_all.py measures whatever answers on --base with no identity check: it must refuse a server whose /api/health does not match the expected fresh-ephemeral identity, and stamp that identity (port + build/commit) into every receipt in .paul/ds-receipts/"
+kind = "tech"
+origin = "phase 07 reflect (synthesizer backlog 2)"
+owner = "agent"
+trigger = "phase:08"
+status = "open"
+check = { type = "command", run = "grep -c 'identity' .paul/runs/gate_all.py", expect = "1" }
+note = "Gate run 1 of 07-04 pointed at a stray pre-existing dev hub on 8770 (gate_all's --base default) and was saved only by the settings.html timeout making the wrongness loud; a stale hub serving old pages could have produced a fully green 8/8 receipt set against the wrong build (L-029's cause family, subject axis). check-0704.mjs:46-52 already shows the probe-and-refuse pattern. Discharge = the identity probe in gate_all + the stamp in the receipt schema; the check greps for the probe's presence (0 today = the negative control)."
+
+[[debt]]
+id = "DEBT-041"
+title = "debt.py gains creation-time check validation: every new text_present/command check runs as a negative control against today's target (it must be red), patterns matching DUE NOW template phrasing are rejected, and the existing waiting/open rows are swept for the collision class"
+kind = "tech"
+origin = "phase 07 reflect (synthesizer backlog 1)"
+owner = "agent"
+trigger = "phase:08"
+status = "open"
+check = { type = "command", run = "grep -c 'negative-control' ~/.agents/paul-framework/scripts/debt.py", expect = "1" }
+note = "L-024 failed to bind at check-creation three times (04-01 m4, 06-04 D-026, 07-04 DEBT-039) — prose rules have no enforcement point where checks are born. The framework script lives outside this repo; the sweep half runs here. DEBT-038's STATE.md check ('desktop.yml run observed green') was swept 2026-11-26 and is clean: STATE.md carries no DUE NOW line quoting that phrase (the DUE NOW text names DEBT-039 only), so it is not the same collision today — but the class needs a mechanism, not vigilance."
+
+[[debt]]
+id = "DEBT-042"
+title = "Phase-07 security-review dispositions (no Critical/High, 2 Medium 1 Low): re-arm logbus redaction at boot (named-bridge tokens lost on restart), cap per-user bridge rows and evict pinned clients, close the guard's adjacent v4/v6 classes"
+kind = "tech"
+origin = "07-04 transition security review (/security-review --full)"
+owner = "agent"
+trigger = "phase:08"
+status = "open"
+check = { type = "command", run = "grep -c 'VTV-BRIDGE-REARM' crates/hub-core/src/lib.rs", expect = "1" }
+note = "1. MEDIUM redaction re-arm: add_secret runs only at registration (routes/mt5.rs:129) and successful test (mt5.rs:250); boot re-arms only the local bridge (lib.rs:411-419) — after a restart a hostile bridge echoing the Authorization value lands it verbatim in the ring (client.rs:300-308 -> feeds/bridge.rs:183; 07-01 tracked this note). Fix: hosted AppState::start, after Db::open, add_secret every opened token + URL query; same for the test-failure branch. 2. MEDIUM resources: no per-user registration cap; BridgeClient.http never evicts (client.rs:89, :138) — cap bridges per user at insert, bound/evict the cache. 3. LOW guard classes: refused_v6 misses ::/96 IPv4-compatible (to_ipv4_mapped covers only ::ffff:x), refused_v4 misses 0.0.0.0/8 non-exact, 240.0.0.0/4, 198.18.0.0/15 (guard.rs:98-121). The check greps lib.rs for a second add_secret site (1 today = the negative control; 2 = boot re-arm landed). Full verified-good record in 07-04-SUMMARY.md's security section."
+
+[[debt]]
+id = "DEBT-043"
+title = "The DEBT-039 bridge runs on a throwaway quick tunnel (xxx.trycloudflare.com, dies on reboot, name changes every restart); make it permanent: named Cloudflare tunnel (mt5.vtradingview.com or the owner's subdomain), the two schtasks (VTV-Bridge, VTV-Tunnel) hardened to AT STARTUP, and the credentials handed to the user via bridge\\bridge-registration.txt instead of console output"
+kind = "tech"
+origin = "07-04 DEBT-039 host run (owner plan request)"
+owner = "agent"
+trigger = "event:owner-wants-permanent-bridge"
+status = "waiting"
+check = { type = "text_present", path = ".paul/STATE.md", pattern = "DEBT-043 discharged: named tunnel live" }
+note = "2026-11-26 DEBT-039's proof ran on bridge host 103.93.92.204: schtasks VTV-Bridge (python via mise, env from .tok1/.tok2 files) + VTV-Tunnel (cloudflared via mise, quick tunnel), public URL https://harvard-concentration-celebrities-east.trycloudflare.com verified 200 from the dev box for /health, /bars?symbol=XAUUSDm&tf=M1 (live candles), /wait, /symbols (358). Both tasks are SC ONCE + manual /Run: a reboot leaves nothing running and the quick-tunnel name is not stable. Discharge = cloudflared tunnel login + create + route dns on the host, the tasks switched to ONSTART with restart-on-failure, and bridge\\bridge-registration.txt rewritten with the permanent URL. The check anchors on the discharge-record line in STATE.md (L-024: this note deliberately does not carry the pattern, and the DUE NOW text must never quote it)."

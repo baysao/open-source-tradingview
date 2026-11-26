@@ -34,7 +34,10 @@ pub async fn me(State(st): State<AppState>, viewer: Option<axum::Extension<Viewe
 }
 
 /// `DELETE /api/me`: delete the account; every table row of the user goes by cascade, and the
-/// response clears the cookie. Signed out is 401 `sign-in required`.
+/// response clears the cookie. Signed out is 401 `sign-in required`. The cascade covers
+/// `mt5_bridges` too (`user_id REFERENCES users(id) ON DELETE CASCADE`, migration 0003;
+/// confirmed for CUJ 8 at 07-03): `store::delete_user` removes only the `users` row, so the
+/// bridges need no explicit delete line.
 pub async fn delete_me(State(st): State<AppState>, viewer: axum::Extension<Viewer>) -> Response {
     let auth = st.auth.as_ref().expect("mounted only when hosted");
     match auth.delete_account(&viewer.0).await {

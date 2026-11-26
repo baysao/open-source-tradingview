@@ -78,6 +78,19 @@ impl Catalog {
         }
     }
 
+    /// `symbols()` with the session owner's bridge symbols appended (07-03, D-032a/b). The
+    /// anonymous body is `symbols()` untouched (G1); each extra entry is the bridge's cached
+    /// `/symbols` row verbatim plus `source: "mt5"` and the owning bridge's id. The caller
+    /// (the route) reads the cache, never the bridge live.
+    pub fn symbols_with(&self, extra: Vec<serde_json::Value>) -> serde_json::Value {
+        let base = self.symbols();
+        let mut v = serde_json::to_value(&base).expect("SymbolsResponse serializes");
+        if let Some(arr) = v.get_mut("symbols").and_then(|s| s.as_array_mut()) {
+            arr.extend(extra);
+        }
+        v
+    }
+
     /// `GET /api/status`: `ok` means the symbol list loaded; Binance is always ok.
     pub fn status(&self) -> StatusResponse {
         let (deriv, bybit, _) = self.lists();
@@ -156,5 +169,31 @@ impl Catalog {
             })
         };
         vec![bybit, deriv]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn symbols_with_an_empty_extra_is_byte_identical() {
+        let c = Catalog::new(8770);
+        assert_eq!(
+            serde_json::to_string(&c.symbols()).unwrap(),
+            serde_json::to_string(&c.symbols_with(Vec::new())).unwrap(),
+            "the anonymous shape is unchanged (G1)"
+        );
+        // The merged shape still answers the response-level fields (mt5 stays "off", D-003).
+        let merged = c.symbols_with(vec![serde_json::json!({
+            "name": "XAUUSD", "desc": "Gold", "path": "Other", "digits": 3,
+            "source": "mt5", "bridge": uuid::Uuid::nil().to_string(),
+        })]);
+        assert_eq!(merged["mt5"], "off");
+        assert_eq!(merged["arm"], "off");
+        let arr = merged["symbols"].as_array().unwrap();
+        let last = arr.last().unwrap();
+        assert_eq!(last["source"], "mt5");
+        assert_eq!(last["bridge"], uuid::Uuid::nil().to_string());
     }
 }

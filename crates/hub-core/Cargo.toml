@@ -34,6 +34,7 @@ hmac.workspace = true
 hkdf.workspace = true
 getrandom.workspace = true
 subtle.workspace = true
+chacha20poly1305.workspace = true
 rsa = { workspace = true, optional = true }
 rand = { workspace = true, optional = true }
 
@@ -71,6 +72,14 @@ required-features = ["test-idp"]
 
 [[test]]
 name = "state_routes"
+required-features = ["test-idp"]
+
+[[test]]
+name = "bridges"
+required-features = ["test-idp"]
+
+[[test]]
+name = "bridge_routes"
 required-features = ["test-idp"]
 
 

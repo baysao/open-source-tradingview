@@ -142,11 +142,11 @@ chart.timeScale().subscribeVisibleLogicalRangeChange(async (r) => {
 // ---- controls ----
 const symSel = document.getElementById("sym");
 // Remote MT5 groups first, then Bybit, then the Deriv backup feed, then Binance crypto. Stock lists over 500 stay out of this menu (Vela/KLineChart search them).
-["arm-metal", "arm-crypto", "arm-forex", "arm-index", "arm-energy", "arm-other", "arm-stock", "bybit-metal", "bybit-perp", "bybit-spot", "bybit-futures", "bybit-inverse", "bybit-mark", "bybit-index", "commodity", "forex", "indices", "crypto"].forEach((g) => {
+["mt5-bridge", "arm-metal", "arm-crypto", "arm-forex", "arm-index", "arm-energy", "arm-other", "arm-stock", "bybit-metal", "bybit-perp", "bybit-spot", "bybit-futures", "bybit-inverse", "bybit-mark", "bybit-index", "commodity", "forex", "indices", "crypto"].forEach((g) => {
   // Very long lists are cut to the 150 most traded here; Vela and KLineChart search every symbol.
   if (g === "arm-stock" && LabSymbols.filter((s) => s.group === g).length > 500) return;
   const list = LabSymbols.filter((s) => s.group === g).slice(0, g.startsWith("bybit") ? 150 : undefined); if (!list.length) return;
-  const og = document.createElement("optgroup"); og.label = { "arm-metal": "Remote MT5 - Metals", "arm-forex": "Remote MT5 - Forex", "arm-index": "Remote MT5 - Indices", "arm-other": "Remote MT5 - Other", "arm-crypto": "Remote MT5 - Crypto", "arm-energy": "Remote MT5 - Energies", "arm-stock": "Remote MT5 - Stocks", "bybit-metal": "Bybit - Gold & Metals", "bybit-perp": "Bybit - USDT Perpetuals", "bybit-spot": "Bybit - Spot", "bybit-futures": "Bybit - Dated Futures", "bybit-inverse": "Bybit - Inverse (coin margined)", "bybit-mark": "Bybit - Mark Price", "bybit-index": "Bybit - Index Price", forex: "Deriv/MT5 - Forex", commodity: "Deriv/MT5 - Commodities", crypto: "Crypto", indices: "Deriv - Indices" }[g];
+  const og = document.createElement("optgroup"); og.label = { "arm-metal": "Remote MT5 - Metals", "arm-forex": "Remote MT5 - Forex", "arm-index": "Remote MT5 - Indices", "arm-other": "Remote MT5 - Other", "arm-crypto": "Remote MT5 - Crypto", "arm-energy": "Remote MT5 - Energies", "arm-stock": "Remote MT5 - Stocks", "bybit-metal": "Bybit - Gold & Metals", "bybit-perp": "Bybit - USDT Perpetuals", "bybit-spot": "Bybit - Spot", "bybit-futures": "Bybit - Dated Futures", "bybit-inverse": "Bybit - Inverse (coin margined)", "bybit-mark": "Bybit - Mark Price", "bybit-index": "Bybit - Index Price", forex: "Deriv/MT5 - Forex", commodity: "Deriv/MT5 - Commodities", crypto: "Crypto", indices: "Deriv - Indices", "mt5-bridge": "MT5 bridge" }[g];
   list.forEach((s) => og.appendChild(new Option(`${s.ticker}  ${s.name}`, s.ticker))); symSel.appendChild(og);
 });
 symSel.value = sym;

@@ -279,6 +279,7 @@
     menu.appendChild(sep());
 
     if (s.admin) menu.appendChild(item("logs", "Log panel", "admin"));
+    menu.appendChild(item("bridges", "MT5 bridges"));
     menu.appendChild(item("delete", "Delete account", null, "bad"));
     menu.appendChild(sep());
     menu.appendChild(item("signout", "Sign out"));
@@ -337,6 +338,7 @@
     logs: '<path d="M4 17l6-6-6-6"/><path d="M12 19h8"/>',
     trash: '<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/>',
     out: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/>',
+    plug: '<path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/>',
   };
   const icon = (d) => `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 
@@ -346,7 +348,7 @@
     b.className = "item" + (cls ? " " + cls : "");
     b.setAttribute("role", "menuitem");
     b.dataset.act = act;
-    b.innerHTML = icon(ICON[act === "signout" ? "out" : act === "delete" ? "trash" : "logs"]) + `<span>${label}</span>`;
+    b.innerHTML = icon(ICON[act === "signout" ? "out" : act === "delete" ? "trash" : act === "bridges" ? "plug" : "logs"]) + `<span>${label}</span>`;
     if (sub) { const s = document.createElement("span"); s.className = "sub"; s.textContent = sub; b.appendChild(s); }
     return b;
   }
@@ -409,6 +411,9 @@
     closeMenu(false);
     if (name === "logs") {
       if (typeof window.openPanelByName === "function") window.openPanelByName("logs");
+    } else if (name === "bridges") {
+      // The 07-04 settings screen sits top-level in hub/ (L-035: one path segment).
+      location.href = "/settings.html";
     } else if (name === "delete") {
       openDelete();
     } else if (name === "signout") {

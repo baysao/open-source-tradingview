@@ -12,6 +12,7 @@
 
 pub mod auth;
 pub mod bars_cache;
+pub mod bridges;
 pub mod catalog;
 pub mod clock;
 pub mod config;
@@ -128,6 +129,10 @@ pub struct AppState {
     pub logs: LogBus,
     pub orderflow: orderflow::OrderFlow,
     pub auth: Option<auth::Auth>,
+    /// The bridge services (07-03): the outbound client and the local-mode bridge (D-033).
+    pub bridges: bridges::Bridges,
+    /// The bridge poller registry (07-03, D-032c): one `/wait` poller per want.
+    pub bridge_pollers: feeds::bridge::BridgePollers,
     /// The per-page CSP built once at boot, and the default every other response carries.
     pub csp: Arc<static_files::CspSet>,
     /// Time to first live candle, in memory for the process lifetime (C16).
@@ -304,6 +309,16 @@ impl AppState {
             .map(|d| d.as_secs() as i64)
             .unwrap_or(0);
         let logs = LogBus::new(log_dir, boot, clock.clone());
+        // The local bridge's token (and any URL query) never reach the ring (07-03 AC-5).
+        if let Some(l) = &cfg.local_bridge {
+            logs.add_secret(l.token.expose());
+            if let Some(q) = reqwest::Url::parse(&l.url)
+                .ok()
+                .and_then(|u| u.query().map(|s| s.to_string()))
+            {
+                logs.add_secret(&q);
+            }
+        }
         // The trade cache only in the production build (`build`), so tests write no files (L-008).
         let orderflow = orderflow::OrderFlow::new(
             bars.clone(),
@@ -326,6 +341,18 @@ impl AppState {
         // The TTFC window is the process lifetime, so `since` is the same boot second the log bus
         // records, in milliseconds as the read documents.
         let ttfc = routes::metrics::Ttfc::new(boot.saturating_mul(1000));
+        // D-033's guard flag: the keys set with auth on are dead config; say so once, never the
+        // values.
+        if cfg.local_bridge_ignored {
+            tracing::warn!(
+                target: "server",
+                "VTV_LOCAL_BRIDGE_URL / VTV_LOCAL_BRIDGE_TOKEN are ignored with auth on"
+            );
+        }
+        let bridges = bridges::Bridges {
+            client: Arc::new(bridges::client::BridgeClient::new()),
+            local: cfg.local_bridge.clone(),
+        };
         AppState {
             cfg: Arc::new(cfg),
             catalog,
@@ -335,6 +362,8 @@ impl AppState {
             logs,
             orderflow,
             auth,
+            bridges,
+            bridge_pollers: Default::default(),
             csp,
             ttfc,
             rates,

@@ -19,13 +19,17 @@ unified 2026-11-25; phase 06 (Tauri desktop) planned 2026-11-25 in four plans, a
 ## Current Position
 
 Milestone: v0.2 Accounts everywhere
-Phase: 07 of 07 (Per-user MT5 bridges) - Not started
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-11-26 - Phase 06 complete and transitioned: 4/4 plans unified (06-04 unified
-2026-11-26: desktop.yml CI + unsigned tag installers, docs/api.md + docs/desktop.md, D-029/030/031,
-DEBT-033's vacuous check repaired + 034/037 discharged, DEBT-036 Q4 + 038 first-push open,
-checkpoint approved); reflect panel 6 accepted (L-007 validated, L-043/L-044 new), rsi no candidate.
+Phase: 07 of 07 (Per-user MT5 bridges) - Complete
+Plan: 07-01 and 07-02 UNIFIED 2026-11-26; 07-03 UNIFIED 2026-11-26; 07-04 UNIFIED 2026-11-26
+Status: Phase 07 CLOSED 2026-11-26 — all 4 plans unified, the exit debt gate clear (DEBT-039
+discharged by the owner's real-bridge observation), /security-review --full run (no Critical/High;
+2 Medium + 1 Low filed as DEBT-042). Milestone v0.2 is 3 of 3 phases complete. Next: the phase
+commit `feat(07)` (asks first), then milestone wrap-up (complete-milestone) — and the launch rows.
+Last activity: 2026-11-26 - DEBT-039 discharged: the owner ran the real bridge on the MT5 host
+(Exness-MT5Real28, python+cloudflared via mise, quick tunnel), registered it in Settings, watched
+live XAUUSDm candles; the agent verified the public half (health/bars/wait/symbols all 200, 358
+symbols). DEBT-043 (named tunnel + ONSTART tasks + registration-file handoff) and DEBT-042
+(security findings) filed as waiting rows.
 
 Progress:
 - Phase 01: complete 2026-11-23 (milestone v0.1: 1 of 4 phases)
@@ -34,13 +38,15 @@ Progress:
 - Phase 04: complete 2026-11-25 (3 of 3 plans unified; phase reflect run)
 - Phase 05: complete 2026-11-25 (4 of 4 plans unified; phase reflect + rsi run)- Phase 06: complete 2026-11-26 (4 of 4 plans unified; phase reflect + rsi run at 06-04; the
   per-plan evidence lives in 06-01..06-04-SUMMARY.md)
+- Phase 07: complete 2026-11-26 (4 of 4 plans unified; phase reflect + rsi run at 07-04;
+  DEBT-039 discharged by the owner's observation; milestone v0.2 phases all complete)
 
 ## Loop Position
 
 Current loop state:
 ```
 PLAN ──▶ APPLY ──▶ UNIFY
-  ✓        ✓        ✓     [06-04 loop complete; phase 06 ready to close]
+  ✓        ✓        ✓     [Phase 07 complete 2026-11-26; milestone v0.2 phases done]
 ```
 
 ## Accumulated Context
@@ -49,6 +55,8 @@ PLAN ──▶ APPLY ──▶ UNIFY
 | D-029 | The deep link reaches the hosted page by a Rust-side `eval` of a `CustomEvent`, so the remote origin gets ONE permission, not the spec's two | Phase 06 | `core:event:default` is four permissions plus a cross-webview bus to an untrusted page; a fragment navigation reloads and kills the in-memory `desktop_key`. Written at 06-04 APPLY. |
 | D-030 | `crates/desktop` is its own Cargo workspace, not a root member; it gets its own CI job | Phase 06 | a second workspace cannot path-depend on a crate using `edition.workspace = true`; the root `cargo test --workspace` and gnu host pin must stay untouched. Written at 06-04 APPLY. |
 | D-031 | The 256-key cap stays corrective; this is the decision DEBT-033 reserved | Phase 06 | bounded by the per-IP bucket and single-user scope; preventive form needs a subquery D-014 disallows. Written at 06-04 APPLY. |
+| D-032 | The bridge surface contract (R24): ws subscribe gains an optional `bridge` field (source=mt5 without it keeps the Binance fallback); bridge symbols cached at every successful Test and merged into /api/symbols for the session owner only; one poller per (bridge, symbol, tf) long-polling /wait; failures surface the exact cause verbatim; cross-user is 404; no new rate bucket | Phase 07 | the anonymous surfaces and D-009 parity hold by construction; the semaphore plus shared poller is the spec's per-user bound. Approved at the phase-07 plan approval 2026-11-26. |
+| D-033 | Local mode carries one env-configured bridge: VTV_LOCAL_BRIDGE_URL + VTV_LOCAL_BRIDGE_TOKEN exposed as bridge id `local`; the SSRF guard allows loopback only when auth is off (D-001's exception gets its mechanics) | Phase 07 | local mode has no database or users, so a registered bridge cannot exist there; the env bridge is also the served-test seam. Approved at the phase-07 plan approval 2026-11-26. |
 | 2026-11-25: A signed-out caller gets 401 before any key check on all four `/api/me/state` routes (security-review ordering fix; AC-6) | Phase 05 | 05-03's client can read 401 as "sign in again", never a disguised 404/204 |
 | D-019 | The header control is sticky to the bar's right edge (the bar scrolls sideways at 1280 px) | Phase 03 | #authSlot |
 | D-020 | Delete confirmation uses native `<dialog>` + showModal(); the browser owns the focus trap and Esc (modern-web-guidance "dialog" Rule 1) | Phase 03 | auth.js |
@@ -143,34 +151,32 @@ Uncommitted: none (the phase commit landed everything; drivers stay in gitignore
 
 ## Session Continuity
 
-Last session: 2026-11-26 (phase 06 complete, transitioned to phase 07)
-Stopped at: phase 06 closed (4/4 unified, reflect + rsi run, the feat(06) commit); phase 07 not started
-Next action: /paul:plan for Phase 07 (per-user MT5 bridges) — in the resumed fresh session
-  (config session_reset: phase; DEBT pile-up 14 waiting exceeds the budget 12, so the 07 plan must
-  schedule at least one discharge)
-Resume file: .paul/HANDOFF-2026-11-26.md
-Resume file: .paul/phases/06-desktop/06-04-SUMMARY.md
+**DEBT-039 discharged: real bridge streams candles observed** (owner, 2026-11-26). The owner ran
+bridge/mt5_bridge.py on the MT5 host (103.93.92.204, the Exness terminal "Exness-MT5Real28",
+Python 3.15.2 + cloudflared via mise, published through a Cloudflare quick tunnel), registered it
+in Settings, and watched live candles stream on the broker's XAUUSDm chart. The agent verified the
+public half beforehand (all http 200 through the tunnel from the dev box): /health ok, /bars
+XAUUSDm M1 returning live candles, /wait long-poll fresh bar, /symbols 358. The second-account
+negative half (another login sees neither the bridge nor its symbols) is enforced by construction
+(owner-scoped routes, cross-user 404) and proven by the 07-03 suites. The quick-tunnel durability
+gap and the credential handoff are filed as DEBT-043 (waiting).
+
+Last session: 2026-11-26 (phase 07 closed: DEBT-039 discharged by the owner; exit gate clear)
+Stopped at: Phase 07 complete — transition finished except the phase commit. Milestone v0.2 is
+  3 of 3 phases complete.
+Next action: the phase commit `feat(07): per-user MT5 bridges` landing wave-1 + 07-03 + 07-04
+  (auto_commit: false — the owner is asked first; the first push after it discharges DEBT-038's
+  CI proof), then complete-milestone for v0.2.
+Resume file: .paul/phases/07-bridges/07-04-SUMMARY.md
 Resume context:
-- **06-04 shipped**: `.github/workflows/desktop.yml` (check-windows test+clippy, check-linux with
-  the four Tauri v2 packages, tag-only unsigned installers with "unsigned beta" release notes,
-  WINDOWS_CERTIFICATE/WINDOWS_CERTIFICATE_PASSWORD wired + env-guarded signing steps), one ci.yml
-  fmt line (`cargo fmt --manifest-path crates/desktop/Cargo.toml --check`), `docs/api.md` (the
-  /api/me/state contract from state.rs's module doc; all 7 error strings cross-checked),
-  `docs/desktop.md` (flow, capability posture, MSVC build), two spec amendments (one permission,
-  `window.vtvDesktop`), DECISIONS.md D-029/030/031.
-- **Verification**: js-yaml both workflows exit 0; `debt.py --run-checks` DEBT-033/034 OK done,
-  DEBT-036 waiting owner, DEBT-037 done (checkpoint approved); `debt.py --gate phase-06-exit`
-  clear; `gate_all.py --check-receipts` 8/8; DEBT-033 negative control (check=D-026 passes without
-  the decision) run and recorded in the row note.
-- **Unproven, reported plainly (AC-1/AC-3 remote halves)**: the CI runs were not observed — no
-  push was possible (tree uncommitted, auto_commit: false). First push proves check-windows/
-  check-linux green + the root test job's tauri/webkit-free log; first vX.Y.Z tag proves installers.
-- **Deviation**: the plan's `allow-start_sign_in` literal was wrong; the real permission id is
-  `allow-start-sign-in` (crates/desktop/permissions/autogenerated/start_sign_in.toml:4). Docs use
-  the true string.
-- **rtk gotcha**: `grep -c` through rtk returned a false 0 on docs/api.md; counts re-run bare
-  (RTK_OFF=1).
-- Owner decision still stands: do NOT deploy; the live site stays v0.1.1.
-- WebView2 quirk and obscura/playwright notes carry over from 06-03 (archived handoff
-  HANDOFF-2026-11-25-7, `.paul/handoffs/archive/`).
+- **Reflect outcomes this unify**: L-024/L-029 validated (hits 3), L-027 generalized (hits 2),
+  L-048/L-049/L-050 added; D-034 (plans emit parallel_agents: false here); R-12 (automated
+  falsifiers before human-judgment gates); DEBT-040 (gate identity probe) + DEBT-041 (debt.py
+  check validation) filed. Rejected: auth-off loopback SSRF parity (covered by D-001/D-033).
+- **One instruction edit awaits the owner's yes**: tune design-taste-frontend's look-pass step
+  ("Read the shots; say explicitly when the harness cannot render images").
+- **DEBT arithmetic**: overdue 0, waiting 15 (038 first-push, 039 owner-uat, 040/041 agent),
+  done 26. DEBT-039 gates phase-07-exit; DEBT-038 discharges on the first push after the phase
+  commit.
+- Owner decision stands: do NOT deploy; the live site stays v0.1.1.
 - CARL GLOBAL rules: justrust for cargo, ygrep/agentgrep first for searches.

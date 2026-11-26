@@ -29,7 +29,11 @@ window.LabFeed = (() => {
 
   async function history(symbol, tf, toMs, limit = 1000, source) {
     source = source || window.srcOf(symbol);
-    const u = `/api/bars?symbol=${encodeURIComponent(symbol)}&tf=${tf}&limit=${limit}&source=${source}` + (toMs ? `&to=${Math.floor(toMs)}` : "");
+    // A bridge symbol's bars come through its bridge (07-03): source=mt5 alone stays the
+    // D-009 Off feed, the `bridge` id is what routes the query to the owner's bridge.
+    const entry = (window.LabSymbols || []).find((x) => x.ticker === symbol);
+    const bridge = entry && entry.source === "mt5" && entry.bridge ? `&bridge=${encodeURIComponent(entry.bridge)}` : "";
+    const u = `/api/bars?symbol=${encodeURIComponent(symbol)}&tf=${tf}&limit=${limit}&source=${source}${bridge}` + (toMs ? `&to=${Math.floor(toMs)}` : "");
     const say = (extra) => { if (window.LabEmbedded) setTimeout(() => window.parent.postMessage({ evt: "loaded", symbol, tf, ...extra }, location.origin), 120); };
     try {
       const r = await fetch(u);
@@ -58,7 +62,14 @@ window.LabFeed = (() => {
 
     function open() {
       ws = new WebSocket(wsUrl());
-      ws.onopen = () => ws.send(JSON.stringify({ source, symbol, tf }));
+      ws.onopen = () => {
+        // The optional bridge field (07-03, D-032a): present only for bridge symbols, so a
+        // subscribe without it keeps the Binance fallback exactly as today.
+        const entry = (window.LabSymbols || []).find((x) => x.ticker === symbol);
+        const msg = { source, symbol, tf };
+        if (entry && entry.source === "mt5" && entry.bridge) msg.bridge = entry.bridge;
+        ws.send(JSON.stringify(msg));
+      };
       ws.onmessage = (e) => {
         const m = JSON.parse(e.data);
         if (m.type === "error") { stats.errors.push(m.msg); hud(`Feed error: ${m.msg}`); return; }
@@ -132,7 +143,14 @@ window.LabSymbols = (() => {
     const j = JSON.parse(x.responseText); window.LabMT5Status = j.mt5; window.LabARMStatus = j.arm; window.LabWsPort = j.ws_port;
     if (j.arm !== "ok" && j.arm !== "off") console.warn("Remote MT5 unavailable:", j.arm);
     if (j.mt5 !== "ok" && j.mt5 !== "off") console.warn("Local MT5 unavailable:", j.mt5);
-    return j.symbols;
+    const symbols = j.symbols || [];
+    // The merged bridge entries (07-03) carry the MT5 terminal's own fields — `name`, not
+    // `ticker` — so the pickers that key on .ticker would never show them. Normalize once:
+    // ticker = name, and group the path for the optgroup pickers.
+    symbols.forEach((s) => {
+      if (s.source === "mt5" && !s.ticker) { s.ticker = s.name; s.group = "mt5-bridge"; }
+    });
+    return symbols;
   } catch (e) {
     return [{ ticker: "BTCUSD", name: "Bitcoin", source: "binance", group: "crypto" }];
   }

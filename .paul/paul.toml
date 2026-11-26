@@ -17,8 +17,8 @@ phases = 7
 [phase]
 number = 7
 name = "Per-user MT5 bridges"
-status = "not_started"
-plans_completed = 0
+status = "complete"
+plans_completed = 4
 
 [loop]
 position = "IDLE"
@@ -27,6 +27,6 @@ position = "IDLE"
 groom = true
 
 [stats]
-total_plans = 15
+total_plans = 19
 total_phases = 9
-last_activity = "2026-11-26T00:15:00+07:00"
+last_activity = "2026-11-26T13:10:00+07:00"

@@ -39,6 +39,12 @@ pub const MIGRATIONS: &[Migration] = &[
         up: include_str!("../migrations/0002_user_state.up.sql"),
         down: include_str!("../migrations/0002_user_state.down.sql"),
     },
+    Migration {
+        version: 3,
+        name: "mt5_bridges",
+        up: include_str!("../migrations/0003_mt5_bridges.up.sql"),
+        down: include_str!("../migrations/0003_mt5_bridges.down.sql"),
+    },
 ];
 
 /// M1: created only after M2 failed with a missing table.
