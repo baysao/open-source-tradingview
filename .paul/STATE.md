@@ -20,28 +20,25 @@ after v0.3.
 
 ## Current Position
 
-Milestone: v0.3 Bridge platform (created 2026-11-26) — 0 of 2 phases
-Phase: 08 of 2 (Rust bridge and mise distribution)
-Plan: 08-01 UNIFIED; 08-02 UNIFIED; 08-03 UNIFIED 2026-11-26 (4/4 tasks, AC-1..AC-5 pass) — all 3 plans closed
-Status: Phase 08 plans complete; transition next (phase commit ask, then ROADMAP complete +
-phase reflect). The accept is met: 33/33 contract cases identical across plain and SSE passes
-against the retired Python oracle's copy; six mutations red-then-green; the Python bridge is
-deleted and docs name only the binary.
-Last activity: 2026-11-26T17:05+07:00 — 08-01 applied: `crates/mt5-bridge` lands as a root
-workspace member with the sealed MCP client (mcp.rs) and the domain core (term.rs); 21 crate
-tests green, workspace 181 passed/tauri-free, fmt + clippy clean, four mutations bit and restored
+Milestone: v0.3 Bridge platform - 1 of 2 phases
+Phase: 09 of 2 (Bridge manager app)
+Plan: Not started
+Status: Ready to plan. Phase 08 complete and committed (feat(08) = 7317378): the bridge is a
+Rust binary (crates/mt5-bridge), parity proven 33/33 vs the retired Python oracle across plain
+and SSE passes, distribution via release.yml + mise.mt5.toml + host-install.ps1.
+Last activity: 2026-11-26T19:05+07:00 - phase 08 transitioned: debt gate clear, PROJECT.md
+evolved (v0.3.0, D-035/D-036), ROADMAP phase 08 complete.
 
-Progress:
 - v0.1 Hosted launch: complete 2026-11-25 (4 phases, 13 plans)
 - v0.2 Accounts everywhere: complete 2026-11-26 (3 phases, 12 plans)
-- v0.3 Bridge platform: [███░░░░░░░] 30% (3 of 3 phase-08 plans unified; phase transition pending)
+- v0.3 Bridge platform: [███░░░░░░░] 30% (phase 08 complete; phase 09 pending)
 
 ## Loop Position
 
 Current loop state:
 ```
 PLAN ──▶ APPLY ──▶ UNIFY
-  ✓        ✓        ✓     [Phase 08's 3 plans all unified; transition pending]
+  ○        ○        ○     [Phase 09: ready to plan]
 ```
 
 ## Accumulated Context
@@ -137,10 +134,11 @@ PLAN ──▶ APPLY ──▶ UNIFY
 | /rsi | yes | no candidate; DEBT-016/017 carry the two that need building |
 
 ### Git State
-Last commit: 63cd4e4 feat(07): per-user MT5 bridges (the phase commit; 105 files)
-Branch: arch/axum-tauri (not pushed since the phase-05 commits; the next push is DEBT-038's
-proof: desktop.yml check-windows/check-linux green, root test job tauri/webkit-free)
-Uncommitted: none (the phase commit landed everything; drivers stay in gitignored .paul/runs/)
+Last commit: 7317378 feat(08): rust MT5 bridge, mise distribution, python bridge retired (30 files)
+Branch: arch/axum-tauri (pushed through 914740b; the phase-08 commits are not pushed yet; the
+next push carries them; release.yml's new legs run on the next tag)
+Uncommitted: none (the phase commits landed everything; the suite's oracle copy stays in
+gitignored .paul/runs/)
 
 ### Blockers/Concerns
 - Design doc Blockers still in the spec: C1, C2, R1 to R7 (see ROADMAP.md gates and
@@ -165,14 +163,9 @@ negative half (another login sees neither the bridge nor its symbols) is enforce
 (owner-scoped routes, cross-user 404) and proven by the 07-03 suites. The quick-tunnel durability
 gap and the credential handoff are filed as DEBT-043 (waiting).
 
-Last session: 2026-11-26T18:50+07:00 (08-03 applied and unified; phase 08 plans all closed)
-Stopped at: 08-03 complete — fake MCP terminal, 33-case differ, three-pass contract suite
-(0 differences, both framings), six-mutation driver, release.yml five-leg matrix, mise.mt5.toml,
-host-install.ps1 rewrite, docs, and the Python bridge retired. The oracle's copy lives at
-.paul/runs/0803/mt5_bridge_oracle.py so the diff stays runnable.
-Next action: the phase transition — ask the owner for the phase commit `feat(08): rust MT5
-bridge, mise distribution, python bridge retired`, then ROADMAP/PROJECT sync, phase reflect
-(pstack) at the session reset, and phase 09 routing.
+Last session: 2026-11-26T19:05+07:00 (phase 08 committed and transitioned)
+Stopped at: Phase 08 complete (7317378); phase 09 Bridge manager app next.
+Next action: phase reflect (pstack) at the session reset, then /paul:plan for phase 09.
 Resume file: none (the phase-08 handoff was consumed and archived at .paul/handoffs/archive/HANDOFF-2026-11-26-phase08.md)
 Resume context:
 - Milestone v0.3 Bridge platform (phases 08/09) created 2026-11-26; ROADMAP and dirs exist.
