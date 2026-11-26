@@ -415,6 +415,7 @@ kind = "artifact"
 origin = "06-04 unify"
 owner = "agent"
 trigger = "event:first-push"
+status = "done"
 check = { type = "text_present", path = ".paul/STATE.md", pattern = "desktop.yml run observed green" }
 note = "The workflow files land with the phase commit; the proof is the first push of arch/axum-tauri after it. Discharge = the run list shows check-windows and check-linux green, and the line 'desktop.yml run observed green (check-windows, check-linux; root test job tauri/webkit-free)' is recorded in STATE.md's Session Continuity. A secrets-absent installers skip is not a red run."
 

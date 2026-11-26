@@ -151,6 +151,12 @@ Uncommitted: none (the phase commit landed everything; drivers stay in gitignore
 
 ## Session Continuity
 
+desktop.yml run observed green (check-windows, check-linux; root test job tauri/webkit-free) — run
+45767331583 on c548cdc, 2026-11-26: check-windows 5m14s success (cargo test + clippy on
+crates/desktop), check-linux 10m46s success, installers skipped (secrets absent, by design). Same
+push's ci.yml run 45767331529: all seven jobs success (fmt, clippy, test — cargo test --workspace
+tauri/webkit-free, audit, db, contract, browser-gates). DEBT-038 discharged.
+
 **DEBT-039 discharged: real bridge streams candles observed** (owner, 2026-11-26). The owner ran
 bridge/mt5_bridge.py on the MT5 host (103.93.92.204, the Exness terminal "Exness-MT5Real28",
 Python 3.15.2 + cloudflared via mise, published through a Cloudflare quick tunnel), registered it
