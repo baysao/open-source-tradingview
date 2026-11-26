@@ -491,7 +491,7 @@ kind = "tech"
 origin = "09-01 task 5 gate enumeration"
 owner = "agent"
 trigger = "phase:10"
-status = "open"
+status = "done"
 check = { type = "text_absent", path = ".paul/runs/check-mt5c.sh", pattern = "CANON_RUST=$(printf" }
 note = "Measured 2026-11-26 twice in a row during 09-01: 'DIFFER: 33/33 cases identical, 0 differences' twice (both passes), then 'FAIL: logged-out /health differs (canonical)' with the two bodies differing only in measured_at (1795698259 vs 1795698260). The script's own differ (diff_bridge_contract.py:34 normalize) already pops pollers and measured_at for exactly this reason; the inline ERRX-CASE block at check-mt5c.sh:110-113 re-implements the comparison WITHOUT that normalization, then does `fail`. Not caused by 09-01: crates/mt5-bridge/ is untouched by this plan (only Cargo.toml carries the phase-08 preserve_order fix). Owed because the accept's own script cannot exit 0 reliably; discharged when the inline block normalizes (or delegates to diff_bridge_contract.normalize) so a pass is possible, and the check counts zero remaining raw-canon comparisons of a live field. NOTE: R-10 — editing this checker invalidates the phase-08 mutation results, so whoever fixes it must re-run mutate-mt5c.sh afterwards."
 
@@ -502,6 +502,29 @@ kind = "artifact"
 origin = "09-01 unify (contiguity check while adding D-037)"
 owner = "agent"
 trigger = "phase:09"
-status = "open"
+status = "done"
 check = { type = "text_present", path = ".paul/DECISIONS.md", pattern = "## D-036:" }
 note = "Measured 2026-11-26 at 09-01 UNIFY: `grep '^## D-' .paul/DECISIONS.md` yields 35 ids, D-001..D-037 with 35 and 36 absent (no dupes). Both rows exist in .paul/STATE.md's ### Decisions table (lines 51-52: D-035 py_str reproduces Python str(float) at phase 08-01 deviation 1; D-036 term.rs takes &M: Terminal so domain tests inject in-memory sources) but were never transcribed into DECISIONS.md. This is DEBT-027's exact class, which was discharged in phase 05 for D-019/020/021 - so the transcription step regressed. Discharge = append both entries in their phase-08 wording, then this check reports 2 and the id list is contiguous. Owed because DECISIONS.md is the file paul-plan reads for decisions; a row that exists only in STATE.md is invisible to the next plan."
+
+[[debt]]
+id = "DEBT-047"
+title = "Owner runs the managed install on the MT5 VPS (103.93.92.204) and closes the four phase-08 checkpoints: manager installer, cloudflared tunnel login + named tunnel, Install, reboot durability, and the observed records (stale session, time_ms digits, ONSTART-vs-ONLOGON, the mise leg)"
+kind = "uat"
+origin = "09-03 task checkpoint:human-action + task 2"
+owner = "owner"
+trigger = "event:owner-host-install-done"
+status = "open"
+blocking = "phase-09-exit"
+check = { type = "text_absent", path = ".paul/phases/09-bridge-manager/09-03-SUMMARY.md", pattern = "- [ ] **(" }
+note = "Check is text_absent on an unchecked observation box, NOT text_present on the section header: the header exists in the SUMMARY from the moment the plan is applied, so a text_present check would report done on day one and discharge nothing (the DEBT-027 vacuous-check class). It goes green only when all four boxes are ticked with recorded output. The four observations cannot be produced from the dev box: they need the Exness-MT5Real28 terminal, the owner's Cloudflare account, and an RDP session on 103.93.92.204 (09-ARCHITECTURE decision 5 puts these in the owner-run column). Commands the owner runs are in the DUE NOW line of .paul/STATE.md and in docs/manager.md. Discharge = the SUMMARY carries a '## Real-host checkpoints' section with each observation verbatim plus the command that produced it (R-7), and the public probes (/health, /bars XAUUSDm M1, /wait through the tunnel) answer from the dev box."
+
+[[debt]]
+id = "DEBT-048"
+title = "The NSIS installer built from a *-windows-gnu toolchain ships no WebView2Loader.dll, so BridgeManager_0.3.0_x64-setup.exe installs an app that cannot start (0xC0000135); D-038 moved the repo to msvc, where the loader is static and the question is moot, so this row now only guards a stray GNU install"
+kind = "tech"
+origin = "09-03 owner report (owner hit STATUS_DLL_NOT_FOUND on the MT5 VPS)"
+owner = "agent"
+trigger = "event:first-v0.3-tag"
+status = "open"
+check = { type = "text_present", path = "rust-toolchain.toml", pattern = "1.95.0-x86_64-pc-windows-msvc" }
+note = "Measured 2026-11-27 on the dev box (rustc 1.95.0-x86_64-pc-windows-gnu): objdump -p mt5-manager.exe lists 'DLL Name: WebView2Loader.dll', and running the exe with the DLL removed from PATH exits -1073741515 = 0xC0000135 = STATUS_DLL_NOT_FOUND, exactly the owner's error. Root cause is target_env, not a packaging slip: webview2-com-sys-0.39.1/src/lib.rs:14-24 links WebView2LoaderStatic only under `target_env = \"msvc\"` and `WebView2Loader.dll` on every other target. CI's windows-latest resolves the MSVC host, so the release leg is unaffected - this bites only a GNU-built install, which is what the owner was handed. Fixed in 09-03: release.yml's packaging step copies the DLL into the zip, lands it as a zip entry, and throws if the DLL was built but is absent from the zip (verified: zip lists mt5-manager.exe + WebView2Loader.dll, extracted copy starts with BridgeManager window). NOT fixed: the NSIS installer, which a GNU build produces without the DLL (scanned the setup.exe bytes: no 'WebView2Loader.dll' reference). tauri.conf.json deliberately carries no `resources` entry for it, because a hardcoded target-dir path fails the MSVC CI leg where the file does not exist. Discharge = either build the installer leg on MSVC (where the loader is static and the question is moot), or add the DLL to the NSIS bundle via a target_env-conditional build step. 2026-11-27 UPDATE: the owner's instruction superseded the repair path - D-038 pins rust-toolchain.toml to the msvc triple, where the loader is static and no DLL (and no installer gap) exists at all. The check therefore anchors on that pin, not on a marker comment: if someone reverts the toolchain to a channel-only or gnu pin, this row goes red again and the GNU installer gap becomes real once more. Two earlier drafts of this check were wrong (a grep count expecting 2 when the file held 7, and a '# nsis-loader:' marker no code would ever add); both would have failed to discharge, which is why it is now tied to the thing that actually prevents the defect."

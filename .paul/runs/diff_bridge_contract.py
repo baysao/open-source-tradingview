@@ -65,6 +65,12 @@ def current_key(base):
 
 
 def main():
+    # `--normalize` is the helper the suite's inline logged-out /health comparison uses, so that
+    # comparison cannot drift from this file's own definition of "may differ" (DEBT-045): it reads
+    # one JSON body on stdin and writes the normalized form on stdout.
+    if len(sys.argv) == 2 and sys.argv[1] == "--normalize":
+        sys.stdout.write(normalize(sys.stdin.buffer.read()))
+        return
     if len(sys.argv) != 4:
         print("usage: diff_bridge_contract.py TOKEN RUST_BASE PYTHON_BASE", file=sys.stderr)
         sys.exit(2)

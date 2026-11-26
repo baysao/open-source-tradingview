@@ -10,6 +10,8 @@
 #   mt5-bridge-vX.Y.Z-linux-x64.tar.gz   x86_64-unknown-linux-gnu  (Wine hosts, best-effort)
 #   mt5-bridge-vX.Y.Z-linux-arm64.tar.gz aarch64-unknown-linux-gnu (best-effort, untested
 #                                        against a real terminal)
+#   mt5-manager-vX.Y.Z-windows-x64.zip   (the `manager` job below: the Tauri operator console,
+#                                        built from its own workspace with --features gui)
 name: release
 
 on:
@@ -106,3 +108,92 @@ jobs:
           # Create the release on the first matrix leg, attach on all.
           gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes "vtradingview $GITHUB_REF_NAME"
           gh release upload "$GITHUB_REF_NAME" $FILES --clobber
+
+  # The Tauri manager app: its own workspace (D-030), so the matrix above cannot carry it, and
+  # `tauri` is an OPTIONAL dependency behind a non-default `gui` feature (AC-1 of 09-02), so the
+  # build must name `--features gui` or it produces a binary that exits 2.
+  manager:
+    runs-on: windows-latest
+    env:
+      # Same secrets-only posture as desktop.yml's installers job: an absent certificate is a
+      # clean skip, never a red run, and `certificateThumbprint` stays OUT of tauri.conf.json.
+      WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+      WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup show
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: mt5-manager-windows-x64
+      - name: Import Windows certificate (skips without a secret)
+        if: env.WINDOWS_CERTIFICATE != ''
+        shell: pwsh
+        run: |
+          $pfx = "$env:RUNNER_TEMP\cert.pfx"
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE))
+          Import-PfxCertificate -FilePath $pfx -CertStoreLocation Cert:\CurrentUser\My -Password (ConvertTo-SecureString -String $env:WINDOWS_CERTIFICATE_PASSWORD -AsPlainText -Force)
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: tauri-cli
+      - name: Build the manager (unsigned while Q4 is open)
+        working-directory: crates/mt5-manager
+        run: cargo tauri build --features gui
+      - name: Sign the installer (skips without a secret)
+        if: env.WINDOWS_CERTIFICATE != ''
+        shell: pwsh
+        run: |
+          Get-ChildItem crates\mt5-manager\target\release\bundle\nsis\*.exe | ForEach-Object {
+            signtool sign /fd sha256 /td sha256 /tr http://timestamp.digicert.com $_.FullName
+          }
+      - name: Package (portable zip, exe at the archive root)
+        shell: pwsh
+        run: |
+          $VERSION = "${env:GITHUB_REF_NAME}" -replace '^v',''
+          $NAME = "mt5-manager-v${VERSION}-windows-x64"
+          New-Item -ItemType Directory -Force -Path "dist/$NAME" | Out-Null
+          Copy-Item "crates/mt5-manager/target/release/mt5-manager.exe" "dist/$NAME/"
+          # WebView2Loader.dll is a REQUIRED next-to-the-exe dependency on a `*-windows-gnu`
+          # toolchain: webview2-com-sys links it dynamically there and statically only on
+          # `target_env = "msvc"` (webview2-com-sys-0.39.1/src/lib.rs:14-24). The exe's import table
+          # names it, so without the DLL Windows refuses to start the app (0xC0000135). This leg runs
+          # on windows-latest = MSVC, where the link is static and no DLL exists — the copy below is a
+          # no-op here and the guard is what protects a GNU-built install (DEBT-048). rust-toolchain.toml
+          # pins the msvc triple so a local build matches this leg.
+          if (Test-Path "crates/mt5-manager/target/release/WebView2Loader.dll") {
+            Copy-Item "crates/mt5-manager/target/release/WebView2Loader.dll" "dist/$NAME/"
+            Write-Host "Copied WebView2Loader.dll (a GNU-style dynamic loader link)."
+          } else {
+            Write-Host "No WebView2Loader.dll (MSVC links the loader statically; nothing to ship)."
+          }
+          # The NSIS installer beside the portable exe counts as "installer or portable zip"; a
+          # Windows host that cannot run an installer still gets a working exe from the zip.
+          Get-ChildItem "crates/mt5-manager/target/release/bundle/nsis/*.exe" -ErrorAction SilentlyContinue |
+            ForEach-Object { Copy-Item $_.FullName "dist/${NAME}-setup.exe" }
+          Compress-Archive -Path "dist/$NAME" -DestinationPath "dist/$NAME.zip"
+          $Hash = (Get-FileHash "dist/$NAME.zip" -Algorithm SHA256).Hash.ToLower()
+          "$Hash  $NAME.zip" | Set-Content "dist/$NAME.zip.sha256"
+          Get-Content "dist/$NAME.zip.sha256"
+          # Fail loudly rather than publish an unstartable app: if the build produced a loader DLL,
+          # the zip must contain it.
+          Add-Type -A System.IO.Compression.FileSystem
+          $z = [IO.Compression.ZipFile]::OpenRead((Resolve-Path "dist/$NAME.zip"))
+          try { $entries = $z.Entries | Select-Object -ExpandProperty FullName } finally { $z.Dispose() }
+          if ((Test-Path "crates/mt5-manager/target/release/WebView2Loader.dll") -and
+              -not ($entries -match 'WebView2Loader\.dll$')) {
+            throw "WebView2Loader.dll was built but is missing from $NAME.zip; the app would not start"
+          }
+          $entries
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          $VERSION = "${env:GITHUB_REF_NAME}" -replace '^v',''
+          $NAME = "mt5-manager-v${VERSION}-windows-x64"
+          $FILES = @("dist/${NAME}.zip", "dist/${NAME}.zip.sha256")
+          if (Test-Path "dist/${NAME}-setup.exe") { $FILES += "dist/${NAME}-setup.exe" }
+          gh release view "$env:GITHUB_REF_NAME" 2>$null | Out-Null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create "$env:GITHUB_REF_NAME" --title "$env:GITHUB_REF_NAME" --notes "vtradingview $env:GITHUB_REF_NAME"
+          }
+          gh release upload "$env:GITHUB_REF_NAME" @FILES --clobber

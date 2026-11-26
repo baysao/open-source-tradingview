@@ -1,0 +1,16 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "manager",
+  "description": "The manager's own local window. Seven commands and nothing else: pair, install, control, status, revoke, check-mcp (a read-only probe of the MT5 address and token, so the panel can answer before a download). No fs, shell, opener, clipboard, http or event-bus plugin reaches this webview; every schtasks, taskkill, mise and cloudflared call runs in Rust behind the CommandRunner seam (AC-2, D-030's lockdown). Unlike the v0.2 shell this capability is local, not remote: the hub page never loads inside this app, so there is no remote origin to scope.",
+  "windows": ["main"],
+  "local": true,
+  "permissions": [
+    "allow-pair",
+    "allow-install",
+    "allow-control",
+    "allow-status",
+    "allow-revoke",
+    "allow-check-mcp",
+    "allow-install-progress"
+  ]
+}

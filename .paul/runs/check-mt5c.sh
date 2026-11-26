@@ -107,9 +107,14 @@ H_PY=$(curl -s -H "Authorization: Bearer $TOKEN" "http://127.0.0.1:$PY_PORT/heal
 echo '{}' > "$CONTROL"
 echo "logged-out health  rust: $H_RUST"
 echo "logged-out health  python: $H_PY"
-CANON_RUST=$(printf '%s' "$H_RUST" | python -c "import json,sys;print(json.dumps(json.load(sys.stdin),sort_keys=True,separators=(',',':')))")
-CANON_PY=$(printf '%s' "$H_PY" | python -c "import json,sys;print(json.dumps(json.load(sys.stdin),sort_keys=True,separators=(',',':')))")
-[ "$CANON_RUST" = "$CANON_PY" ] || fail "logged-out /health differs (canonical)"
+# Normalize through the differ's own helper (DEBT-045). `pollers` and `measured_at` are live
+# values, and two sequential curls land in different wall-clock seconds routinely; re-implementing
+# this comparison inline without that normalization is what made a passing run exit 1.
+DIFFER="$ROOT/.paul/runs/diff_bridge_contract.py"
+CANON_RUST=$(printf '%s' "$H_RUST" | python "$DIFFER" --normalize)
+CANON_PY=$(printf '%s' "$H_PY" | python "$DIFFER" --normalize)
+[ -n "$CANON_RUST" ] && [ -n "$CANON_PY" ] || fail "the differ's --normalize produced nothing"
+[ "$CANON_RUST" = "$CANON_PY" ] || fail "logged-out /health differs (canonical; live fields normalized)"
 echo "ERRX-CASE-OK logged-out /health identical"
 
 if [ "$DIFF1" != "0" ] || [ "$DIFF2" != "0" ]; then

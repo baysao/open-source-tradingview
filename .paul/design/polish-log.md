@@ -141,3 +141,78 @@ Round 1 (agent, Playwright against a served auth-off hub)
   large readout by design.
 Status: done, red 0. The open-state judgement is the agent's measurement, not an owner look; it
 joins 09-03's phase checkpoint if the owner wants one.
+
+## 09-02 mt5-manager ui/index.html: the manager panel (2026-11-26)
+
+Round 1 (agent, gate runner .paul/runs/09-02-gates.py against a served ui/, both themes via
+?theme=light — gate_all.py cannot serve a page outside hub/, so the runner imports gate_all and
+reuses its five harnesses verbatim)
+1. axe color-contrast, 2-3 nodes both themes: danger buttons used --bad as TEXT (3.66 dark /
+   4.15 light on a raised panel) and footer used --faint (2.61 / 2.27). The red moved to a 2px
+   BORDER (border contrast is not text contrast) and the footer to --dim at 14px.
+2. One light-theme node left: the hub's own light preset pairs accentInk #ffffff with accent
+   #b8761a — 3.72:1 at 14px, below AA. Deviation, documented in the CSS: the primary button's ink
+   is --text in light mode (4.62:1), which is the graphite preset's own dark-ink-on-amber pattern.
+   The token PAIR was the defect, not a token value.
+3. design_lint: 4 body texts at 13px below the 14px floor (.note, .hint, .result .next, .secret
+   code). All to 14px.
+4. axe region: h1 + lede sat outside a landmark. Wrapped in <header>.
+5. verify_states: the MCP-token input measured unnamed (the gate reads aria-label/text/value, not
+   <label for>). Explicit aria-label on every input; the label elements stay for the caption.
+6. Every load logged one favicon 404 (browsers request it unprompted). Killed with a data-URI icon.
+- Gates after: 10/10 (verify_states, axe_audit, measure_render, lint_intent, design_lint × dark +
+  light), verify_responsive both themes (0 overflow, 0 covered at 320/768/1280), dialogs measured
+  OPEN by hand (09-01's round-1 lesson): both showModal, focus lands inside, Esc closes, 0 console
+  errors.
+- Looked at after the change: measure_render.dark.png + measure_render.light.png (Read as images).
+  Left: nothing worth fixing; empty states name cause and next action ("Preview mode: this page is
+  open outside BridgeManager…").
+Status: done, red 0. The native-window look (title bar, no tray) is not judgeable from a served
+page; it joins 09-03's real-host checkpoint.
+
+## 09-03: panel reordered into numbered steps, MCP address field added (2026-11-27)
+
+- **Why:** the owner reported the five zones "confused". They were ordered Pairing → Status → Control
+  → Install → Unregister, which puts step 2 before step 1: you cannot pair a bridge that is not
+  installed, and Unregister sat above Install. A panel read top to bottom told the operator to do the
+  third thing first.
+- **Change:** `<main>` is now a real `<ol class="steps">` of five numbered cards in operating order —
+  1 Install or repair → 2 Pair with your account → 3 Check it is running → 4 Start or stop the
+  services → 5 Unregister. Headings rewritten as actions ("Check it is running", not "Status"); the
+  lede says "five steps, top to bottom"; step 5 carries a dashed border and its note says it is
+  terminal, not a way to re-pair.
+- **The number is not a heading decoration.** First attempt put `<span class="step-no">` inside each
+  `<h2>`; design_lint flagged it in dark (`标题里只给一个词换色 5 处`) as one-coloured-word heading
+  decoration, and the finding differed between themes, which is how a colour-reading lint betrays
+  itself. Fixed by moving the badge into a `.step-head` flex row beside a clean `<h2>` — lint clean
+  in both themes. The `<ol>` still conveys position to assistive tech, so the badge is `aria-hidden`.
+- **Contrast:** the badge is accent-background. In the light theme `--accent-ink` (#ffffff) on
+  #b8761a measures **3.72:1** — the same AA trap already documented for `button.primary`. Added
+  `:root[data-theme="light"] .step-no { color: var(--text) }`, which measures **4.62:1**. Dark stays
+  8.34:1.
+- **New field:** step 1 gained **MT5 MCP address** (`#mcp-url`, default
+  `http://127.0.0.1:22346/mcp`), because `bridge.env` previously carried no `MT5_MCP_URL` and the
+  compiled default was the only way to reach the terminal — a moved port was unfixable from the app.
+- **Gates:** 10/10 both themes (verify_states, axe_audit, measure_render, lint_intent, design_lint),
+  receipts in `.paul/ds-receipts/09-03/`. DOM measured: 5 `<li>` in an `<ol>`, badges all at x=37,
+  uniform 14px gaps, no horizontal overflow at 320/560/768/1280, 0 console errors, preview-mode note
+  still present. Screenshots: `.paul/ds-receipts/09-03/ui-{dark,light}.png` (not read as images this
+  session — the model had no image input, so the look pass rests on the measured DOM and the gate
+  receipts, per DEBT-016's pattern).
+Status: done, design_lint red 0, yellow 0.
+
+## 09-03: MCP check button + install progress bar (2026-11-27)
+
+- Step 1 gained **Check address and token** and a determinate progress bar (`.progress`, `.bar`,
+  `role=progressbar`, aria-valuemax=8 = the step count; `prog-fill` width = index/total).
+- The bar is determinate on purpose: the step count is known, so an indeterminate spinner would lie.
+- `aria-live` sits on the result line, not the bar: the screen reader hears "3 of 8: bridge.env"
+  once per change instead of a percentage ticking every 400 ms poll.
+- `prog-label`/`prog-detail` are only written when the text changed, so the poller cannot chatter.
+- Bar measures 6 px on `--grid` with a 1 px `--line` border; the fill is `--accent` (dark: accent on
+  grid, light: #b8761a on #f0ede8 — both far above 3:1 for a non-text indicator, WCAG 1.4.11).
+- Bar resize measured at 320/560/1280: no horizontal overflow, fill width tracks percentage.
+- Gates: 10/10 both themes after the fields were added; screenshots
+  `.paul/ds-receipts/09-03/ui-{dark,light}.png` and the injected-progress shot
+  `progress-dark.png` (13% → 50% → 100% widths verified in DOM).
+Status: done, design_lint red 0, yellow 0.

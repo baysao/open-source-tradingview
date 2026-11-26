@@ -28,10 +28,12 @@ Thumbs.db
 
 # rust
 target/
+dist/
 data/
 vendor/pgsqlite/
-# tauri-build's generated schemas and permission docs (crates/desktop, its own workspace)
+# tauri-build's generated schemas and permission docs (both Tauri workspaces)
 crates/desktop/gen/
+crates/mt5-manager/gen/
 .dev/
 .playwright-mcp/
 .ds-receipts/

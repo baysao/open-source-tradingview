@@ -27,6 +27,10 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo test --manifest-path crates/desktop/Cargo.toml --all-targets
       - run: cargo clippy --manifest-path crates/desktop/Cargo.toml --all-targets -- -D warnings
+      # The manager is a SECOND workspace (D-030). Its default feature set is tauri-free by design
+      # (AC-1), so this leg proves the domain suite on a machine with no WebView2 runtime.
+      - run: cargo test --manifest-path crates/mt5-manager/Cargo.toml --all-targets
+      - run: cargo clippy --manifest-path crates/mt5-manager/Cargo.toml --all-targets -- -D warnings
 
   check-linux:
     runs-on: ubuntu-latest
@@ -38,6 +42,12 @@ jobs:
       # the root ci.yml test job never installs it.
       - run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
       - run: cargo test --manifest-path crates/desktop/Cargo.toml --all-targets
+      - run: cargo test --manifest-path crates/mt5-manager/Cargo.toml --all-targets
+      - run: cargo clippy --manifest-path crates/mt5-manager/Cargo.toml --all-targets -- -D warnings
+      # The gui half cannot be built here (the manager's bundle is Windows-first per 09-ARCHITECTURE
+      # decision 7), but the feature must at least resolve: --features gui pulls tauri and
+      # tauri-build, and a resolution failure is a defect this leg catches early.
+      - run: cargo check --manifest-path crates/mt5-manager/Cargo.toml --features gui
 
   installers:
     # Unsigned beta while Q4 is open. Adding certificates later is a secrets-only change: the

@@ -1,0 +1,14 @@
+{
+ "gate": "design_lint",
+ "page": "ui/index.html[dark]",
+ "base": "http://127.0.0.1:8798",
+ "result": "pass",
+ "ts": 1795717814.2135844,
+ "counts": {
+  "pass": true,
+  "exit": 0,
+  "tail": [
+   "no findings"
+  ]
+ }
+}

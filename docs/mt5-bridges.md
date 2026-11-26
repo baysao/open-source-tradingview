@@ -14,6 +14,13 @@ your charts show your broker's candles. It is read-only: it can never place an o
 
 ## Run the bridge
 
+**The supported path is the manager app**, `BridgeManager` from the release. It installs the bridge
+and cloudflared through mise, writes `bridge.env`, registers both startup tasks, pairs the bridge to
+your account with a one-time code from Settings, and shows status. See [manager.md](manager.md).
+
+The manual route below stays supported for a host where you would rather not run a desktop app, and
+it is what the manager does underneath.
+
 Install the pinned release through mise (the windows-x64 asset is the supported leg; the linux
 x64/arm64 assets are best-effort and untested against a real terminal):
 
@@ -36,8 +43,8 @@ the hub. `BRIDGE_STATE_DIR` (default: the exe's directory) holds the small `.bri
 server-time file.
 
 On the MT5 host, `bridge/host-install.ps1` does all of it: mise, the bridge binary from
-`mise.mt5.toml`, cloudflared, `bridge.env`, ONLOGON scheduled tasks, and the tunnel, then
-prints the URL and token to register.
+`mise.mt5.toml`, cloudflared, `bridge.env`, ONSTART scheduled tasks (SYSTEM, restart-on-failure),
+and the tunnel. It is the repair path beside the manager; both write the same files and tasks.
 
 ## Publish it over HTTPS
 

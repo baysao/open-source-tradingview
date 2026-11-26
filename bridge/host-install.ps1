@@ -12,17 +12,20 @@
 # What it does:
 #   1. installs mise (irm https://mise.run/powershell | iex)
 #   2. MISE_ENV=mt5 mise install mt5-bridge  (the release binary from mise.mt5.toml)
-#   3. mise install cloudflared (the HTTPS front; a quick tunnel prints the public URL)
+#   3. mise install cloudflared (the HTTPS front)
 #   4. writes bridge\bridge.env (BRIDGE_TOKEN generated once, MT5_MCP_TOKEN asked once)
-#   5. registers ONLOGON scheduled tasks that start the bridge (bare exe path) and the tunnel;
-#      starts both now and saves the URLs
+#   5. registers ONSTART scheduled tasks that start the bridge and the tunnel as SYSTEM, with
+#      restart-on-failure and no execution time limit; starts both now and saves the URL
 #
 # The only value it cannot fetch: MT5's MCP token (Tools > Options > MCP on the terminal).
 # Re-running regenerates nothing: bridge.env is kept if present.
 #
-# ONLOGON is the initial choice; whether the tasks must survive without a logon session
-# (ONSTART + the System account's exe-relative bridge.env resolution) is phase 09's real-host
-# checkpoint.
+# This script is the REPAIR path, not the normal one: the BridgeManager app's Install runs the
+# same steps over argv-only seams (crates/mt5-manager/src/commands/install.rs). Both use the same
+# task names, the same ONSTART trigger and the same restart settings, so either can repair what
+# the other installed. A named tunnel needs `cloudflared tunnel login` once in a browser on this
+# host — the app names that command; this script falls back to a quick tunnel when no certificate
+# is present, which is enough to get running but hands out a URL that changes on restart.
 
 $ErrorActionPreference = "Stop"
 
@@ -76,9 +79,15 @@ if (Test-Path $EnvFile) {
     $BridgeToken = [Convert]::ToBase64String($TokenBytes) -replace "\+", "_" -replace "/", "_" -replace "=", ""
     $McpToken = Read-Host "MT5 MCP token (MT5: Tools > Options > MCP)"
     if (-not $McpToken) { throw "MT5_MCP_TOKEN is required (Tools > Options > MCP on the terminal)" }
+    # The endpoint is written explicitly, never left to the compiled default: a moved port must be
+    # visible in the file, and the file is what the binary reads (crates/mt5-bridge/src/main.rs:75
+    # falls back to this same address).
+    $McpUrl = Read-Host "MT5 MCP address [http://127.0.0.1:22346/mcp]"
+    if (-not $McpUrl) { $McpUrl = "http://127.0.0.1:22346/mcp" }
     @"
 BRIDGE_TOKEN=$BridgeToken
 MT5_MCP_TOKEN=$McpToken
+MT5_MCP_URL=$McpUrl
 BRIDGE_BIND=127.0.0.1
 BRIDGE_PORT=8797
 "@ | Set-Content -Encoding ascii $EnvFile
@@ -92,22 +101,40 @@ Get-Content $EnvFile | ForEach-Object {
 if (-not $BridgeEnv["BRIDGE_TOKEN"]) { throw "BRIDGE_TOKEN missing from $EnvFile" }
 if (-not $BridgeEnv["MT5_MCP_TOKEN"]) { throw "MT5_MCP_TOKEN missing from $EnvFile" }
 
-# --- 5. scheduled tasks (ONLOGON): the bridge as a bare exe path, the tunnel beside it.
-# The binary reads bridge.env from its own directory (exe-relative), so no working directory
-# or shell wrapper is needed. Phase 09 verifies ONSTART + the System account on the real host.
+# --- 5. scheduled tasks (ONSTART, SYSTEM): the bridge and the tunnel, both surviving a reboot
+# with no interactive logon.
+#
+# The bridge task carries NO argument: the binary loads `bridge.env` from its own directory and
+# parses nothing else (crates/mt5-bridge/src/main.rs:141), so the file is copied beside the exe
+# instead. The deploy-root copy stays canonical — it is what a person reads and edits — and this
+# mirror is refreshed on every run, which also restores it after `mise install` replaces the exe.
+#
+# Restart-on-failure is set in the settings object: `Register-ScheduledTask -Settings` needs it,
+# and schtasks.exe has no flag for it at all (the manager's install.rs makes the same two calls).
+$ExeEnv = Join-Path (Split-Path $BridgeExe -Parent) "bridge.env"
+if ($ExeEnv -ne $EnvFile) {
+    Copy-Item -Force $EnvFile $ExeEnv
+    Say "bridge.env mirrored beside the binary: $ExeEnv"
+}
 $BridgeTask = "VTVBridge"
 $TunnelTask = "VTVTunnel"
 $BridgeAct = New-ScheduledTaskAction -Execute $BridgeExe
 $TunnelAct = New-ScheduledTaskAction -Execute $TunnelExe `
     -Argument "tunnel --url http://127.0.0.1:$($BridgeEnv['BRIDGE_PORT']) --no-autoupdate"
-$Trigger = New-ScheduledTaskTrigger -AtLogOn
+$Principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+$Trigger = New-ScheduledTaskTrigger -AtStartup
+$Settings = New-ScheduledTaskSettingsSet -RestartCount 3 `
+    -RestartInterval (New-TimeSpan -Minutes 1) -StartWhenAvailable `
+    -ExecutionTimeLimit ([TimeSpan]::Zero)
 foreach ($t in @(@{ Name = $BridgeTask; Action = $BridgeAct }, @{ Name = $TunnelTask; Action = $TunnelAct })) {
     if (Get-ScheduledTask -TaskName $t.Name -ErrorAction SilentlyContinue) {
         Say "scheduled task $($t.Name) already registered, updated"
-        Set-ScheduledTask -TaskName $t.Name -Trigger $Trigger -Action $t.Action | Out-Null
+        Set-ScheduledTask -TaskName $t.Name -Trigger $Trigger -Action $t.Action `
+            -Principal $Principal -Settings $Settings | Out-Null
     } else {
-        Say "registering scheduled task $($t.Name) (ONLOGON)"
-        Register-ScheduledTask -TaskName $t.Name -Trigger $Trigger -Action $t.Action | Out-Null
+        Say "registering scheduled task $($t.Name) (ONSTART, SYSTEM, restart-on-failure)"
+        Register-ScheduledTask -TaskName $t.Name -Trigger $Trigger -Action $t.Action `
+            -Principal $Principal -Settings $Settings | Out-Null
     }
 }
 

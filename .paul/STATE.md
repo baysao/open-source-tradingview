@@ -21,27 +21,27 @@ after v0.3.
 ## Current Position
 
 Milestone: v0.3 Bridge platform - 1 of 2 phases
-Phase: 09 of 2 (Bridge manager app) — 1 of 3 plans unified
-Plan: 09-01 UNIFIED (hub pairing surface); 09-02 next
-Status: 09-01 UNIFIED. All ACs green, five recorded deviations (AC-3/AC-5 Origin contradiction
-resolved by a two-path narrow exemption; revoke secret as a side table rather than an unproven
-ALTER; u64 rejection sampling; D-034 sequential execution). /security-review found and fixed two
-defects: pairing codes were never swept (S14 clears sessions, whose TTL is 4,320x the code's) and
-the new FK lacked an index.
-Last activity: 2026-11-26T22:45+07:00 - 09-01 apply + unify in one session: migration 0004 +
-P4 sweep, pairing routes, Settings dialog, 10 contract tests, four mutation proofs. DEBT-044
-discharged, DEBT-043 dropped by the owner, DEBT-045 filed (check-mt5c.sh live-clock assertion).
+Phase: 09 of 2 (Bridge manager app) — 2 of 3 plans unified
+Plan: 09-03 APPLYING (distribution + real-host install); blocked on the owner's host run
+Status: 09-03's agent-side work is done and green — release.yml gains a `manager` job (windows-x64,
+`--features gui`, secrets-only signing guard), host-install.ps1 moved to ONSTART/SYSTEM with
+restart-on-failure, docs/manager.md written, and three real defects fixed in install.rs (bridge
+`--config` pointing at a file the binary never reads, and a restart-on-failure claim `/F` does not
+provide). What remains is the owner-run half: the install on 103.93.92.204, the reboot, and the four
+phase-08 checkpoint observations (DEBT-047, blocking phase-09-exit).
+Last activity: 2026-11-27T22:50+07:00 - 09-03 apply: manager release leg, ONSTART hardening, the
+env-beside-exe fix, DEBT-045 + DEBT-046 discharged.
 
 - v0.1 Hosted launch: complete 2026-11-25 (4 phases, 13 plans)
 - v0.2 Accounts everywhere: complete 2026-11-26 (3 phases, 12 plans)
-- v0.3 Bridge platform: [████░░░░░░] 40% (phase 08 complete; 09-01 of phase 09 unified)
+- v0.3 Bridge platform: [█████░░░░░] 50% (phase 08 complete; 09-01 + 09-02 applied, 09-03 next)
 
 ## Loop Position
 
 Current loop state:
 ```
 PLAN ──▶ APPLY ──▶ UNIFY
-  ✓        ✓        ✓     [09-01 unified; 09-02 next]
+  ✓        ►        ○     [09-03 applying; owner host run blocks]
 ```
 
 ## Accumulated Context
@@ -132,6 +132,16 @@ PLAN ──▶ APPLY ──▶ UNIFY
   second boundary (33/33 parity still passes both ways). Filed at 09-01; R-10: fixing it invalidates
   the phase-08 mutation results, so re-run mutate-mt5c.sh afterwards.
 
+### Skill Audit (Phase 09, plan 02)
+| Expected | Invoked | Notes |
+|----------|---------|-------|
+| context-budget, caveman, ponytail | yes | loaded at resume, applied through the session (AGENTS.md rule) |
+| /configuring-tauri-capabilities | via pattern | the v0.2 capability file + its test were the worked example the manager's mirrors |
+| /dashboard-design + /modern-web-guidance | via gates | the four-zone panel, native dialogs, every status number names its question; lint_intent/axe enforce the rest |
+| /design-taste-frontend + /huashu-design + /a11y-audit | yes | 10/10 gate receipts both themes + verify_responsive + open-dialog probes; polish-log entry written |
+| /paul-security | partial | the trust-boundary rules (enum validation, no shell strings, argv-only secrets) are test-enforced; whole-diff /security-review is UNIFY's |
+| /security-review | deferred | phase-09 override runs at UNIFY on the whole plan diff |
+
 ### Skill Audit (Phase 03, plan 02)
 | Expected | Invoked | Notes |
 |----------|---------|-------|
@@ -209,6 +219,62 @@ un-sorts keys and pins total == 33. All gates re-run green after the edit (R-10)
 40 crate tests, 200 workspace tests, 33/33 parity both passes, 6 mutations red/green.
 Filed: L-051..L-054, L-023 hit 6, L-026 hit 3, DEBT-044 (parity suite untracked; trigger
 phase:09). Pending owner yes: R-8 tighten + context-budget exemption line (see below).
+
+Last session: 2026-11-27T22:50+07:00 (09-03 apply, agent-side tasks done; host checkpoint blocks)
+Stopped at: 09-03 APPLIED IN PART — Task 1 and the two scheduled debt discharges are done and
+green; the blocking owner checkpoint on the real host (103.93.92.204) and Task 2/3's observations
+have not run, because they need the owner's RDP session, Cloudflare login and MT5 terminal.
+Toolchain switched to msvc mid-session by owner direction (D-038): rust-toolchain.toml now pins
+`1.95.0-x86_64-pc-windows-msvc` (the triple inside `channel`; a separate `target` key is ignored by
+rustup) and rustup default matches it. Reason: the owner ran the built app on the MT5 VPS and got
+0xC0000135 STATUS_DLL_NOT_FOUND for WebView2Loader.dll. Root cause measured: this box's
+default_host_tuple was x86_64-pc-windows-gnu, and webview2-com-sys-0.39.1/src/lib.rs:14-24 links the
+loader dynamically on non-msvc targets only. With msvc the exe imports no loader DLL (22.7 MB ->
+12.7 MB) and starts with a stripped PATH; re-verified via justrust (workspace 204 passed, manager
+78). DEBT-048 now guards the pin instead of the moot installer gap.
+Three defects found and fixed while wiring Task 1 (all pinned by new tests):
+  (1) install.rs registered VTVBridge with `--config <deploy root>\bridge.env`, but the bridge
+      binary parses NO arguments and loads bridge.env from ITS OWN directory
+      (crates/mt5-bridge/src/main.rs:141) - the task would have exited 1 with "BRIDGE_TOKEN is
+      required" on the host. Fixed by mirroring the env beside the exe (InstallPaths::env_beside_exe)
+      and dropping the argument; mutation-proven (mirror off -> exactly 1 test red).
+  (2) the "restart-on-failure" the comment claimed was `/F`, which only means force-overwrite;
+      schtasks /Create has no such flag. Fixed with an argv-only Set-ScheduledTask call carrying the
+      task name in VTV_TASK (the S1 lesson), pinned by every_registered_task_gets_restart_on_failure_settings.
+  (3) host-install.ps1 carried the same two defects plus ONLOGON; rewritten to ONSTART/SYSTEM with
+      restart settings and the env mirror.
+Gates now: manager 78 tests (was 74) exit 0, clippy 0 (plain and --features gui), fmt 0, root
+workspace 204 exit 0 (tauri-free), release.yml js-yaml 0, host-install.ps1 parses 0 errors,
+check-mt5c.sh 33/33 both passes exit 0, mutate-mt5c.sh 6 red/6 green.
+Discharged this session: DEBT-046 (D-035/D-036 transcribed into DECISIONS.md; ids now 1..37) and
+DEBT-045 (the differ gained a --normalize mode and the suite's inline logged-out comparison
+delegates to it; first clean exit 0, and R-10's mutation re-run follows it).
+DUE NOW (owner, blocking phase-09-exit, filed as DEBT-047): on 103.93.92.204 run the manager
+installer, `cloudflared tunnel login` once, then Install; paste back `schtasks /query /tn VTVBridge /v`
+and the tunnel config path; then one reboot and the four checkpoint observations.
+Owner verified the built panel live (2026-11-27): the preview exe launched, the MCP auto-check dots
+work against the local MT5 (Vantage terminal, MCP on 127.0.0.1:22346), and the ACL fix landed — the
+first capability tomls named the commands with hyphens while the runtime names are the Rust fn names
+(underscores); both permission files now grant `check_mcp` and `install_progress`. The clean-rebuild
+trap is recorded in the SUMMARY: tauri-build validates permissions/autogenerated/ BEFORE
+generate_handler compiles, so a fresh clone needs those tomls committed.
+
+Next action: the owner's host run (DEBT-047), then Task 2/3 close.
+Resume file: .paul/HANDOFF-2026-11-27-phase09-03.md  (open half is the checkpoint section of
+09-03-SUMMARY.md)
+Resume context:
+- The manager crate gates tauri/tauri-build behind a NON-DEFAULT `gui` feature: cargo test compiles
+  zero tauri (AC-1's webkit-free claim); cargo check --features gui is the compile proof (213 crates).
+- Commands are async + spawn_blocking: Tauri runs SYNC commands on the main thread, so a 30 s pair
+  would have frozen the window.
+- schtasks /Create /F replaces PowerShell Set-ScheduledTask (argv-only rule); outcome names
+  Installed vs Updated from the prior query.
+- Two design deviations documented in ui/index.html + polish-log: light-theme primary ink uses
+  --text (hub's accentInk/accent pair measures 3.72:1 < AA); danger buttons carry red as a 2px
+  BORDER, not text.
+- D-037 pins the Origin exemption to exactly two paths; the manager sends no cookie and no Origin
+  by construction (pair.rs test asserts zero get-calls and a 4-key body).
+- Owner decision stands: do NOT deploy; the live site stays v0.1.1.
 
 Last session: 2026-11-26T23:05+07:00 (/paul:pause, owner-requested)
 Stopped at: 09-01 UNIFIED (apply + unify + /security-review in one session). All gates green:

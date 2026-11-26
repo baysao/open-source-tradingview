@@ -1,0 +1,11 @@
+{
+ "gate": "axe_audit",
+ "page": "ui/index.html[light]",
+ "base": "http://127.0.0.1:8798",
+ "result": "pass",
+ "ts": 1795717818.2188337,
+ "counts": {
+  "pass": true,
+  "violations": []
+ }
+}

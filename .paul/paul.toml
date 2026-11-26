@@ -18,15 +18,19 @@ phases = 2
 number = 9
 name = "Bridge manager app"
 status = "in_progress"
-plans_completed = 1
+plans_completed = 2
 
 [loop]
-position = "IDLE"
+position = "APPLY"
+# Not a calendar wait: the hold is the owner's host session (DEBT-047, blocking phase-09-exit).
+# Clear this pair when Task 2's observation records land in 09-03-SUMMARY.md.
+hold_until = "2026-12-04T00:00:00+07:00"
+hold_reason = "Owner runs the manager install on 103.93.92.204, one `cloudflared tunnel login`, then the four phase-08 checkpoint observations (DEBT-047); the agent cannot reach that host."
 
 [satellite]
 groom = true
 
 [stats]
-total_plans = 23
+total_plans = 24
 total_phases = 9
-last_activity = "2026-11-26T22:45:00+07:00"
+last_activity = "2026-11-27T22:50:00+07:00"

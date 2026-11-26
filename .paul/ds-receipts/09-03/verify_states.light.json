@@ -1,0 +1,14 @@
+{
+ "gate": "verify_states",
+ "page": "ui/index.html[light]",
+ "base": "http://127.0.0.1:8798",
+ "result": "pass",
+ "ts": 1795717816.0009155,
+ "counts": {
+  "pass": true,
+  "checked": 21,
+  "unnamed": 0,
+  "hidden": 9,
+  "covered": 0
+ }
+}

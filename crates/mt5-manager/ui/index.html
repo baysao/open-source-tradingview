@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BridgeManager</title>
+<!-- A data-URI icon: without it every load logs one favicon 404, and a panel whose first
+     act is a console error reads as broken. -->
+<link rel="icon" href="data:,">
+<style>
+/* Hub theme values, copied by value from hub/theme.js (HubPresets.graphite / .light): this app never
+   loads the hub page, so it cannot share the file at runtime. Keys kept identical so a reader can
+   diff them against the source. */
+:root {
+  --bg: #151412; --panel: #1b1a17; --raised: #24221e; --line: #2f2c27; --grid: #1f1d1a;
+  --text: #e6dfd2; --dim: #958c7e; --faint: #5e584f;
+  --accent: #e3a33a; --accent-ink: #1a1407;
+  --up: #e3a33a; --down: #b4472f; --ok: #8fb36a; --bad: #c9553c;
+  --radius: 8px; --gap: 14px;
+  color-scheme: dark;
+}
+:root[data-theme="light"] {
+  --bg: #ffffff; --panel: #f6f4f0; --raised: #ebe7e0; --line: #dcd6cc; --grid: #f0ede8;
+  --text: #1d1b18; --dim: #6f685e; --faint: #b3ab9f;
+  --accent: #b8761a; --accent-ink: #ffffff;
+  --up: #1d1b18; --down: #c0442b; --ok: #4e7d2c; --bad: #c0442b;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; padding: 20px; background: var(--bg); color: var(--text);
+  font: 400 14px/1.5 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+}
+h1 { font-size: 22px; line-height: 1.25; margin: 0 0 4px; font-weight: 600; }
+h2 { font-size: 15px; line-height: 1.3; margin: 0 0 10px; font-weight: 600; }
+p { margin: 0 0 10px; }
+.lede { color: var(--dim); margin-bottom: 18px; }
+main { display: grid; gap: var(--gap); max-width: 720px; }
+/* The panel is a walk-through, so it is a real ordered list: the numbers are content (which step
+   comes before which), not decoration. `list-style: none` removes the browser's own markers because
+   each step draws its own number inside the card, where it lines up with the heading. */
+.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--gap); }
+.steps > li { position: relative; }
+section {
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 16px;
+}
+.step-head { display: flex; align-items: center; gap: 9px; margin-bottom: 10px; }
+.step-head h2 { margin: 0; }
+.step-no {
+  display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--accent); color: var(--accent-ink);
+  font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums;
+  vertical-align: 1px;
+}
+/* The last step is destructive and terminal: a heavier border says "leaving" without colour alone
+   (the danger button already carries red as a border, per the 09-02 deviation). */
+section.last { border-color: var(--line); border-style: dashed; }
+.row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--grid); }
+.row:last-of-type { border-bottom: 0; }
+.row .q { color: var(--dim); }
+.row .v { text-align: right; font-variant-numeric: tabular-nums; }
+.ok { color: var(--ok); }
+.bad { color: var(--bad); }
+.unknown { color: var(--accent); }
+button {
+  font: inherit; color: var(--text); background: var(--raised);
+  border: 1px solid var(--line); border-radius: 6px; padding: 7px 12px; cursor: pointer;
+}
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+/* Deviation from hub/theme.js's light preset, measured: its accentInk (#ffffff) on its accent
+   (#b8761a) is 3.72:1 at 14px — below AA 4.5:1. The graphite preset already pairs dark ink with the
+   same amber (accentInk #1a1407), so using --text as the ink here is the hub's own pattern; this
+   pair measures 4.62:1. The token pair, not the token value, was the defect. */
+:root[data-theme="light"] button.primary { color: var(--text); }
+/* Same defect, same fix, for the step numbers: --accent-ink (#ffffff) on the light accent
+   (#b8761a) measures 3.72:1, below AA. --text there measures 4.62:1. */
+:root[data-theme="light"] .step-no { color: var(--text); }
+button.danger { border-color: var(--bad); border-width: 2px; }
+button:disabled { opacity: .55; cursor: progress; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+label { display: block; margin: 10px 0 4px; font-weight: 600; }
+.hint { color: var(--dim); font-weight: 400; display: block; font-size: 14px; }
+input {
+  width: 100%; font: inherit; color: var(--text); background: var(--raised);
+  border: 1px solid var(--line); border-radius: 6px; padding: 7px 9px;
+}
+input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+code, .mono { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; }
+.secret {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  background: var(--raised); border: 1px solid var(--accent); border-radius: 6px;
+  padding: 10px; margin-top: 12px;
+}
+.secret code { font-size: 14px; word-break: break-all; }
+.note { color: var(--dim); font-size: 14px; margin-top: 8px; }
+.result { margin-top: 10px; min-height: 20px; }
+.result .next { color: var(--dim); font-size: 14px; display: block; margin-top: 3px; }
+/* Install progress: a determinate bar, because the step count is known (8). Indeterminate would
+   say "I have no idea how long", which is false here. */
+.progress { margin-top: 12px; }
+.progress[hidden] { display: none; }
+.bar {
+  height: 6px; border-radius: 3px; background: var(--grid);
+  border: 1px solid var(--line); overflow: hidden;
+}
+.bar span {
+  display: block; height: 100%; width: 0; background: var(--accent);
+  transition: width .18s ease-out;
+}
+@media (prefers-reduced-motion: reduce) { .bar span { transition: none; } }
+.prog-line { margin: 6px 0 0; font-size: 14px; font-variant-numeric: tabular-nums; }
+/* The MCP check dots: neutral until probed, then ok/bad. Colour never carries the meaning alone —
+   the label's aria-label and the result line both name the state in words. */
+.probe {
+  display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+  background: var(--faint); border: 1px solid var(--line);
+  margin-right: 2px; vertical-align: 1px;
+}
+.probe.ok { background: var(--ok); border-color: var(--ok); }
+.probe.bad { background: var(--bad); border-color: var(--bad); }
+.prog-line .hint { display: inline; font-size: 14px; }
+footer { color: var(--dim); font-size: 14px; margin-top: 22px; max-width: 720px; }
+dialog {
+  color: var(--text); background: var(--panel); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 18px; max-width: 520px; width: calc(100% - 40px);
+}
+dialog::backdrop { background: rgba(0, 0, 0, .55); }
+dialog h2 { margin-bottom: 2px; }
+@media (max-width: 560px) {
+  body { padding: 14px; }
+  .row { display: block; }
+  .row .v { text-align: left; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .result { transition: color .12s ease-out; }
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>Bridge manager</h1>
+  <p class="lede">Set up this host in five steps, top to bottom. Steps 1 and 2 are one-time; 3 and 4
+  are what you come back to. Secrets stay in memory for this session only.</p>
+</header>
+
+<main>
+  <ol class="steps">
+    <li>
+      <section aria-labelledby="install-h">
+        <div class="step-head"><span class="step-no" aria-hidden="true">1</span>
+        <h2 id="install-h">Install or repair</h2></div>
+        <p class="note">Installs the bridge and cloudflared through mise, writes bridge.env once (an
+        existing BRIDGE_TOKEN is kept), registers both scheduled tasks, then checks the bridge and
+        the terminal. Safe to run again: that is how a half-broken host is repaired.</p>
+        <label for="mcp-token"><span class="probe" id="probe-token" role="img"
+              aria-label="token not checked yet" title="token not checked yet"></span>
+        MT5 MCP token <span class="hint">Only needed on a first install. MT5:
+        Tools &rsaquo; Options &rsaquo; MCP.</span></label>
+        <input id="mcp-token" type="password" autocomplete="off" spellcheck="false" aria-label="MT5 MCP token">
+        <label for="mcp-url"><span class="probe" id="probe-url" role="img"
+              aria-label="address not checked yet" title="address not checked yet"></span>
+        MT5 MCP address <span class="hint">The terminal's own endpoint. Change
+        the port only if Tools &rsaquo; Options &rsaquo; MCP shows a different one.</span></label>
+        <input id="mcp-url" name="mcp-url" type="url" inputmode="url" spellcheck="false"
+               value="http://127.0.0.1:22346/mcp" aria-label="MT5 MCP address">
+        <div class="actions">
+          <button class="primary" id="install-run" type="button">Install or repair</button>
+        </div>
+        <!-- The two dots on the labels are this line's short form; the text is what a screen reader
+             gets, and it names both verdicts. -->
+        <div class="result" id="mcp-result" role="status" aria-live="polite"></div>
+        <!-- aria-live on the text line, not the bar: a screen reader should hear "step 3 of 8,
+             bridge.env" once, not a percentage ticking. -->
+        <div class="progress" id="install-progress" hidden>
+          <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="8"
+               aria-valuenow="0" aria-labelledby="prog-label"><span id="prog-fill"></span></div>
+          <p class="prog-line"><span id="prog-label">starting</span>
+            <span class="hint" id="prog-detail"></span></p>
+        </div>
+        <div class="result" id="install-result" role="status" aria-live="polite"></div>
+      </section>
+    </li>
+
+    <li>
+      <section aria-labelledby="pair-h">
+        <div class="step-head"><span class="step-no" aria-hidden="true">2</span>
+        <h2 id="pair-h">Pair with your account</h2></div>
+        <div class="row">
+          <span class="q">Paired bridge</span>
+          <span class="v" id="pair-state">not paired</span>
+        </div>
+        <div class="actions">
+          <button class="primary" id="pair-open" type="button">Pair with a code…</button>
+        </div>
+        <div class="result" id="pair-result" role="status" aria-live="polite"></div>
+      </section>
+    </li>
+
+    <li>
+      <section aria-labelledby="status-h">
+        <div class="step-head"><span class="step-no" aria-hidden="true">3</span>
+        <h2 id="status-h">Check it is running</h2></div>
+        <div class="row">
+          <span class="q">Bridge /health (this host, 127.0.0.1)</span>
+          <span class="v" id="st-local">not checked yet</span>
+        </div>
+        <div class="row">
+          <span class="q">Scheduled task VTVBridge</span>
+          <span class="v" id="st-bridge-task">not checked yet</span>
+        </div>
+        <div class="row">
+          <span class="q">Scheduled task VTVTunnel</span>
+          <span class="v" id="st-tunnel-task">not checked yet</span>
+        </div>
+        <div class="row">
+          <span class="q">Public edge /health (what the hub sees)</span>
+          <span class="v" id="st-edge">not checked yet</span>
+        </div>
+        <div class="actions">
+          <button id="status-refresh" type="button">Check now</button>
+          <span class="hint" id="status-when">never — the panel checks at most every 15 s</span>
+        </div>
+        <div class="result" id="status-result" role="status" aria-live="polite"></div>
+      </section>
+    </li>
+
+    <li>
+      <section aria-labelledby="control-h">
+        <div class="step-head"><span class="step-no" aria-hidden="true">4</span>
+        <h2 id="control-h">Start or stop the services</h2></div>
+        <div class="row">
+          <span class="q">Bridge service</span>
+          <span class="actions" style="margin:0">
+            <button type="button" data-svc="bridge" data-act="start">Start</button>
+            <button type="button" data-svc="bridge" data-act="stop">Stop</button>
+            <button type="button" data-svc="bridge" data-act="restart">Restart</button>
+          </span>
+        </div>
+        <div class="row">
+          <span class="q">Tunnel service</span>
+          <span class="actions" style="margin:0">
+            <button type="button" data-svc="tunnel" data-act="start">Start</button>
+            <button type="button" data-svc="tunnel" data-act="stop">Stop</button>
+            <button type="button" data-svc="tunnel" data-act="restart">Restart</button>
+          </span>
+        </div>
+        <div class="result" id="control-result" role="status" aria-live="polite"></div>
+      </section>
+    </li>
+
+    <li>
+      <section aria-labelledby="revoke-h" class="last">
+        <div class="step-head"><span class="step-no" aria-hidden="true">5</span>
+        <h2 id="revoke-h">Unregister</h2></div>
+        <p class="note">Deletes this bridge from your account using the revoke code shown when it was
+        paired. It cannot read or test any other bridge. This is the last step, not a way to
+        re-pair: to move the bridge to another host, unregister here and pair the new one.</p>
+        <div class="actions">
+          <button class="danger" id="revoke-run" type="button">Unregister this bridge…</button>
+        </div>
+        <div class="result" id="revoke-result" role="status" aria-live="polite"></div>
+      </section>
+    </li>
+  </ol>
+</main>
+
+<footer>
+  BridgeManager 0.3.0 &middot; revoke codes and tokens are never written to disk or to a log.
+</footer>
+
+<dialog id="pair-dialog" aria-labelledby="pair-dialog-h">
+  <h2 id="pair-dialog-h">Pair this bridge</h2>
+  <p class="note">Mint a code in the hub's Settings (it lives 10 minutes and is single-use). A
+  refused attempt still spends it: mint a fresh code after any error.</p>
+  <form id="pair-form" method="dialog">
+    <label for="f-hub">Hub URL</label>
+    <input id="f-hub" name="hub" type="url" inputmode="url" required aria-label="Hub URL"
+           placeholder="https://vtradingview.com" value="https://vtradingview.com">
+    <label for="f-label">Bridge label <span class="hint">How this host appears in Settings.</span></label>
+    <input id="f-label" name="label" type="text" required maxlength="64" value="mt5-host" aria-label="Bridge label">
+    <label for="f-bridge">Bridge URL <span class="hint">The public https URL of the tunnel.</span></label>
+    <input id="f-bridge" name="bridge" type="url" inputmode="url" required aria-label="Bridge URL"
+           placeholder="https://mt5.example.com">
+    <label for="f-token">Bridge token <span class="hint">BRIDGE_TOKEN from bridge.env.</span></label>
+    <input id="f-token" name="token" type="password" autocomplete="off" spellcheck="false" required aria-label="Bridge token">
+    <label for="f-code">Pairing code <span class="hint">Ten digits, spaces allowed.</span></label>
+    <input id="f-code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code"
+           required maxlength="12" placeholder="12345 67890" aria-label="Pairing code">
+    <div class="actions">
+      <button class="primary" type="submit" id="pair-submit">Pair</button>
+      <button type="button" id="pair-cancel">Cancel</button>
+    </div>
+    <div class="result" id="pair-dialog-result" role="status" aria-live="polite"></div>
+  </form>
+</dialog>
+
+<dialog id="revoke-dialog" aria-labelledby="revoke-dialog-h">
+  <h2 id="revoke-dialog-h">Unregister this bridge?</h2>
+  <p>The bridge is deleted from your account. This host keeps running; charts stop receiving its
+  candles. This cannot be undone from here.</p>
+  <div class="actions">
+    <button class="danger" type="button" id="revoke-confirm">Unregister</button>
+    <button type="button" id="revoke-cancel">Keep it</button>
+  </div>
+</dialog>
+
+<script src="manager.js"></script>
+</body>
+</html>

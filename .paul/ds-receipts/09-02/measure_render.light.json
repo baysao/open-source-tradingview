@@ -1,0 +1,19 @@
+{
+ "gate": "measure_render",
+ "page": "ui/index.html[light]",
+ "base": "http://127.0.0.1:8798",
+ "result": "pass",
+ "ts": 1795712007.2330089,
+ "counts": {
+  "pass": true,
+  "h1count": 1,
+  "h1box": {
+   "x": 20,
+   "y": 20,
+   "width": 1240,
+   "height": 27.5
+  },
+  "bodyHeight": 1417,
+  "shotBytes": 42986
+ }
+}

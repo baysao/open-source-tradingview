@@ -263,6 +263,50 @@ with a new entry that names the old id. -->
 - **Evidence:** 07-01..07-04 SUMMARY skill audits ("parallel_agents: true degraded to sequential"
   ×4); phase-07 reflect synthesizer, finding 4 (judgment + divergent converged).
 
+## D-035: `py_str(f64)` reproduces Python `str(float)`; every wire string goes through it
+- **Date:** 2026-11-26  **Plan:** 08-01 (APPLY deviation 1)  **Status:** decided
+- **Decision:** the bridge formats every float it puts on the wire with `py_str`, a Rust
+  reimplementation of Python's `str(float)`. Rust's own `{}`/`{:e}` disagree with Python
+  (`1829` vs `1829.0`, `1e15` vs `1000000000000000.0`), so the `/wait` long-poll's `key` field would
+  diff red byte-for-byte against the oracle and fail the parity contract on the first run.
+- **Why:** phase 08's accept is a 33/33 case diff against the running Python bridge, and the
+  contract requires identical bodies, not numerically equal ones — a float that prints differently
+  is a difference the differ sees. Measured against 18 real Python outputs before the choice was
+  made. Rejected: relying on `{}` (the plan's Task 3 note claimed equivalence; it does not hold).
+- **Evidence:** `crates/mt5-bridge/src/term.rs` `py_str` plus its 18-case test; 08-01-SUMMARY
+  deviation 1.
+
+## D-036: `term.rs` functions take `&M: Terminal`, so no socket enters a domain test
+- **Date:** 2026-11-26  **Plan:** 08-01  **Status:** decided
+- **Decision:** every function in `term.rs` is generic over `M: Terminal`, a trait `Mcp` implements.
+  Production passes the sealed `Mcp`; tests inject in-memory sources. The plan's
+  `Terminals{live,hist,misc}` shape is unchanged — only the bound generalizes.
+- **Why:** L-016 holds that a domain test opens no socket, and bar math, offsets and symbol mapping
+  are domain logic that would otherwise need a live terminal to exercise. A trait bound is the
+  smallest change that keeps the seam testable without weakening the production type.
+- **Evidence:** `crates/mt5-bridge/src/term.rs` (the trait and `impl Terminal for Mcp`) and the fake
+  source in its test module; 08-01-SUMMARY.
+
+## D-038: The host toolchain pin names the msvc triple explicitly; the dev box builds msvc
+- **Date:** 2026-11-27  **Plan:** 09-03  **Status:** decided (owner-directed)
+- **Decision:** `rust-toolchain.toml` pins `channel = "1.95.0-x86_64-pc-windows-msvc"` — the triple,
+  not just the version — and `rustup default` on the dev box is the matching msvc toolchain. Local
+  builds of every crate, including `crates/mt5-manager`, now produce msvc binaries.
+- **Why:** a channel-only pin resolves against rustup's `default_host_tuple`, which on this box was
+  `x86_64-pc-windows-gnu`; the gnu ABI is not merely cosmetic here. `webview2-com-sys-0.39.1/src/lib.rs:14-24`
+  links `WebView2LoaderStatic` only under `target_env = "msvc"` and `WebView2Loader.dll` on every
+  other target, so the gnu-built manager imported a DLL that a clean VPS does not have and refused to
+  start with `0xC0000135` (`STATUS_DLL_NOT_FOUND`). Pinning the triple makes a local build match CI
+  (every workflow leg passes an explicit `--target` msvc) and removes the whole class.
+- **Evidence:** measured 2026-11-27: gnu exe `objdump -p` listed `DLL Name: WebView2Loader.dll` and
+  exited `-1073741515` with the DLL off `PATH`; the msvc rebuild (12.7 MB vs 22.7 MB) lists no such
+  import and starts with a stripped `PATH` and no DLL beside it. Gates after the switch: root
+  `cargo test --workspace` 204 passed/1 ignored, manager 78 passed, both via justrust. Constraint
+  noted: D-030 says the root workspace and the "gnu host pin" stay untouched — that sentence meant
+  "do not make the root workspace depend on tauri", and this decision changes only the host triple,
+  which D-030 did not depend on. The five release legs still pass explicit `--target`s and are
+  unaffected.
+
 ## D-037: Two pairing paths authenticate by a body secret and are exempt from the gate's Origin rule
 - **Date:** 2026-11-26  **Plan:** 09-01  **Status:** decided (recorded at UNIFY; the plan's AC-3 and AC-5 contradicted each other and this is the resolution)
 - **Decision:** `POST /api/me/mt5/pair` and `POST /api/me/mt5/paired/{id}/revoke` sit inside `/api/me` (the L-022 gate area) but are exempt from D-010's `Origin == PUBLIC_ORIGIN` rule. `routes/gate.rs::is_secret_authenticated` is the only place that decides it, matched **structurally** (a slice pattern on the split path), never by prefix. The session-gated `POST /api/me/mt5/pairing-code` keeps the rule, as does every other `/api/me/*` path. Ten negative cases are unit-tested so the exemption cannot widen without a failing test.

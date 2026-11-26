@@ -1,0 +1,40 @@
+[package]
+name = "mt5-manager"
+version = "0.3.0"
+edition = "2021"
+description = "The MT5 bridge's operator console (Tauri 2): the window pairs the host's bridge to the owner's hub account, and Rust process owns every schtasks/mise/cloudflared call"
+license = "AGPL-3.0-only"
+publish = false
+
+# Its own workspace, deliberately not a member of the root one (D-030, the crates/desktop pattern).
+# A second workspace cannot path-depend on a crate using `edition.workspace = true`, and keeping
+# tauri out of the root workspace keeps `cargo test --workspace` and the gnu-pinned host toolchain
+# untouched. The cost is that this crate needs its own CI legs (desktop.yml).
+[workspace]
+
+[features]
+# `gui` is NOT default (AC-1): the domain tests are pure, so `cargo test` must pass on a machine
+# with no webkit/WebView2 system dependency. Only a `--features gui` build links tauri, and only
+# that build needs the bundle `windows.ui` serves.
+default = []
+gui = ["dep:tauri", "dep:tauri-build"]
+
+[build-dependencies]
+# Optional for the same reason: without `gui`, build.rs is a no-op and tauri-build never runs.
+tauri-build = { version = "2.7", optional = true , features = [] }
+
+[dependencies]
+tauri = { version = "2.12", optional = true , features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# No default TLS: the repo pins rustls everywhere (D-005's spirit; reqwest's default-tls would
+# pull OpenSSL onto the Windows host for no reason).
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+url = "2.5"
+getrandom = "0.2"
+base64 = "0.22"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
+
+[dev-dependencies]
+serde_json = "1"
