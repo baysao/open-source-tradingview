@@ -1,29 +1,43 @@
 # MT5 bridges: run your own broker feed
 
-An MT5 bridge is a small Python script (`bridge/mt5_bridge.py`) that you run on the machine
-where your MetaTrader 5 terminal lives. The hub calls it over HTTPS and your charts show your
-broker's candles. It is read-only: it can never place an order.
+An MT5 bridge is a single release binary (`mt5-bridge`, built from `crates/mt5-bridge`) that
+you run on the machine where your MetaTrader 5 terminal lives. The hub calls it over HTTPS and
+your charts show your broker's candles. It is read-only: it can never place an order.
 
 ## What you need
 
-- The machine with your MT5 terminal (your Windows box or a Linux server with MT5 under Wine).
-  The terminal must run its native MCP server (Tools > Options > MCP) and be logged in.
-- Python 3 on that machine (standard library only, no packages to install).
+- The machine with your MT5 terminal (your Windows box, or a Linux server with MT5 under Wine
+  for the best-effort linux builds). The terminal must run its native MCP server
+  (Tools > Options > MCP) and be logged in.
+- [mise](https://mise.jdx.dev) on that machine (the one-command install).
 - A way to publish an HTTPS URL that reaches the bridge: your own Cloudflare Tunnel or Caddy.
 
 ## Run the bridge
 
-Set three environment variables and start it:
+Install the pinned release through mise (the windows-x64 asset is the supported leg; the linux
+x64/arm64 assets are best-effort and untested against a real terminal):
+
+```sh
+MISE_ENV=mt5 mise install mt5-bridge
+```
+
+Then set the environment and start it (a `bridge.env` file next to the exe works too; existing
+environment variables win):
 
 ```sh
 export BRIDGE_TOKEN="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
 export MT5_MCP_TOKEN="<the token from MT5: Tools > Options > MCP>"
-python3 bridge/mt5_bridge.py
+mt5-bridge
 ```
 
 The bridge refuses to start without `BRIDGE_TOKEN`. It binds `127.0.0.1:8797` by default
 (`BRIDGE_BIND` and `BRIDGE_PORT` override); the terminal is the only thing it talks to besides
-the hub.
+the hub. `BRIDGE_STATE_DIR` (default: the exe's directory) holds the small `.bridge_offset`
+server-time file.
+
+On the MT5 host, `bridge/host-install.ps1` does all of it: mise, the bridge binary from
+`mise.mt5.toml`, cloudflared, `bridge.env`, ONLOGON scheduled tasks, and the tunnel, then
+prints the URL and token to register.
 
 ## Publish it over HTTPS
 

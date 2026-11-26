@@ -1212,6 +1212,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "mt5-bridge"
+version = "0.3.0"
+dependencies = [
+ "axum",
+ "chrono",
+ "dotenvy",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "subtle",
+ "tokio",
+ "tower",
+]
+
+[[package]]
 name = "nu-ansi-term"
 version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"

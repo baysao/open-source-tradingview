@@ -437,7 +437,7 @@ title = "gate_all.py measures whatever answers on --base with no identity check:
 kind = "tech"
 origin = "phase 07 reflect (synthesizer backlog 2)"
 owner = "agent"
-trigger = "phase:08"
+trigger = "phase:10"
 status = "open"
 check = { type = "command", run = "grep -c 'identity' .paul/runs/gate_all.py", expect = "1" }
 note = "Gate run 1 of 07-04 pointed at a stray pre-existing dev hub on 8770 (gate_all's --base default) and was saved only by the settings.html timeout making the wrongness loud; a stale hub serving old pages could have produced a fully green 8/8 receipt set against the wrong build (L-029's cause family, subject axis). check-0704.mjs:46-52 already shows the probe-and-refuse pattern. Discharge = the identity probe in gate_all + the stamp in the receipt schema; the check greps for the probe's presence (0 today = the negative control)."
@@ -459,7 +459,7 @@ title = "Phase-07 security-review dispositions (no Critical/High, 2 Medium 1 Low
 kind = "tech"
 origin = "07-04 transition security review (/security-review --full)"
 owner = "agent"
-trigger = "phase:08"
+trigger = "phase:10"
 status = "open"
 check = { type = "command", run = "grep -c 'VTV-BRIDGE-REARM' crates/hub-core/src/lib.rs", expect = "1" }
 note = "1. MEDIUM redaction re-arm: add_secret runs only at registration (routes/mt5.rs:129) and successful test (mt5.rs:250); boot re-arms only the local bridge (lib.rs:411-419) — after a restart a hostile bridge echoing the Authorization value lands it verbatim in the ring (client.rs:300-308 -> feeds/bridge.rs:183; 07-01 tracked this note). Fix: hosted AppState::start, after Db::open, add_secret every opened token + URL query; same for the test-failure branch. 2. MEDIUM resources: no per-user registration cap; BridgeClient.http never evicts (client.rs:89, :138) — cap bridges per user at insert, bound/evict the cache. 3. LOW guard classes: refused_v6 misses ::/96 IPv4-compatible (to_ipv4_mapped covers only ::ffff:x), refused_v4 misses 0.0.0.0/8 non-exact, 240.0.0.0/4, 198.18.0.0/15 (guard.rs:98-121). The check greps lib.rs for a second add_secret site (1 today = the negative control; 2 = boot re-arm landed). Full verified-good record in 07-04-SUMMARY.md's security section."
@@ -473,4 +473,4 @@ owner = "agent"
 trigger = "event:owner-wants-permanent-bridge"
 status = "waiting"
 check = { type = "text_present", path = ".paul/STATE.md", pattern = "DEBT-043 discharged: named tunnel live" }
-note = "2026-11-26 DEBT-039's proof ran on bridge host 103.93.92.204: schtasks VTV-Bridge (python via mise, env from .tok1/.tok2 files) + VTV-Tunnel (cloudflared via mise, quick tunnel), public URL https://harvard-concentration-celebrities-east.trycloudflare.com verified 200 from the dev box for /health, /bars?symbol=XAUUSDm&tf=M1 (live candles), /wait, /symbols (358). Both tasks are SC ONCE + manual /Run: a reboot leaves nothing running and the quick-tunnel name is not stable. Discharge = cloudflared tunnel login + create + route dns on the host, the tasks switched to ONSTART with restart-on-failure, and bridge\\bridge-registration.txt rewritten with the permanent URL. The check anchors on the discharge-record line in STATE.md (L-024: this note deliberately does not carry the pattern, and the DUE NOW text must never quote it)."
+note = "2026-11-26 DEBT-039's proof ran on bridge host 103.93.92.204: schtasks VTV-Bridge (python via mise, env from .tok1/.tok2 files) + VTV-Tunnel (cloudflared via mise, quick tunnel), public URL https://harvard-concentration-celebrities-east.trycloudflare.com verified 200 from the dev box for /health, /bars?symbol=XAUUSDm&tf=M1 (live candles), /wait, /symbols (358). Both tasks are SC ONCE + manual /Run: a reboot leaves nothing running and the quick-tunnel name is not stable. Discharge = cloudflared tunnel login + create + route dns on the host, the tasks switched to ONSTART with restart-on-failure, and bridge\\bridge-registration.txt rewritten with the permanent URL. The check anchors on the discharge-record line in STATE.md (L-024: this note deliberately does not carry the pattern, and the DUE NOW text must never quote it). 2026-11-26 the event FIRED at milestone v0.3 creation: the owner chose the Tauri manager app (phase 09) whose install function IS the permanent bridge — named tunnel, AT-STARTUP tasks, no registration file. Discharge moves into v0.3 phase 09; the waiting trigger stays until the app ships it."

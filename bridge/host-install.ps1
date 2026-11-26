@@ -1,23 +1,28 @@
-﻿﻿# bridge/host-install.ps1: one-shot host setup for the MT5 bridge machine (DEBT-039's host).
+﻿# bridge/host-install.ps1: one-shot host setup for the MT5 bridge machine.
 #
 # Run on the Windows box that runs MetaTrader 5 (the Exness terminal). Idempotent: re-running
 # skips what is already installed. Every CLI dependency comes from the mise registry
-# (python, cloudflared); nothing is installed from vendor installers.
+# (mt5-bridge, cloudflared); nothing is installed from vendor installers. The bridge itself is
+# the Rust release binary (crates/mt5-bridge), fetched as a prebuilt asset — no Python, no
+# build step.
 #
 #   powershell -ExecutionPolicy Bypass -File bridge\host-install.ps1
 #   # or from CMD:  bridge\install.cmd
 #
 # What it does:
 #   1. installs mise (irm https://mise.run/powershell | iex)
-#   2. mise install python  (bridge/mt5_bridge.py is stdlib-only: no pip packages)
+#   2. MISE_ENV=mt5 mise install mt5-bridge  (the release binary from mise.mt5.toml)
 #   3. mise install cloudflared (the HTTPS front; a quick tunnel prints the public URL)
-#   4. deploys this repo's bridge/ + docs/ into C:\Users\Administrator\project\vtradingview
-#      (copy when run locally; git clone when the repo is public)
-#   5. writes bridge\bridge.env (BRIDGE_TOKEN generated once, MT5_MCP_TOKEN asked once)
-#   6. starts the bridge on 127.0.0.1:8797 and a cloudflared quick tunnel, saves the URLs
+#   4. writes bridge\bridge.env (BRIDGE_TOKEN generated once, MT5_MCP_TOKEN asked once)
+#   5. registers ONLOGON scheduled tasks that start the bridge (bare exe path) and the tunnel;
+#      starts both now and saves the URLs
 #
 # The only value it cannot fetch: MT5's MCP token (Tools > Options > MCP on the terminal).
 # Re-running regenerates nothing: bridge.env is kept if present.
+#
+# ONLOGON is the initial choice; whether the tasks must survive without a logon session
+# (ONSTART + the System account's exe-relative bridge.env resolution) is phase 09's real-host
+# checkpoint.
 
 $ErrorActionPreference = "Stop"
 
@@ -27,6 +32,7 @@ $DeployRoot = "C:\Users\Administrator\project\vtradingview"
 if (-not $RepoRoot) { $RepoRoot = $DeployRoot }
 $BridgeDir = Join-Path $DeployRoot "bridge"
 $EnvFile = Join-Path $BridgeDir "bridge.env"
+$MiseConfig = Join-Path $BridgeDir "mise.mt5.toml"
 $LogDir = Join-Path $DeployRoot "logs"
 New-Item -ItemType Directory -Force -Path $BridgeDir, $LogDir | Out-Null
 
@@ -43,12 +49,15 @@ if (Test-Path $MiseShim) {
 }
 $Mise = $MiseShim
 
-# --- 2. python (the bridge is stdlib-only; mise registry: core:python)
-Say "mise install python"
-& $Mise install python 2>&1 | Select-Object -Last 2
-$PythonExe = (& $Mise which python 2>$null)
-if (-not $PythonExe) { throw "mise which python returned nothing" }
-Say "python: $PythonExe (& $PythonExe --version)"
+# --- 2. the bridge binary (mise.mt5.toml: the release asset, MISE_ENV=mt5)
+if (-not (Test-Path $MiseConfig)) { throw "mise.mt5.toml not found at $MiseConfig (deploy the repo's bridge\ directory first)" }
+Say "mise install mt5-bridge (MISE_ENV=mt5)"
+$env:MISE_ENV = "mt5"
+& $Mise install mt5-bridge 2>&1 | Select-Object -Last 2
+$BridgeExe = (& $Mise which mt5-bridge 2>$null)
+if (-not $BridgeExe) { throw "mise which mt5-bridge returned nothing" }
+Remove-Item Env:MISE_ENV
+Say "bridge binary: $BridgeExe"
 
 # --- 3. cloudflared (the HTTPS front; mise registry: aqua:cloudflare/cloudflared)
 Say "mise install cloudflared"
@@ -57,22 +66,7 @@ $TunnelExe = (& $Mise which cloudflared 2>$null)
 if (-not $TunnelExe) { throw "mise which cloudflared returned nothing" }
 Say "cloudflared: $TunnelExe"
 
-# --- 4. deploy the bridge sources
-$BridgeSrc = Join-Path $RepoRoot "bridge\mt5_bridge.py"
-if (-not (Test-Path $BridgeSrc)) { throw "bridge source not found: $BridgeSrc" }
-if ($RepoRoot -ne $DeployRoot) {
-    Say "deploying bridge sources to $DeployRoot"
-    Copy-Item $BridgeSrc (Join-Path $BridgeDir "mt5_bridge.py") -Force
-    $DocsSrc = Join-Path $RepoRoot "docs\mt5-bridges.md"
-    if (Test-Path $DocsSrc) {
-        New-Item -ItemType Directory -Force -Path (Join-Path $DeployRoot "docs") | Out-Null
-        Copy-Item $DocsSrc (Join-Path $DeployRoot "docs\mt5-bridges.md") -Force
-    }
-} else {
-    Say "sources already in place: $BridgeDir\mt5_bridge.py"
-}
-
-# --- 5. bridge.env: BRIDGE_TOKEN generated once; MT5_MCP_TOKEN asked once and stored
+# --- 4. bridge.env: BRIDGE_TOKEN generated once; MT5_MCP_TOKEN asked once and stored
 if (Test-Path $EnvFile) {
     Say "bridge.env already present, kept: $EnvFile"
 } else {
@@ -98,16 +92,34 @@ Get-Content $EnvFile | ForEach-Object {
 if (-not $BridgeEnv["BRIDGE_TOKEN"]) { throw "BRIDGE_TOKEN missing from $EnvFile" }
 if (-not $BridgeEnv["MT5_MCP_TOKEN"]) { throw "MT5_MCP_TOKEN missing from $EnvFile" }
 
-# --- 6. start the bridge + tunnel, verify /health, save the public URL
-function Stop-Old($name) {
-    Get-Process -Name $name -ErrorAction SilentlyContinue | Where-Object {
-        $_.Path -and ($_.CommandLine -match "vtradingview" -or $_.Name -eq "mt5_bridge")
-    } | Stop-Process -Force -ErrorAction SilentlyContinue
+# --- 5. scheduled tasks (ONLOGON): the bridge as a bare exe path, the tunnel beside it.
+# The binary reads bridge.env from its own directory (exe-relative), so no working directory
+# or shell wrapper is needed. Phase 09 verifies ONSTART + the System account on the real host.
+$BridgeTask = "VTVBridge"
+$TunnelTask = "VTVTunnel"
+$BridgeAct = New-ScheduledTaskAction -Execute $BridgeExe
+$TunnelAct = New-ScheduledTaskAction -Execute $TunnelExe `
+    -Argument "tunnel --url http://127.0.0.1:$($BridgeEnv['BRIDGE_PORT']) --no-autoupdate"
+$Trigger = New-ScheduledTaskTrigger -AtLogOn
+foreach ($t in @(@{ Name = $BridgeTask; Action = $BridgeAct }, @{ Name = $TunnelTask; Action = $TunnelAct })) {
+    if (Get-ScheduledTask -TaskName $t.Name -ErrorAction SilentlyContinue) {
+        Say "scheduled task $($t.Name) already registered, updated"
+        Set-ScheduledTask -TaskName $t.Name -Trigger $Trigger -Action $t.Action | Out-Null
+    } else {
+        Say "registering scheduled task $($t.Name) (ONLOGON)"
+        Register-ScheduledTask -TaskName $t.Name -Trigger $Trigger -Action $t.Action | Out-Null
+    }
 }
 
+# --- 6. start both now, verify /health, save the public URL
+function Stop-Old($name) {
+    Get-Process -Name $name -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+}
+Stop-Old "mt5-bridge"
+Stop-Old "cloudflared"
+
 Say "starting the bridge on 127.0.0.1:$($BridgeEnv['BRIDGE_PORT'])"
-$BridgeProc = Start-Process -FilePath $PythonExe -ArgumentList "`"$BridgeDir\mt5_bridge.py`"" `
-    -WorkingDirectory $BridgeDir -WindowStyle Hidden -PassThru `
+$BridgeProc = Start-Process -FilePath $BridgeExe -WorkingDirectory $BridgeDir -WindowStyle Hidden -PassThru `
     -RedirectStandardOutput (Join-Path $LogDir "bridge.log") `
     -RedirectStandardError (Join-Path $LogDir "bridge.err")
 $BridgeProc.Id | Set-Content (Join-Path $LogDir "bridge.pid")

@@ -1,5 +1,5 @@
 name = "vtradingview"
-version = "0.0.0"
+version = "0.3.0"
 status = "active"
 path = "."
 tags = ["rust", "axum", "tauri", "charting"]
@@ -9,16 +9,16 @@ version = "1.4"
 source = "https://chrisai.cv/skool"
 
 [milestone]
-name = "v0.2 Accounts everywhere"
-version = "0.2.0"
-status = "complete"
-phases = 7
+name = "v0.3 Bridge platform"
+version = "0.3.0"
+status = "in_progress"
+phases = 2
 
 [phase]
-number = 7
-name = "Per-user MT5 bridges"
-status = "complete"
-plans_completed = 4
+number = 8
+name = "Rust bridge and mise distribution"
+status = "in_progress"
+plans_completed = 3
 
 [loop]
 position = "IDLE"
@@ -27,6 +27,6 @@ position = "IDLE"
 groom = true
 
 [stats]
-total_plans = 19
+total_plans = 22
 total_phases = 9
-last_activity = "2026-11-26T13:40:00+07:00"
+last_activity = "2026-11-26T18:50:00+07:00"

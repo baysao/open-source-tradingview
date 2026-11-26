@@ -1,0 +1,22 @@
+# Host-only mise config for the MT5 bridge machine (loaded with MISE_ENV=mt5): installs the
+# bridge as a prebuilt release asset, so the host needs no rust toolchain and no build time.
+#
+#   MISE_ENV=mt5 mise install mt5-bridge   # fetch the pinned version
+#   MISE_ENV=mt5 mise which mt5-bridge     # the installed exe path (what schtasks runs)
+#
+# The release workflow (.github/workflows/release.yml), triggered by a vX.Y.Z tag, publishes:
+#   mt5-bridge-vX.Y.Z-windows-x64.zip  (x86_64-pc-windows-msvc; the required leg, the MT5 host
+#   runs Windows). The exe inside is already named mt5-bridge.exe, matching the tool key, so
+#   no rename_exe is needed.
+#
+# Why a separate file (the mise.host.toml reason): a dev box must not try to install a release
+# asset that only exists after a tag is published (mise installs every [tools] entry before a
+# task runs, so a 404 here would block `mise run dev`). Load this file only on the MT5 host,
+# with MISE_ENV=mt5.
+#
+# Docs: https://mise.jdx.dev/dev-tools/backends/http.html
+
+[tools."http:mt5-bridge"]
+version = "0.3.0"
+url = "https://github.com/baysao/open-source-tradingview/releases/download/v{{ version }}/mt5-bridge-v{{ version }}-windows-x64.zip"
+# The archive holds one file, `mt5-bridge.exe`, already named as the tool key expects.

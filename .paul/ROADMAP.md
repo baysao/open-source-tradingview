@@ -14,7 +14,15 @@ Rust (Axum) server, Google accounts that sync each user's work, and a Tauri 2 de
 
 ## Current Milestone
 
-Run /paul:discuss-milestone or /paul:milestone to define the next one.
+**v0.3 Bridge platform**
+Status: In progress
+Phases: 0 of 2 complete
+
+The bridge becomes a Rust binary distributed by mise, and a Tauri manager app on the MT5 VPS
+installs, pairs (OTP from Settings), controls and monitors it. Deployment stays terminal-local:
+the bridge keeps speaking MCP to the MT5 terminal's built-in MCP server; no third-party gateway
+(MetaRPC/RustMT5 was evaluated 2026-11-26 and rejected as cloud-mediated). Q2/Q3/Q9, the page
+texts and the v0.2 site promotion are explicitly deferred to the milestone after this one.
 
 ## Completed Milestones
 
@@ -49,6 +57,7 @@ Full details: `.paul/MILESTONES.md`, archives: `.paul/milestones/`.
 |-----------|--------|------|
 | v0.1 Hosted launch | 01 to 04 | the public site with live charts and Google sign-in |
 | v0.2 Accounts everywhere | 05 to 07 | synced state, desktop app, per-user MT5 |
+| v0.3 Bridge platform | 08 to 09 | Rust bridge via mise, Tauri manager app on the MT5 VPS |
 
 **Launch note:** the hosted site stays at v0.1.1; promoting it to the v0.2 build waits on the owner
 rows (data terms Q2, trademark Q3, privacy text Q9 — DEBT-020/026; DEBT-013 and DEBT-018 are
@@ -65,6 +74,8 @@ discharged).
 | 05 | Synced state | v0.2 | 4 (05-01..05-04) | Complete | 2026-11-25 |
 | 06 | Tauri desktop | v0.2 | 4 (06-01..06-04) | Complete | 2026-11-26 |
 | 07 | Per-user MT5 bridges | v0.2 | 4 (07-01..07-04) | Complete | 2026-11-26 |
+| 08 | Rust bridge and mise distribution | v0.3 | TBD | Not started | - |
+| 09 | Bridge manager app | v0.3 | TBD | Not started | - |
 
 ## Phase Details
 
@@ -232,10 +243,52 @@ logbus redaction proven by the ECHO fake. **The phase's accept is discharged: DE
 2026-11-26** — the owner ran the real bridge on the MT5 host (Exness-MT5Real28), registered it in
 Settings, and watched live XAUUSDm candles stream; the agent verified the public half through the
 tunnel (health/bars/wait/symbols all 200, 358 symbols). /security-review --full ran at the
-transition gate: no Critical/High, 2 Medium + 1 Low filed as DEBT-042. Also open after the phase:
-DEBT-038 (first-push CI proof, agent), DEBT-043 (permanent named tunnel + ONSTART tasks + the
-registration-file credential handoff), DEBT-040/041 (agent), and the launch-waiting owner rows.
+transition gate: no Critical/High, 2 Medium + 1 Low filed as DEBT-042. Also closed after the
+milestone: DEBT-038 done (first-push CI green, both workflows).
+
+### Phase 08: Rust bridge and mise distribution
+- **Status (2026-11-26):** all 3 plans unified — 08-01 (crate, 21 tests), 08-02 (served bridge,
+  40 tests), 08-03 (parity proven: 33/33 contract cases identical across plain + SSE passes,
+  six mutations red-then-green; distribution wired; the Python bridge retired). Phase commit and
+  phase reflect pending at the transition.
+- **Build:** the Rust rewrite of `bridge/mt5_bridge.py` — MCP client (initialize handshake,
+  session behind a lock, reopen-once on a dead session) to the MT5 terminal's built-in MCP
+  server, the four HTTPS routes with identical JSON shapes (`/health`, `/symbols`, `/bars`,
+  `/wait`), bearer-token auth with constant-time compare, one shared poller per symbol+tf,
+  20 s long-poll, server-time offset state file, UTC everywhere. Release binary distributed
+  through a mise registry entry (GitHub releases), so the VPS install is `mise install`.
+- **Accept:** a contract suite diffs the Rust bridge's four routes against the running Python
+  bridge (phase 01's pattern) and passes; the Python file retires after parity.
+- **Research: Likely** — the MCP client is a reimplementation of the five tools the Python
+  bridge calls (get_time_information, get_chart_history, get_chart_ticks_history,
+  get_marketwatch_symbols, get_trading_account_info); session/SSE handling details come from
+  `bridge/mt5_bridge.py`, the live oracle.
+- **Depends on:** Phase 07 (the bridge surface D-032 froze is the compatibility contract).
+
+### Phase 09: Bridge manager app
+- **Build:** a second Tauri app (the v0.2 desktop shell stays as is) running on the MT5 VPS as a
+  local control panel wrapping mise and the other CLIs (cloudflared, schtasks):
+  **Install** — set up or repair the stack on a fresh VPS: mise tools, bridge binary, cloudflared,
+  the two AT-STARTUP scheduled tasks, the named Cloudflare tunnel (absorbs DEBT-043).
+  **Register/unregister with OTP** — Settings mints a short-lived single-use session-scoped code;
+  the app submits it with the bridge URL and BRIDGE_TOKEN over HTTPS to a new pairing endpoint;
+  unregister works from either side; the `bridge-registration.txt` console handoff dies.
+  **Control** — start/stop/restart bridge and tunnel services. **Status** — tunnel state, bridge
+  /health, reachability as vtradingview.com sees it.
+- **Accept:** a fresh VPS reaches a registered, streaming bridge using only the app plus the
+  code shown in Settings; unregister from either side removes the bridge; status matches reality.
+- **Gate:** OTP pairing must not weaken D-032's auth (codes expiring, single-use, session-scoped;
+  URL + token over HTTPS only); the app's own capabilities stay as locked down as the v0.2 shell's.
+- **Depends on:** Phase 08 (the binary it installs and controls).
+
+### Standing note on inherited debt
+DEBT-040/041 were filed with `phase:08` anchors before this milestone existed; their anchors
+now collide with Phase 08 (Rust bridge) and must be re-pointed at milestone creation. They are
+NOT absorbed by v0.3. DEBT-043's `owner-wants-permanent-bridge` event fires with Phase 09 (the
+app's install function IS the permanent bridge), so its discharge moves into this milestone.
+Q2/Q3/Q9 and DEBT-020/026 (launch decisions), DEBT-014, DEBT-036, DEBT-006/008/010, DEBT-012
+stay outside v0.3.
 
 ---
 *Roadmap created: 2026-11-23*
-*Last updated: 2026-11-26 after milestone v0.2*
+*Last updated: 2026-11-26 milestone v0.3 created*

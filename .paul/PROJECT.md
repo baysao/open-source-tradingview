@@ -87,7 +87,8 @@ scripts kept in their Google account.
 - One router (`hub-core`) shared by every host; one port (8770) for HTTP and `/ws`
 - `hub-server` binds `127.0.0.1`; ingress only through the Cloudflare Tunnel
 - Migrations stay in the Postgres subset pgsqlite supports; CI runs pgsqlite and Postgres 17
-- `MetaTrader5` is Python-only: `bridge/mt5_bridge.py` stays Python
+- The bridge speaks MCP to the MT5 terminal's built-in MCP server (no MetaTrader SDK, no
+  third-party gateway); v0.3 rewrites it in Rust, keeping the route/JSON surface
 - Google forbids OAuth inside webviews: desktop sign-in goes through the system browser
 - New screens use only the hub theme variables from `hub/theme.js` (graphite, black, light presets)
 - Repo house rules: no emoji, no em or en dashes, no native `<select>`, no one-sided coloured borders

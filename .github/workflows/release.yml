@@ -1,10 +1,15 @@
-# Publish the production binary as a release asset, so a deploy installs a prebuilt artefact
-# instead of building on the VPS (mise.toml [tools."http:vtv"] fetches these URLs).
+# Publish the production binaries as release assets, so a deploy installs prebuilt artefacts
+# instead of building on the VPS (mise.toml [tools."http:vtv"] and mise.mt5.toml
+# [tools."http:mt5-bridge"] fetch these URLs).
 #
-# Trigger: a vX.Y.Z tag. Assets per tag, named exactly as mise.toml expects:
-#   vtv-vX.Y.Z-linux-x64.tar.gz    x86_64-unknown-linux-gnu
-#   vtv-vX.Y.Z-linux-arm64.tar.gz  aarch64-unknown-linux-gnu
-# Each tarball holds the `hub-server` binary at its root.
+# Trigger: a vX.Y.Z tag. Assets per tag, named exactly as the mise configs expect:
+#   vtv-vX.Y.Z-linux-x64.tar.gz          x86_64-unknown-linux-gnu  (hub-server)
+#   vtv-vX.Y.Z-linux-arm64.tar.gz        aarch64-unknown-linux-gnu  (hub-server)
+#   mt5-bridge-vX.Y.Z-windows-x64.zip    x86_64-pc-windows-msvc    (the required leg: the MT5
+#                                        host runs Windows; the exe sits at the archive root)
+#   mt5-bridge-vX.Y.Z-linux-x64.tar.gz   x86_64-unknown-linux-gnu  (Wine hosts, best-effort)
+#   mt5-bridge-vX.Y.Z-linux-arm64.tar.gz aarch64-unknown-linux-gnu (best-effort, untested
+#                                        against a real terminal)
 name: release
 
 on:
@@ -16,37 +21,70 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         include:
-          - target: x86_64-unknown-linux-gnu
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
             arch: x64
-          - target: aarch64-unknown-linux-gnu
+            bin: hub-server
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
             arch: arm64
+            bin: hub-server
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            arch: windows-x64
+            bin: mt5-bridge
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            arch: linux-x64
+            bin: mt5-bridge
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            arch: linux-arm64
+            bin: mt5-bridge
     steps:
       - uses: actions/checkout@v4
       - run: rustup show
       - run: rustup target add ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
         with:
-          key: ${{ matrix.target }}
+          key: ${{ matrix.target }}-${{ matrix.bin }}
       # ring (via rustls) runs a C build script, so the aarch64 target needs the cross linker
       # and gcc, not just the rust target.
       - name: Cross toolchain for arm64
-        if: matrix.arch == 'arm64'
+        if: matrix.os == 'ubuntu-latest' && matrix.arch == 'arm64'
         run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
       - name: Build the release binary
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
           CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
-        run: cargo build --release -p hub-server --target ${{ matrix.target }}
-      - name: Package
+        run: cargo build --release -p ${{ matrix.bin }} --target ${{ matrix.target }}
+      - name: "Package (windows: a zip, exe at the archive root)"
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $VERSION = "${env:GITHUB_REF_NAME}" -replace '^v',''
+          $NAME = "mt5-bridge-v${VERSION}-windows-x64"
+          New-Item -ItemType Directory -Force -Path "dist/$NAME" | Out-Null
+          Copy-Item "target/${{ matrix.target }}/release/mt5-bridge.exe" "dist/$NAME/"
+          Compress-Archive -Path "dist/$NAME" -DestinationPath "dist/$NAME.zip"
+          $Hash = (Get-FileHash "dist/$NAME.zip" -Algorithm SHA256).Hash.ToLower()
+          "$Hash  $NAME.zip" | Set-Content "dist/$NAME.zip.sha256"
+          Get-Content "dist/$NAME.zip.sha256"
+      - name: "Package (linux: tarballs, binary at the archive root)"
+        if: matrix.os == 'ubuntu-latest'
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          NAME="vtv-v${VERSION}-linux-${{ matrix.arch }}"
+          if [ "${{ matrix.bin }}" = "hub-server" ]; then
+            NAME="vtv-v${VERSION}-linux-${{ matrix.arch }}"
+          else
+            NAME="mt5-bridge-v${VERSION}-linux-${{ matrix.arch }}"
+          fi
           mkdir -p "dist/${NAME}"
-          cp "target/${{ matrix.target }}/release/hub-server" "dist/${NAME}/"
+          cp "target/${{ matrix.target }}/release/${{ matrix.bin }}" "dist/${NAME}/"
           tar -C dist -czf "dist/${NAME}.tar.gz" "${NAME}"
           sha256sum "dist/${NAME}.tar.gz" > "dist/${NAME}.tar.gz.sha256"
           cat "dist/${NAME}.tar.gz.sha256"
@@ -55,7 +93,16 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          NAME="vtv-v${VERSION}-linux-${{ matrix.arch }}"
-          # Create the release on the first matrix leg, attach on both.
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            NAME="mt5-bridge-v${VERSION}-windows-x64"
+            FILES="dist/${NAME}.zip dist/${NAME}.zip.sha256"
+          elif [ "${{ matrix.bin }}" = "hub-server" ]; then
+            NAME="vtv-v${VERSION}-linux-${{ matrix.arch }}"
+            FILES="dist/${NAME}.tar.gz dist/${NAME}.tar.gz.sha256"
+          else
+            NAME="mt5-bridge-v${VERSION}-linux-${{ matrix.arch }}"
+            FILES="dist/${NAME}.tar.gz dist/${NAME}.tar.gz.sha256"
+          fi
+          # Create the release on the first matrix leg, attach on all.
           gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes "vtradingview $GITHUB_REF_NAME"
-          gh release upload "$GITHUB_REF_NAME" "dist/${NAME}.tar.gz" "dist/${NAME}.tar.gz.sha256" --clobber
+          gh release upload "$GITHUB_REF_NAME" $FILES --clobber

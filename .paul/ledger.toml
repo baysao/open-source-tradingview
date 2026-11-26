@@ -348,3 +348,75 @@ action = "milestone_complete"
 phase = 7
 at = "2026-11-26T13:40:00+07:00"
 result = "Milestone v0.2 Accounts everywhere complete (3 phases, 12 plans; 227 files across the three phase commits). Phase commits pushed: 63cd4e4 (07), 5d9c509 (06), d235b03 (05); CI + desktop.yml first runs green on the push (DEBT-038 done). MILESTONES.md entry written; ROADMAP archived to .paul/milestones/v0.2-ROADMAP.md and reorganized (completed milestones collapsed); PROJECT.md at 0.2.0; STATE cleared for the next milestone. Tag v0.2.0 created (not pushed). Next: /paul:discuss-milestone or /paul:milestone; launch rows Q2/Q3/Q9 + DEBT-020/026 stay with the owner."
+
+[[entry]]
+action = "session_reset"
+phase = 7
+at = "2026-11-26T14:10:00+07:00"
+result = "Milestone boundary pause (R-13 added). Framework gap found and fixed: complete-milestone.md never read preferences.session_reset, so v0.2 closed at 13:40 with no handoff and no fresh-session prompt while unify-phase.md and transition-phase.md both honored it. Fixed in ~/.agents/paul-framework/workflows/complete-milestone.md (offer_next reads the key first, prints the celebration without its choice lines, then runs pause-work.md session-reset mode) and ~/.agents/skills/paul-complete-milestone/SKILL.md (step 4.5 + criterion). Hook verified: ZCode ~/.zcode/cli/config.json SessionStart runs session_reset_hook.py; Claude Code ~/.claude/settings.json at startup|clear. Handoff .paul/HANDOFF-2026-11-26-milestone.md; marker .paul/session-reset.json (gitignored), next = present the milestone choice, the user's to make. Debt: 0 overdue, 16 waiting, 27 done."
+
+[[entry]]
+action = "milestone_create"
+phase = 8
+at = "2026-11-26T15:20:00+07:00"
+result = "Milestone v0.3 Bridge platform created from MILESTONE-CONTEXT.md (discuss-milestone run first). Phases: 08 Rust bridge + mise distribution, 09 Tauri manager app (install/OTP pairing/control/status) on the MT5 VPS. Deployment stays terminal-local MCP - MetaRPC/RustMT5 verified and rejected (cloud gateway mt5.mrpc.pro hosts the terminals; owner said keep current deployment). Verified in code: bridge/mt5_bridge.py is a pure MCP proxy, five tools/call names (get_time_information, get_chart_history, get_chart_ticks_history, get_marketwatch_symbols, get_trading_account_info), no MT5 SDK. PROJECT.md constraint amended (MetaTrader5 Python-only -> bridge speaks MCP; Rust rewrite in v0.3). DEBT-040/041/042 triggers re-pointed phase:08 -> phase:10 (collision with the new phase 08); DEBT-043 event owner-wants-permanent-bridge FIRED (the app's install function is the permanent bridge; discharge moves into phase 09). Q2/Q3/Q9 + DEBT-020/026 + v0.2 site promotion deferred to the milestone after v0.3 (owner chose app-only). Phase dirs 08-rust-bridge, 09-bridge-manager created; ROADMAP/STATE/paul.toml synced."
+
+[[entry]]
+action = "plan"
+phase = 8
+plan = "08-01"
+at = "2026-11-26T16:10:00+07:00"
+
+[[entry]]
+action = "plan"
+phase = 8
+plan = "08-02"
+at = "2026-11-26T16:10:00+07:00"
+
+[[entry]]
+action = "plan"
+phase = 8
+plan = "08-03"
+at = "2026-11-26T16:10:00+07:00"
+
+[[entry]]
+action = "apply"
+phase = 8
+plan = "08-01"
+at = "2026-11-26T17:05:00+07:00"
+result = "APPLIED: 3/3 tasks, AC-1..AC-5 pass. crates/mt5-bridge joins the root workspace (Cargo.toml member; deps all workspace-pinned, subtle+dotenvy deferred to 08-02 where they get a user). mcp.rs sealed leaf: initialize 2025-06-18/chart-bridge/1, Mcp-Session-Id capture+resend, last-data:-line scan, content text join, isError verbatim, reopen-once on transport/HTTP/parse (3 reopen tests assert initialize count 2). term.rs: Terminal trait seam (in-memory fakes, no sockets - L-016), Tf M1..D1 (unknown timeframe M2), Bar/bar_key, py_str, iso/parse_time, tick_ms (chars 20..23, Python clamp), bars resync loop with SyncPolicy + 5000 clamp, last_tick, symbols (heartbeat dropped, CATEGORY_PATH), account_health (balance-without-equity raises 'MT5 terminal is not logged in'), offset_measure (1800 s steps, |d-h| >= 90 refusal, half-to-even). Verified: cargo test -p mt5-bridge 21 passed; --list 21; cargo test --workspace 181 passed 1 ignored exit 0 with 0 tauri/webkit/wry lines; fmt exit 0; clippy -p and --workspace exit 0. Mutations m1 bar_key-volume-dropped, m2 offset-gate-1800, m3 clamp-4000, m4 session-id-not-captured: each grepped landed, each red, each grepped back to count 1 and green. Deviations: D-035 (py_str: Rust {} is NOT Python str(float); the plan's Task 3 note was wrong) and D-036 (Terminal trait), plus tick_ms clamp fix and subtle/dotenvy deferred. Debt: 0 overdue."
+
+[[entry]]
+action = "unify"
+phase = 8
+plan = "08-01"
+at = "2026-11-26T17:20:00+07:00"
+result = "UNIFIED: 3/3 tasks, AC-1..AC-5 pass (crate 21 tests; workspace 181 passed/1 ignored tauri-free; fmt+clippy clean; m1-m4 red-then-green). SUMMARY at .paul/phases/08-rust-bridge/08-01-SUMMARY.md; reflect+rsi deferred to phase close (reflect: pstack; 08-01 is not the last plan). Debt: 0 overdue, 15 waiting, 28 done. Next: APPLY 08-02."
+
+[[entry]]
+action = "apply"
+phase = 8
+plan = "08-02"
+at = "2026-11-26T18:05:00+07:00"
+result = "APPLIED: 2/2 tasks, AC-1..AC-4 pass. live.rs PollerSet (watch channels, get-or-spawn, idle reaper, LivePolicy shrinkable); http.rs the only axum module (bearer gate len+ct_eq, four routes, 404 behind the gate, percent-decode parse_qs parity, hand-built JSON in frozen key order for /health and /wait, Json(Vec<Bar>) bare array for /bars); main.rs shell (exe-dir bridge.env via dotenvy no-overwrite, oracle defaults and exact refusal line + exit 1, .bridge_offset load/rewrite, offset task 300s/15s, three Mcp sessions, startup line, axum::serve). Deps added with users: axum, tower, subtle, dotenvy (workspace-pinned; D-005); dev serde_json preserve_order. Python query-error parity: missing symbol -> {'error':'symbol'} (KeyError text), int() rejects '5.5'/'abc' with invalid-literal text; /wait route carries a 5 s headroom over the poller's 20 s. Verified: cargo test -p mt5-bridge 40 passed (10 consecutive runs after serializing env tests with a static mutex - parallel env reads raced 2 of 5 runs); --list 40; cargo test --workspace 200 passed 1 ignored exit 0, 0 tauri/webkit/wry lines; fmt exit 0; clippy -p and --workspace exit 0; serve smoke on the built binary confirmed every AC-2 shape by curl. Mutations m1-m6: bearer starts_with (restored after one missed restore was caught by grep - L-009 applied to restores), wait-returns-immediately (7 tests red), asked re-touch dropped, clamp 4000, double-spawn (initially unobserved - one_poller strengthened to park the second waiter and bound calls, then red), bearer length-check dropped. Debt: 0 overdue."
+
+[[entry]]
+action = "unify"
+phase = 8
+plan = "08-02"
+at = "2026-11-26T18:20:00+07:00"
+result = "UNIFIED: 2/2 tasks, AC-1..AC-4 pass (crate 40 tests x 10 runs; workspace 200 passed/1 ignored tauri-free; fmt+clippy clean; six mutations red-then-green after one guard strengthening; serve smoke byte-verified the contract shapes). SUMMARY at .paul/phases/08-rust-bridge/08-02-SUMMARY.md; reflect+rsi deferred to phase close (reflect: pstack; 08-03 is the last plan). Debt: 0 overdue, 15 waiting, 28 done. Next: APPLY 08-03."
+
+[[entry]]
+action = "apply"
+phase = 8
+plan = "08-03"
+at = "2026-11-26T18:50:00+07:00"
+result = "APPLIED: 4/4 tasks, AC-1..AC-5 pass. fake_mcp_terminal.py (5 tools, grid 6000 rows, ERRX isError, control file logged_in/sse/drop_session, self-terminating); diff_bridge_contract.py (33 cases, canonical JSON, pollers/measured_at normalized); check-mt5c.sh (3 passes: plain, SSE, logged-out; ephemeral ports; PID trap); mutate-mt5c.sh (6 mutations, L-026 pin 40, unique markers); release.yml 5-leg matrix (mt5-bridge windows-x64 zip+sha256 required, linux legs best-effort, js-yaml parses); mise.mt5.toml (http:mt5-bridge 0.3.0, no rename_exe); host-install.ps1 rewritten (MISE_ENV=mt5, ONLOGON bare-exe tasks); docs rewritten; bridge/mt5_bridge.py deleted (grep clean). Suite: 33/33 both passes, 0 differences, MT5C-OK exit 0; mutations 6 red/6 green; fmt+clippy+workspace (200 passed/tauri-free) exit 0; release binary refuses exit 1. Deviations: fake grid cap 6000 (the oracle's fromtimestamp OSError on pre-1970 windows at 99999-limit), /bars canonical not raw (python json.dumps spacing; D-032 consumer parses), oracle copy at .paul/runs/0803/ keeps the diff runnable post-retirement, MUT-WD unique marker. Debt: 0 overdue."
+
+[[entry]]
+action = "unify"
+phase = 8
+plan = "08-03"
+at = "2026-11-26T18:55:00+07:00"
+result = "UNIFIED: 4/4 tasks, AC-1..AC-5 pass. The phase accept is met: 33/33 contract cases identical (plain + SSE passes) vs the oracle copy, six mutations red-then-green with the L-026 pin, python bridge retired (grep clean), release.yml parses, mise.mt5.toml resolves the exact asset URL (404 pending the next tag), release binary refuses exit 1. reflect+rsi: pending at the phase close (pstack, session_reset plan). Phase 08's 3 plans all unified; transition next. Debt: 0 overdue, 15 waiting, 28 done."

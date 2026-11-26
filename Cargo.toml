@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/hub-types", "crates/hub-core", "crates/hub-server"]
+members = ["crates/hub-types", "crates/hub-core", "crates/hub-server", "crates/mt5-bridge"]
 # vendor/pgsqlite (the database, built separately) is its own workspace.
 exclude = ["vendor"]
 
