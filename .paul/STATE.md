@@ -213,9 +213,9 @@ phase:09). Pending owner yes: R-8 tighten + context-budget exemption line (see b
 Last session: 2026-11-26T23:05+07:00 (/paul:pause, owner-requested)
 Stopped at: 09-01 UNIFIED (apply + unify + /security-review in one session). All gates green:
 fmt 0, clippy plain 0, clippy test-idp 0, workspace 0 (tauri-free), hosted 0 (19 binaries),
-pairing_routes 10 passed, gates 8/8 x 5 pages, receipts 0, debt 0 overdue. ~80 files uncommitted
-(auto_commit off): UNIFIED != landed.
-Next action: offer the commit of the 09-01 surface, then /paul:apply
+pairing_routes 10 passed, gates 8/8 x 5 pages, receipts 0, debt 0 overdue. Committed as 97d57c3
+(83 files), so UNIFIED = landed.
+Next action: /paul:apply
 .paul/phases/09-bridge-manager/09-02-PLAN.md (the manager Tauri app; its blocker is the 09-01
 contract, now settled: pair takes {code, label, url, token} with no cookie and no Origin, 201
 carries revoke_code exactly once, and a refused attempt burns the code).
